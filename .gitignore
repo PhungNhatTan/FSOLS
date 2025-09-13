@@ -1,0 +1,69 @@
+# ------------------------------
+# Node.js
+# ------------------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build output
+dist/
+build/
+
+# Environment files
+.env
+.env.*       # For different environments like .env.development, .env.production
+!.env.example  # Keep example env file
+
+# Prisma
+server/src/generated/prisma/**
+!server/src/generated/prisma/schema.prisma
+!server/src/generated/prisma/migrations/
+!server/src/generated/prisma/migrations/**
+
+# Local database files
+*.db
+*.db-journal
+
+# Logs
+logs
+*.log
+*.log.*
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Editor settings
+.vscode/
+.idea/
+*.swp
+
+# Coverage and testing
+coverage/
+.nyc_output/
+jest-html-reporters-*
+
+# Cache
+.cache/
+tmp/
+temp/
+
+# ------------------------------
+# React specific
+# ------------------------------
+client/node_modules/
+client/.env
+client/.env.*    # Frontend environment files
+client/.cache/
+client/build/
+client/dist/
+
+
+# ------------------------------
+# Misc
+# ------------------------------
+*.local
+*.pid
+*.seed
