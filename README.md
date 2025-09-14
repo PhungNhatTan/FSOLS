@@ -63,14 +63,21 @@ cd FSOLS
 npm install
 ```
 
-### 4. Start development server
+### 4. (For developer) Generate environment file and environment variable:
+```
+echo "" > server/.env
+```
+Add variable `DATABASE_URL` to the generated `.env` file using following format
+```
+DATABASE_URL = "<database connection string>"
+```
+
+### 5. Start development server
 
 ```
 # Start the development server
 npm run dev
 ```
-
-The application will be available at:  http://localhost:5173/
 
 ---
 
