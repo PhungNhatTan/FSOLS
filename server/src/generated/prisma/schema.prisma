@@ -7,3 +7,106 @@ datasource db {
   provider = "mysql"
   url      = env("DATABASE_URL")
 }
+
+// #region Account and all the things that is wrong with it
+model Account {
+  Id Int @id @default(autoincrement())
+
+  UserCertificate UserCertificate[]
+  CourseEnroll    CourseEnroll[]
+  Post            Post[]
+
+  // Special place for role
+  AccountRole AccountRole[]
+  Mentor      Mentor?
+  Admin       Admin?
+}
+
+model AccountRole {
+  AccountId Int         @id
+  Account   Account     @relation(fields: [AccountId], references: [Id])
+  Role      SpecialRole
+}
+
+model Mentor {
+  AccountId Int     @id
+  Account   Account @relation(fields: [AccountId], references: [Id])
+  Active    Boolean
+}
+
+model Admin {
+  AccountId Int     @id
+  Account   Account @relation(fields: [AccountId], references: [Id])
+  Active    Boolean
+}
+
+// #endregion
+
+model Course {
+  Id Int @id @default(autoincrement())
+
+  Certificate  Certificate?
+  CourseEnroll CourseEnroll[]
+}
+
+model CourseEnroll {
+  Id Int @id @default(autoincrement())
+
+  AccountId Int
+  Account   Account @relation(fields: [AccountId], references: [Id])
+
+  CourseId Int
+  Course   Course @relation(fields: [CourseId], references: [Id])
+}
+
+model Certificate {
+  Id Int @id @default(autoincrement())
+
+  UserCertificate UserCertificate[]
+
+  CourseId Int    @unique
+  Course   Course @relation(fields: [CourseId], references: [Id])
+
+  // CreatorId Int 
+  // CreatedBy Mentor
+}
+
+model UserCertificate {
+  Id Int @id @default(autoincrement())
+
+  CertificateId Int
+  Certificate   Certificate @relation(fields: [CertificateId], references: [Id])
+
+  AccountId Int
+  Account   Account @relation(fields: [AccountId], references: [Id])
+}
+
+model Post {
+  Id Int @id @default(autoincrement())
+
+  AccountId Int
+  Account   Account @relation(fields: [AccountId], references: [Id])
+
+  // Self-reference section
+
+  // Random comment because why not
+
+  // Post in first topic post
+  ParentId Int
+  Parent   Post?  @relation("SubPost", fields: [ParentId], references: [Id])
+  SubPost  Post[] @relation("SubPost")
+
+  // Post that reply to other post
+  ReplyId Int
+  ReplyTo Post?  @relation("Reply", fields: [ReplyId], references: [Id])
+  Replied Post[] @relation("Reply")
+  // End of Self-reference section
+}
+
+// #region Special place for enums because I don't want them anywhere near the actual tables
+enum SpecialRole {
+  Mentor
+  Admin
+}
+
+// #endregion
