@@ -10,54 +10,257 @@ datasource db {
 
 // #region Account and all the things that is wrong with it
 model Account {
-  Id Int @id @default(autoincrement())
+  Id       String @id @default(cuid())
+  Username String @unique
+
+  // General info go here
+  DisplayName String
 
   UserCertificate UserCertificate[]
   CourseEnroll    CourseEnroll[]
+  ExamSubmission  ExamSubmission[]
   Post            Post[]
 
   // Special place for role
   AccountRole AccountRole[]
   Mentor      Mentor?
   Admin       Admin?
+
+  AccountIdentifier AccountIdentifier[]
+}
+
+model AccountIdentifier {
+  Id String @id @default(cuid())
+
+  Identifier String
+  Secret     String? // password hash
+  Verified   Boolean @default(false)
+
+  ProviderId Int?
+  Provider   Provider? @relation(fields: [ProviderId], references: [Id])
+
+  AccountId String
+  Account   Account @relation(fields: [AccountId], references: [Id])
+
+  @@unique([ProviderId, Identifier])
+}
+
+model Provider {
+  Id         Int                 @id @default(autoincrement())
+  Name       String              @unique // e.g. "username", "email", "google"
+  Enabled    Boolean             @default(true)
+  Config     Json? // optional: store API keys, settings
+  Identities AccountIdentifier[]
 }
 
 model AccountRole {
-  AccountId Int         @id
+  AccountId String      @id
   Account   Account     @relation(fields: [AccountId], references: [Id])
   Role      SpecialRole
 }
 
 model Mentor {
-  AccountId Int     @id
+  AccountId String  @id
   Account   Account @relation(fields: [AccountId], references: [Id])
   Active    Boolean
 }
 
 model Admin {
-  AccountId Int     @id
+  AccountId String  @id
   Account   Account @relation(fields: [AccountId], references: [Id])
   Active    Boolean
 }
 
 // #endregion
 
+// #region COURSE AND MORE COURSE WHY IS THIS SO COMPLEX
 model Course {
   Id Int @id @default(autoincrement())
 
+  Name        String
+  Description String
+
+  // Self-reference
+  PrerequisiteId Int?
+  Prerequisite   Course?  @relation("pre", fields: [PrerequisiteId], references: [Id])
+  NextCourse     Course[] @relation("pre")
+
   Certificate  Certificate?
   CourseEnroll CourseEnroll[]
+  Exam         Exam[]
+  QuestionBank QuestionBank[]
+}
+
+model CourseModule {
+  Id Int @id @default(autoincrement())
+
+  OrderNo Int // Initial adding in steps of 10 (10 20 30 40 50 ...ect) for easier insertion in middle
+
+  ModuleItems ModuleItem[]
+}
+
+model ModuleItem {
+  Id String @id @default(cuid())
+
+  OrderNo Int // Initial adding in steps of 10 (10 20 30 40 50 ...ect) for easier insertion in middle
+
+  CourseModuleId Int?
+  CourseModule   CourseModule? @relation(fields: [CourseModuleId], references: [Id])
+
+  ExamId Int?
+  Exam   Exam? @relation(fields: [ExamId], references: [Id])
+
+  CourseLesson CourseLesson[]
+}
+
+model CourseLesson {
+  Id String @id @default(cuid())
+
+  Title String
+
+  LessonType LessonType
+
+  VideoUrl String? // For video type lesson
+  DocUrl   String? // For doc type lesson
+
+  ModuleItemId String?
+  ModuleItem   ModuleItem? @relation(fields: [ModuleItemId], references: [Id])
+
+  QuestionBank QuestionBank[]
+
+  // Self reference
+  ParentId   String?
+  Parent     CourseLesson?  @relation("Supplementary", fields: [ParentId], references: [Id])
+  Supplement CourseLesson[] @relation("Supplementary")
 }
 
 model CourseEnroll {
   Id Int @id @default(autoincrement())
 
-  AccountId Int
+  AccountId String
   Account   Account @relation(fields: [AccountId], references: [Id])
 
   CourseId Int
   Course   Course @relation(fields: [CourseId], references: [Id])
 }
+// #endregion
+
+// #region The great exam insanity
+model Exam {
+  Id Int @id @default(autoincrement())
+
+  CourseId Int
+  Course   Course @relation(fields: [CourseId], references: [Id])
+
+  Title       String
+  Description String
+
+  // SlotId Int
+  // DurationPreset DurationPreset @relation("Slot", fields: [SlotId], references: [Id])
+
+  // Must use one of the two, should be application-level check since database-level check
+  // is not possible with Prisma
+  DurationPreset DurationPreset?
+  DurationCustom Int? // in minute // for custom duration
+
+  ExamQuestion   ExamQuestion[]
+  ExamSubmission ExamSubmission[]
+  ModuleItem     ModuleItem[]
+}
+
+// model DurationPreset {
+//   Id Int @id @default(autoincrement())
+
+//   Duration Int // in minute
+
+//   Exam Exam[] @relation("Slot")
+// }
+
+model QuestionBank {
+  Id String @id @default(cuid())
+
+  LessonId     String?
+  CourseLesson CourseLesson? @relation(fields: [LessonId], references: [Id])
+
+  QuestionText String
+  Type         QuestionType @default(MCQ)
+
+  // for Essay
+  Answer String?
+
+  // for MCQ Fill and TrueFalse
+  ExamAnswer   ExamAnswer[]
+  ExamQuestion ExamQuestion[]
+  Course       Course?        @relation(fields: [courseId], references: [Id])
+  courseId     Int?
+}
+
+model ExamQuestion {
+  Id String @id @default(cuid())
+
+  // reference to exam
+  ExamId Int
+  Exam   Exam @relation(fields: [ExamId], references: [Id])
+
+  // reference to question bank
+  QuestionId   String
+  QuestionBank QuestionBank @relation(fields: [QuestionId], references: [Id])
+
+  //
+  StudentAnswer StudentAnswer[]
+}
+
+model ExamAnswer {
+  Id String @id @default(cuid())
+
+  AnswerText String
+
+  IsCorrect Boolean @default(false)
+
+  QuestionId   String
+  QuestionBank QuestionBank @relation(fields: [QuestionId], references: [Id])
+
+  StudentAnswer StudentAnswer[]
+}
+
+model ExamSubmission {
+  Id String @id @default(cuid())
+
+  ExamId Int
+  Exam   Exam @relation(fields: [ExamId], references: [Id])
+
+  AccountId String
+  Account   Account @relation(fields: [AccountId], references: [Id])
+
+  SubmittedAt DateTime @default(now())
+  Score       Int?
+
+  StudentAnswer StudentAnswer[]
+}
+
+model StudentAnswer {
+  Id String @id @default(cuid())
+
+  SubmissionId   String
+  ExamSubmission ExamSubmission @relation(fields: [SubmissionId], references: [Id])
+
+  QuestionId String
+
+  // for MCQ/Fill/TF
+  AnswerId String?
+
+  // for essay
+  Answer String?
+
+  IsCorrect      Boolean? // snapshot at submission time
+  Score          Int? // snapshot at submission time
+  ExamQuestion   ExamQuestion? @relation(fields: [examQuestionId], references: [Id])
+  examQuestionId String?
+  ExamAnswer     ExamAnswer?   @relation(fields: [examAnswerId], references: [Id])
+  examAnswerId   String?
+}
+
+// #endregion
 
 model Certificate {
   Id Int @id @default(autoincrement())
@@ -77,36 +280,52 @@ model UserCertificate {
   CertificateId Int
   Certificate   Certificate @relation(fields: [CertificateId], references: [Id])
 
-  AccountId Int
+  AccountId String
   Account   Account @relation(fields: [AccountId], references: [Id])
 }
 
 model Post {
-  Id Int @id @default(autoincrement())
+  Id String @id @default(cuid())
 
-  AccountId Int
+  AccountId String
   Account   Account @relation(fields: [AccountId], references: [Id])
 
   // Self-reference section
-
-  // Random comment because why not
-
   // Post in first topic post
-  ParentId Int
+  ParentId String?
   Parent   Post?  @relation("SubPost", fields: [ParentId], references: [Id])
   SubPost  Post[] @relation("SubPost")
 
   // Post that reply to other post
-  ReplyId Int
+  ReplyId String?
   ReplyTo Post?  @relation("Reply", fields: [ReplyId], references: [Id])
   Replied Post[] @relation("Reply")
-  // End of Self-reference section
 }
 
 // #region Special place for enums because I don't want them anywhere near the actual tables
 enum SpecialRole {
   Mentor
   Admin
+}
+
+enum QuestionType {
+  MCQ
+  Fill
+  Essay
+  TF
+}
+
+enum DurationPreset {
+  P_15
+  P_30
+  P_60
+  P_90
+  P_120
+}
+
+enum LessonType {
+  Video
+  Document
 }
 
 // #endregion
