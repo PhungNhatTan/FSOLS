@@ -81,18 +81,46 @@ model Course {
   Description String
 
   // Self-reference
-  PrerequisiteId Int?
-  Prerequisite   Course?  @relation("pre", fields: [PrerequisiteId], references: [Id])
-  NextCourse     Course[] @relation("pre")
+  // PrerequisiteId Int?
+  // Prerequisite   Course?  @relation("pre", fields: [PrerequisiteId], references: [Id])
+  // NextCourse     Course[] @relation("pre")
 
-  Certificate  Certificate?
-  CourseEnroll CourseEnroll[]
-  Exam         Exam[]
-  QuestionBank QuestionBank[]
+  Certificate          Certificate?
+  CourseModule         CourseModule[]
+  CourseEnroll         CourseEnroll[]
+  Exam                 Exam[]
+  QuestionBank         QuestionBank[]
+  SpecializationCourse SpecializationCourse[]
+}
+
+model Specialization {
+  Id Int @id @default(autoincrement())
+
+  SpecializationCode String @unique
+  SpecializationName String
+
+  SpecializationCourse SpecializationCourse[]
+}
+
+model SpecializationCourse {
+  Id Int @id @default(autoincrement())
+
+  SpecId         Int
+  Specialization Specialization @relation(fields: [SpecId], references: [Id])
+
+  CourseId Int
+  Course   Course @relation(fields: [CourseId], references: [Id])
+
+  OrderNo Int
+
+  @@unique([SpecId, CourseId])
 }
 
 model CourseModule {
   Id Int @id @default(autoincrement())
+
+  CourseId Int
+  Course   Course @relation(fields: [CourseId], references: [Id])
 
   OrderNo Int // Initial adding in steps of 10 (10 20 30 40 50 ...ect) for easier insertion in middle
 
@@ -143,6 +171,7 @@ model CourseEnroll {
   CourseId Int
   Course   Course @relation(fields: [CourseId], references: [Id])
 }
+
 // #endregion
 
 // #region The great exam insanity
@@ -293,13 +322,13 @@ model Post {
   // Self-reference section
   // Post in first topic post
   ParentId String?
-  Parent   Post?  @relation("SubPost", fields: [ParentId], references: [Id])
-  SubPost  Post[] @relation("SubPost")
+  Parent   Post?   @relation("SubPost", fields: [ParentId], references: [Id])
+  SubPost  Post[]  @relation("SubPost")
 
   // Post that reply to other post
   ReplyId String?
-  ReplyTo Post?  @relation("Reply", fields: [ReplyId], references: [Id])
-  Replied Post[] @relation("Reply")
+  ReplyTo Post?   @relation("Reply", fields: [ReplyId], references: [Id])
+  Replied Post[]  @relation("Reply")
 }
 
 // #region Special place for enums because I don't want them anywhere near the actual tables

@@ -81,18 +81,46 @@ model Course {
   Description String
 
   // Self-reference
-  PrerequisiteId Int?
-  Prerequisite   Course?  @relation("pre", fields: [PrerequisiteId], references: [Id])
-  NextCourse     Course[] @relation("pre")
+  // PrerequisiteId Int?
+  // Prerequisite   Course?  @relation("pre", fields: [PrerequisiteId], references: [Id])
+  // NextCourse     Course[] @relation("pre")
 
-  Certificate  Certificate?
-  CourseEnroll CourseEnroll[]
-  Exam         Exam[]
-  QuestionBank QuestionBank[]
+  Certificate          Certificate?
+  CourseModule         CourseModule[]
+  CourseEnroll         CourseEnroll[]
+  Exam                 Exam[]
+  QuestionBank         QuestionBank[]
+  SpecializationCourse SpecializationCourse[]
+}
+
+model Specialization {
+  Id Int @id @default(autoincrement())
+
+  SpecializationCode String @unique
+  SpecializationName String
+
+  SpecializationCourse SpecializationCourse[]
+}
+
+model SpecializationCourse {
+  Id Int @id @default(autoincrement())
+
+  SpecId         Int
+  Specialization Specialization @relation(fields: [SpecId], references: [Id])
+
+  CourseId Int
+  Course   Course @relation(fields: [CourseId], references: [Id])
+
+  OrderNo Int
+
+  @@unique([SpecId, CourseId])
 }
 
 model CourseModule {
   Id Int @id @default(autoincrement())
+
+  CourseId Int
+  Course   Course @relation(fields: [CourseId], references: [Id])
 
   OrderNo Int // Initial adding in steps of 10 (10 20 30 40 50 ...ect) for easier insertion in middle
 
