@@ -100,6 +100,7 @@ model Specialization {
   SpecializationName String
 
   SpecializationCourse SpecializationCourse[]
+  Certificate          Certificate?
 }
 
 model SpecializationCourse {
@@ -296,8 +297,13 @@ model Certificate {
 
   UserCertificate UserCertificate[]
 
-  CourseId Int    @unique
-  Course   Course @relation(fields: [CourseId], references: [Id])
+  CertificateType CertificateType
+
+  CourseId Int?    @unique
+  Course   Course? @relation(fields: [CourseId], references: [Id])
+
+  SpecializationId Int?            @unique
+  Specialization   Specialization? @relation(fields: [SpecializationId], references: [Id])
 
   // CreatorId Int 
   // CreatedBy Mentor
@@ -355,6 +361,11 @@ enum DurationPreset {
 enum LessonType {
   Video
   Document
+}
+
+enum CertificateType {
+  Course
+  Specialization
 }
 
 // #endregion
