@@ -1,7 +1,15 @@
 import prisma from "../../prismaClient.js";
 
-const createCourt = async (data) => {
-  return prisma.court.create({ data });
-};
-
-export default createCourt;
+export default async function create({ name, description }) {
+  return prisma.course.create({
+    data: {
+      Name: name,
+      Description: description,
+    },
+    select: {
+      Id: true,
+      Name: true,
+      Description: true,
+    },
+  });
+}

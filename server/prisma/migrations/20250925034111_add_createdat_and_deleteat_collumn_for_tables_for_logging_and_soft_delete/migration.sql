@@ -1,0 +1,82 @@
+/*
+  Warnings:
+
+  - You are about to drop the column `Active` on the `admin` table. All the data in the column will be lost.
+  - You are about to drop the column `Active` on the `mentor` table. All the data in the column will be lost.
+
+*/
+-- AlterTable
+ALTER TABLE `account` ADD COLUMN `CreatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    ADD COLUMN `DeletedAt` DATETIME(3) NULL;
+
+-- AlterTable
+ALTER TABLE `admin` DROP COLUMN `Active`,
+    ADD COLUMN `CreatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    ADD COLUMN `DeletedAt` DATETIME(3) NULL;
+
+-- AlterTable
+ALTER TABLE `certificate` ADD COLUMN `CreatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    ADD COLUMN `DeletedAt` DATETIME(3) NULL;
+
+-- AlterTable
+ALTER TABLE `course` ADD COLUMN `CreatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    ADD COLUMN `DeletedAt` DATETIME(3) NULL;
+
+-- AlterTable
+ALTER TABLE `courseenroll` ADD COLUMN `CreatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    ADD COLUMN `DeletedAt` DATETIME(3) NULL;
+
+-- AlterTable
+ALTER TABLE `courselesson` ADD COLUMN `CreatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    ADD COLUMN `DeletedAt` DATETIME(3) NULL;
+
+-- AlterTable
+ALTER TABLE `coursemodule` ADD COLUMN `CreatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    ADD COLUMN `DeletedAt` DATETIME(3) NULL;
+
+-- AlterTable
+ALTER TABLE `exam` ADD COLUMN `CreatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    ADD COLUMN `DeletedAt` DATETIME(3) NULL;
+
+-- AlterTable
+ALTER TABLE `examanswer` ADD COLUMN `CreatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    ADD COLUMN `DeletedAt` DATETIME(3) NULL;
+
+-- AlterTable
+ALTER TABLE `examquestion` ADD COLUMN `CreatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    ADD COLUMN `DeletedAt` DATETIME(3) NULL;
+
+-- AlterTable
+ALTER TABLE `examsubmission` ADD COLUMN `CreatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3);
+
+-- AlterTable
+ALTER TABLE `mentor` DROP COLUMN `Active`,
+    ADD COLUMN `CreatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    ADD COLUMN `DeletedAt` DATETIME(3) NULL;
+
+-- AlterTable
+ALTER TABLE `moduleitem` ADD COLUMN `CreatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    ADD COLUMN `DeletedAt` DATETIME(3) NULL;
+
+-- AlterTable
+ALTER TABLE `post` ADD COLUMN `CreatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    ADD COLUMN `DeletedAt` DATETIME(3) NULL;
+
+-- AlterTable
+ALTER TABLE `questionbank` ADD COLUMN `CreatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    ADD COLUMN `DeletedAt` DATETIME(3) NULL;
+
+-- AlterTable
+ALTER TABLE `specialization` ADD COLUMN `CreatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    ADD COLUMN `DeletedAt` DATETIME(3) NULL;
+
+-- AlterTable
+ALTER TABLE `specializationcourse` ADD COLUMN `CreatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    ADD COLUMN `DeletedAt` DATETIME(3) NULL;
+
+-- AlterTable
+ALTER TABLE `studentanswer` ADD COLUMN `CreatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3);
+
+-- AlterTable
+ALTER TABLE `usercertificate` ADD COLUMN `CreatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    ADD COLUMN `DeletedAt` DATETIME(3) NULL;

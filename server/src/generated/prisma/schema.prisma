@@ -27,6 +27,10 @@ model Account {
   Admin       Admin?
 
   AccountIdentifier AccountIdentifier[]
+
+  // Active check
+  CreatedAt DateTime  @default(now())
+  DeletedAt DateTime?
 }
 
 model AccountIdentifier {
@@ -62,13 +66,19 @@ model AccountRole {
 model Mentor {
   AccountId String  @id
   Account   Account @relation(fields: [AccountId], references: [Id])
-  Active    Boolean
+
+  // Active check
+  CreatedAt DateTime  @default(now())
+  DeletedAt DateTime?
 }
 
 model Admin {
   AccountId String  @id
   Account   Account @relation(fields: [AccountId], references: [Id])
-  Active    Boolean
+
+  // Active check
+  CreatedAt DateTime  @default(now())
+  DeletedAt DateTime?
 }
 
 // #endregion
@@ -91,6 +101,10 @@ model Course {
   Exam                 Exam[]
   QuestionBank         QuestionBank[]
   SpecializationCourse SpecializationCourse[]
+
+  // Active check
+  CreatedAt DateTime  @default(now())
+  DeletedAt DateTime?
 }
 
 model Specialization {
@@ -101,6 +115,10 @@ model Specialization {
 
   SpecializationCourse SpecializationCourse[]
   Certificate          Certificate?
+
+  // Active check
+  CreatedAt DateTime  @default(now())
+  DeletedAt DateTime?
 }
 
 model SpecializationCourse {
@@ -114,6 +132,10 @@ model SpecializationCourse {
 
   OrderNo Int
 
+  // Active check
+  CreatedAt DateTime  @default(now())
+  DeletedAt DateTime?
+
   @@unique([SpecId, CourseId])
 }
 
@@ -126,6 +148,10 @@ model CourseModule {
   OrderNo Int // Initial adding in steps of 10 (10 20 30 40 50 ...ect) for easier insertion in middle
 
   ModuleItems ModuleItem[]
+
+  // Active check
+  CreatedAt DateTime  @default(now())
+  DeletedAt DateTime?
 }
 
 model ModuleItem {
@@ -140,6 +166,10 @@ model ModuleItem {
   Exam   Exam? @relation(fields: [ExamId], references: [Id])
 
   CourseLesson CourseLesson[]
+
+  // Active check
+  CreatedAt DateTime  @default(now())
+  DeletedAt DateTime?
 }
 
 model CourseLesson {
@@ -161,6 +191,10 @@ model CourseLesson {
   ParentId   String?
   Parent     CourseLesson?  @relation("Supplementary", fields: [ParentId], references: [Id])
   Supplement CourseLesson[] @relation("Supplementary")
+
+  // Active check
+  CreatedAt DateTime  @default(now())
+  DeletedAt DateTime?
 }
 
 model CourseEnroll {
@@ -171,6 +205,10 @@ model CourseEnroll {
 
   CourseId Int
   Course   Course @relation(fields: [CourseId], references: [Id])
+
+  // Active check
+  CreatedAt DateTime  @default(now())
+  DeletedAt DateTime?
 }
 
 // #endregion
@@ -196,6 +234,10 @@ model Exam {
   ExamQuestion   ExamQuestion[]
   ExamSubmission ExamSubmission[]
   ModuleItem     ModuleItem[]
+
+  // Active check
+  CreatedAt DateTime  @default(now())
+  DeletedAt DateTime?
 }
 
 // model DurationPreset {
@@ -223,6 +265,10 @@ model QuestionBank {
   ExamQuestion ExamQuestion[]
   Course       Course?        @relation(fields: [courseId], references: [Id])
   courseId     Int?
+
+  // Active check
+  CreatedAt DateTime  @default(now())
+  DeletedAt DateTime?
 }
 
 model ExamQuestion {
@@ -238,6 +284,10 @@ model ExamQuestion {
 
   //
   StudentAnswer StudentAnswer[]
+
+  // Active check
+  CreatedAt DateTime  @default(now())
+  DeletedAt DateTime?
 }
 
 model ExamAnswer {
@@ -251,6 +301,10 @@ model ExamAnswer {
   QuestionBank QuestionBank @relation(fields: [QuestionId], references: [Id])
 
   StudentAnswer StudentAnswer[]
+
+  // Active check
+  CreatedAt DateTime  @default(now())
+  DeletedAt DateTime?
 }
 
 model ExamSubmission {
@@ -266,6 +320,9 @@ model ExamSubmission {
   Score       Int?
 
   StudentAnswer StudentAnswer[]
+
+  // Active check
+  CreatedAt DateTime @default(now())
 }
 
 model StudentAnswer {
@@ -288,6 +345,9 @@ model StudentAnswer {
   examQuestionId String?
   ExamAnswer     ExamAnswer?   @relation(fields: [examAnswerId], references: [Id])
   examAnswerId   String?
+
+  // Active check
+  CreatedAt DateTime @default(now())
 }
 
 // #endregion
@@ -307,6 +367,10 @@ model Certificate {
 
   // CreatorId Int 
   // CreatedBy Mentor
+
+  // Active check
+  CreatedAt DateTime  @default(now())
+  DeletedAt DateTime?
 }
 
 model UserCertificate {
@@ -317,6 +381,10 @@ model UserCertificate {
 
   AccountId String
   Account   Account @relation(fields: [AccountId], references: [Id])
+
+  // Active check
+  CreatedAt DateTime  @default(now())
+  DeletedAt DateTime?
 }
 
 model Post {
@@ -335,6 +403,10 @@ model Post {
   ReplyId String?
   ReplyTo Post?   @relation("Reply", fields: [ReplyId], references: [Id])
   Replied Post[]  @relation("Reply")
+
+  // Active check
+  CreatedAt DateTime  @default(now())
+  DeletedAt DateTime?
 }
 
 // #region Special place for enums because I don't want them anywhere near the actual tables
