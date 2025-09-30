@@ -1,14 +1,18 @@
 import { Router } from "express";
-import courseRoutes from "./courseRoute";
-import certificateRoute from "./certificateRoute";
-import lessonRoute from "./lessonRoute";
-import examRoute from "./examRoute";
-import answerRoute from "./answerRoute";
-import questionBankRoute from "./questionBankRoute";
-import examQuestionRoute from "./examQuestionRoute";
+import accountRoutes from "./public/accountRoute.js";
+import courseRoutes from "./courseRoute.js";
+import certificateRoute from "./certificateRoute.js";
+import lessonRoute from "./lessonRoute.js";
+import examRoute from "./examRoute.js";
+import answerRoute from "./answerRoute.js";
+import questionBankRoute from "./questionBankRoute.js";
+import examQuestionRoute from "./examQuestionRoute.js";
 
 const router = Router();
 
+// public
+
+router.use("/api/account", accountRoutes);
 router.use("/api/course", courseRoutes);
 router.use("/api/lesson", lessonRoute);
 router.use("/api/certificate", certificateRoute);
@@ -18,6 +22,8 @@ router.use("/api/questionBank", questionBankRoute);
 router.use("/api/examQuestion", examQuestionRoute);
 
 // manage
+
+
 
 // admin
 

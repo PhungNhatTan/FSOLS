@@ -1,4 +1,4 @@
-import answerModel from "../../models/answer/index.js";
+import answerModel from "../../models/examAnswer/index.js";
 
 export default async function createAnswer(req, res, next) {
   try {
