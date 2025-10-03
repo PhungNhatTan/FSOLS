@@ -7,6 +7,7 @@ import examRoute from "./examRoute.js";
 import answerRoute from "./answerRoute.js";
 import questionBankRoute from "./questionBankRoute.js";
 import examQuestionRoute from "./examQuestionRoute.js";
+import examSubmissionRoute from "./examSubmissionRoute.js";
 
 const router = Router();
 
@@ -20,6 +21,7 @@ router.use("/api/exam", examRoute);
 router.use("/api/answer", answerRoute);
 router.use("/api/questionBank", questionBankRoute);
 router.use("/api/examQuestion", examQuestionRoute);
+router.use("/api/examSubmission", examSubmissionRoute);
 
 // manage
 

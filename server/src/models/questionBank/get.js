@@ -7,7 +7,7 @@ export default async function getQuestionBankById(id) {
       Id: true,
       QuestionText: true,
       Type: true,
-      Answer: true, // for essay type
+      Answer: true, 
       ExamAnswer: {
         select: {
           Id: true,
