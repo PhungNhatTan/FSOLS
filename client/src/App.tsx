@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
+import ExamPage from "./pages/ExamPage";
 
 export default function App() {
   return (
@@ -10,6 +11,7 @@ export default function App() {
 
         {/* Auth */}
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/exam/:examId" element={<ExamPage />} />
         {/* <Route path="/register" element={<RegisterPage />} /> */}
 
         {/* Catch-all (404) */}

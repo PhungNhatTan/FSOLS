@@ -14,7 +14,12 @@ export async function register(data: AuthData): Promise<AuthResponse> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-  return res.json();
+
+  const result: AuthResponse = await res.json();
+  if (result.token) {
+    localStorage.setItem("token", result.token);
+  }
+  return result;
 }
 
 export async function login(data: AuthData): Promise<AuthResponse> {
@@ -23,5 +28,18 @@ export async function login(data: AuthData): Promise<AuthResponse> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-  return res.json();
+
+  const result: AuthResponse = await res.json();
+  if (result.token) {
+    localStorage.setItem("token", result.token);
+  }
+  return result;
+}
+
+export function logout() {
+  localStorage.removeItem("token");
+}
+
+export function getToken(): string | null {
+  return localStorage.getItem("token");
 }
