@@ -15,7 +15,7 @@ export default [
       "build",
       ".vercel",
       "generated/prisma",
-      "server/src/generated/prisma", 
+      "server/src/generated/prisma",
       "coverage",
     ],
   },
@@ -34,7 +34,7 @@ export default [
         skipStrings: true,
         skipComments: true,
         skipRegExps: true,
-        skipTemplates: true, 
+        skipTemplates: true,
       }],
       "no-control-regex": "off",
     },
@@ -68,4 +68,6 @@ export default [
       "no-irregular-whitespace": ["error", { skipStrings: true, skipComments: true, skipRegExps: true, skipTemplates: true }],
     },
   },
+
+
 ];

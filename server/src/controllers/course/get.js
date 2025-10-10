@@ -1,6 +1,6 @@
 import courseModel from '../../models/course/index.js';
 
-const getCourse = async (req, res, next) => {
+const get = async (req, res, next) => {
   try {
     const { id } = req.params;
     const course = await courseModel.get(Number(id));
@@ -13,4 +13,4 @@ const getCourse = async (req, res, next) => {
   }
 };
 
-export default getCourse;
+export default get;

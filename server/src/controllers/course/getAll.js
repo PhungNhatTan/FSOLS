@@ -1,6 +1,6 @@
 import courseModel from '../../models/course/index.js';
 
-const getCourse = async (req, res, next) => {
+const getAll = async (req, res, next) => {
   try {
     const course = await courseModel.getAll();
     if (!course) {
@@ -12,4 +12,4 @@ const getCourse = async (req, res, next) => {
   }
 };
 
-export default getCourse;
+export default getAll;

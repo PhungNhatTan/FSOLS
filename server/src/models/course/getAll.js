@@ -1,6 +1,6 @@
 import prisma from '../../prismaClient.js';
 
-const getCourse = async (id) => {
+const getAll = async (id) => {
   return prisma.course.findMany({
     where: {
       Account: {
@@ -10,4 +10,4 @@ const getCourse = async (id) => {
   });
 }
 
-export default getCourse;
+export default getAll;
