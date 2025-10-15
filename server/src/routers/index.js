@@ -1,5 +1,7 @@
 import { Router } from "express";
 import accountRoutes from "./public/accountRoute.js";
+import userCertificateRoutes from "./public/userCertificateRoute.js";
+
 import courseRoutes from "./courseRoute.js";
 import certificateRoute from "./certificateRoute.js";
 import lessonRoute from "./lessonRoute.js";
@@ -14,6 +16,10 @@ const router = Router();
 // public
 
 router.use("/api/account", accountRoutes);
+router.use("/api/userCertificate", userCertificateRoutes);
+
+// old
+
 router.use("/api/course", courseRoutes);
 router.use("/api/lesson", lessonRoute);
 router.use("/api/certificate", certificateRoute);
