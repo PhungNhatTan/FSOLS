@@ -1,6 +1,10 @@
 import { Router } from "express";
+
 import accountRoutes from "./public/accountRoute.js";
 import userCertificateRoutes from "./public/userCertificateRoute.js";
+import specializationCourseRoutes from "./public/specializationCourseRoute.js";
+
+import certificateRoutesManage from "./manage/certificateRoute.js";
 
 import courseRoutes from "./courseRoute.js";
 import certificateRoute from "./certificateRoute.js";
@@ -17,6 +21,7 @@ const router = Router();
 
 router.use("/api/account", accountRoutes);
 router.use("/api/userCertificate", userCertificateRoutes);
+router.use("/api/specializationCourse", specializationCourseRoutes);
 
 // old
 
@@ -31,7 +36,7 @@ router.use("/api/examSubmission", examSubmissionRoute);
 
 // manage
 
-
+router.use("/api/manage/certificate", certificateRoutesManage);
 
 // admin
 

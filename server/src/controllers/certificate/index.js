@@ -1,5 +1,5 @@
 // import create from './create.js';
-// import get from './get.js';
+import get from './get.js';
 import getStudentCertificate from './getStudentCertificate.js'
 // import getAll from './getAll.js';
 // import update from './update.js';
@@ -7,7 +7,7 @@ import getStudentCertificate from './getStudentCertificate.js'
 
 export default {
     //   create,
-    //   get,
+    get,
     getStudentCertificate,
     //   getAll,
     //   update,
