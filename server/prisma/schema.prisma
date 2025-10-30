@@ -29,7 +29,7 @@ model Account {
   AccountIdentifier AccountIdentifier[]
 
   // Active check
-  CreatedAt DateTime @default(now())
+  CreatedAt DateTime  @default(now())
   DeletedAt DateTime?
 }
 
@@ -68,7 +68,7 @@ model Mentor {
   Account   Account @relation(fields: [AccountId], references: [Id])
 
   // Active check
-  CreatedAt DateTime @default(now())
+  CreatedAt DateTime  @default(now())
   DeletedAt DateTime?
 }
 
@@ -77,7 +77,7 @@ model Admin {
   Account   Account @relation(fields: [AccountId], references: [Id])
 
   // Active check
-  CreatedAt DateTime @default(now())
+  CreatedAt DateTime  @default(now())
   DeletedAt DateTime?
 }
 
@@ -98,12 +98,11 @@ model Course {
   Certificate          Certificate?
   CourseModule         CourseModule[]
   CourseEnroll         CourseEnroll[]
-  Exam                 Exam[]
   QuestionBank         QuestionBank[]
   SpecializationCourse SpecializationCourse[]
-  
+
   // Active check
-  CreatedAt DateTime @default(now())
+  CreatedAt DateTime  @default(now())
   DeletedAt DateTime?
 }
 
@@ -114,10 +113,11 @@ model Specialization {
   SpecializationName String
 
   SpecializationCourse SpecializationCourse[]
+  CourseEnroll         CourseEnroll[]
   Certificate          Certificate?
-  
+
   // Active check
-  CreatedAt DateTime @default(now())
+  CreatedAt DateTime  @default(now())
   DeletedAt DateTime?
 }
 
@@ -132,11 +132,11 @@ model SpecializationCourse {
 
   OrderNo Int
 
-  @@unique([SpecId, CourseId])
-  
   // Active check
-  CreatedAt DateTime @default(now())
+  CreatedAt DateTime  @default(now())
   DeletedAt DateTime?
+
+  @@unique([SpecId, CourseId])
 }
 
 model CourseModule {
@@ -148,9 +148,9 @@ model CourseModule {
   OrderNo Int // Initial adding in steps of 10 (10 20 30 40 50 ...ect) for easier insertion in middle
 
   ModuleItems ModuleItem[]
-  
+
   // Active check
-  CreatedAt DateTime @default(now())
+  CreatedAt DateTime  @default(now())
   DeletedAt DateTime?
 }
 
@@ -162,13 +162,12 @@ model ModuleItem {
   CourseModuleId Int?
   CourseModule   CourseModule? @relation(fields: [CourseModuleId], references: [Id])
 
-  ExamId Int?
-  Exam   Exam? @relation(fields: [ExamId], references: [Id])
+  Exam Exam[]
 
   CourseLesson CourseLesson[]
-  
+
   // Active check
-  CreatedAt DateTime @default(now())
+  CreatedAt DateTime  @default(now())
   DeletedAt DateTime?
 }
 
@@ -187,13 +186,8 @@ model CourseLesson {
 
   QuestionBank QuestionBank[]
 
-  // Self reference
-  ParentId   String?
-  Parent     CourseLesson?  @relation("Supplementary", fields: [ParentId], references: [Id])
-  Supplement CourseLesson[] @relation("Supplementary")
-  
   // Active check
-  CreatedAt DateTime @default(now())
+  CreatedAt DateTime  @default(now())
   DeletedAt DateTime?
 }
 
@@ -203,11 +197,14 @@ model CourseEnroll {
   AccountId String
   Account   Account @relation(fields: [AccountId], references: [Id])
 
-  CourseId Int
-  Course   Course @relation(fields: [CourseId], references: [Id])
-  
+  CourseId Int?
+  Course   Course? @relation(fields: [CourseId], references: [Id])
+
+  SpecializationId Int?
+  Specialization   Specialization? @relation(fields: [SpecializationId], references: [Id])
+
   // Active check
-  CreatedAt DateTime @default(now())
+  CreatedAt DateTime  @default(now())
   DeletedAt DateTime?
 }
 
@@ -217,8 +214,8 @@ model CourseEnroll {
 model Exam {
   Id Int @id @default(autoincrement())
 
-  CourseId Int
-  Course   Course @relation(fields: [CourseId], references: [Id])
+  ModuleItemId String
+  ModuleItem   ModuleItem @relation(fields: [ModuleItemId], references: [Id])
 
   Title       String
   Description String
@@ -233,10 +230,9 @@ model Exam {
 
   ExamQuestion   ExamQuestion[]
   ExamSubmission ExamSubmission[]
-  ModuleItem     ModuleItem[]
-  
+
   // Active check
-  CreatedAt DateTime @default(now())
+  CreatedAt DateTime  @default(now())
   DeletedAt DateTime?
 }
 
@@ -265,9 +261,9 @@ model QuestionBank {
   ExamQuestion ExamQuestion[]
   Course       Course?        @relation(fields: [courseId], references: [Id])
   courseId     Int?
-  
+
   // Active check
-  CreatedAt DateTime @default(now())
+  CreatedAt DateTime  @default(now())
   DeletedAt DateTime?
 }
 
@@ -284,9 +280,9 @@ model ExamQuestion {
 
   //
   StudentAnswer StudentAnswer[]
-  
+
   // Active check
-  CreatedAt DateTime @default(now())
+  CreatedAt DateTime  @default(now())
   DeletedAt DateTime?
 }
 
@@ -301,9 +297,9 @@ model ExamAnswer {
   QuestionBank QuestionBank @relation(fields: [QuestionId], references: [Id])
 
   StudentAnswer StudentAnswer[]
-  
+
   // Active check
-  CreatedAt DateTime @default(now())
+  CreatedAt DateTime  @default(now())
   DeletedAt DateTime?
 }
 
@@ -320,7 +316,7 @@ model ExamSubmission {
   Score       Int?
 
   StudentAnswer StudentAnswer[]
-  
+
   // Active check
   CreatedAt DateTime @default(now())
 }
@@ -345,7 +341,7 @@ model StudentAnswer {
   examQuestionId String?
   ExamAnswer     ExamAnswer?   @relation(fields: [examAnswerId], references: [Id])
   examAnswerId   String?
-  
+
   // Active check
   CreatedAt DateTime @default(now())
 }
@@ -367,9 +363,9 @@ model Certificate {
 
   // CreatorId Int 
   // CreatedBy Mentor
-  
+
   // Active check
-  CreatedAt DateTime @default(now())
+  CreatedAt DateTime  @default(now())
   DeletedAt DateTime?
 }
 
@@ -381,9 +377,9 @@ model UserCertificate {
 
   AccountId String
   Account   Account @relation(fields: [AccountId], references: [Id])
-  
+
   // Active check
-  CreatedAt DateTime @default(now())
+  CreatedAt DateTime  @default(now())
   DeletedAt DateTime?
 }
 
@@ -403,9 +399,9 @@ model Post {
   ReplyId String?
   ReplyTo Post?   @relation("Reply", fields: [ReplyId], references: [Id])
   Replied Post[]  @relation("Reply")
-  
+
   // Active check
-  CreatedAt DateTime @default(now())
+  CreatedAt DateTime  @default(now())
   DeletedAt DateTime?
 }
 

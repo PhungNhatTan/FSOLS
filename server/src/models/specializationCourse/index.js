@@ -1,4 +1,4 @@
-import getSpecializationCourseNav from "./getSpecializationCourseNav";
+import getSpecializationCourseNav from "./getSpecializationCourseNav.js";
 
 export default{
     getSpecializationCourseNav,

@@ -1,3 +1,6 @@
+import http from "../service/http";
+import { jwtDecode } from "jwt-decode";
+
 export interface AuthResponse {
   token?: string;
   message?: string;
@@ -8,32 +11,28 @@ export interface AuthData {
   password: string;
 }
 
-export async function register(data: AuthData): Promise<AuthResponse> {
-  const res = await fetch("/api/account/register", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
+interface TokenPayload {
+  accountId: string;
+  username: string;
+  role?: string;
+  exp: number;
+  iat: number;
+}
 
-  const result: AuthResponse = await res.json();
-  if (result.token) {
-    localStorage.setItem("token", result.token);
+export async function register(data: AuthData): Promise<AuthResponse> {
+  const res = await http.post<AuthResponse>("/account/register", data);
+  if (res.data.token) {
+    localStorage.setItem("token", res.data.token);
   }
-  return result;
+  return res.data;
 }
 
 export async function login(data: AuthData): Promise<AuthResponse> {
-  const res = await fetch("/api/account/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-
-  const result: AuthResponse = await res.json();
-  if (result.token) {
-    localStorage.setItem("token", result.token);
+  const res = await http.post<AuthResponse>("/account/login", data);
+  if (res.data.token) {
+    localStorage.setItem("token", res.data.token);
   }
-  return result;
+  return res.data;
 }
 
 export function logout() {
@@ -42,4 +41,16 @@ export function logout() {
 
 export function getToken(): string | null {
   return localStorage.getItem("token");
+}
+
+export function getAccountId(): string | null {
+  const token = getToken();
+  if (!token) return null;
+
+  try {
+    const decoded = jwtDecode<TokenPayload>(token);
+    return decoded.accountId;
+  } catch {
+    return null;
+  }
 }

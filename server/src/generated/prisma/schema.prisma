@@ -98,7 +98,6 @@ model Course {
   Certificate          Certificate?
   CourseModule         CourseModule[]
   CourseEnroll         CourseEnroll[]
-  Exam                 Exam[]
   QuestionBank         QuestionBank[]
   SpecializationCourse SpecializationCourse[]
 
@@ -114,6 +113,7 @@ model Specialization {
   SpecializationName String
 
   SpecializationCourse SpecializationCourse[]
+  CourseEnroll         CourseEnroll[]
   Certificate          Certificate?
 
   // Active check
@@ -162,8 +162,7 @@ model ModuleItem {
   CourseModuleId Int?
   CourseModule   CourseModule? @relation(fields: [CourseModuleId], references: [Id])
 
-  ExamId Int?
-  Exam   Exam? @relation(fields: [ExamId], references: [Id])
+  Exam Exam[]
 
   CourseLesson CourseLesson[]
 
@@ -187,11 +186,6 @@ model CourseLesson {
 
   QuestionBank QuestionBank[]
 
-  // Self reference
-  ParentId   String?
-  Parent     CourseLesson?  @relation("Supplementary", fields: [ParentId], references: [Id])
-  Supplement CourseLesson[] @relation("Supplementary")
-
   // Active check
   CreatedAt DateTime  @default(now())
   DeletedAt DateTime?
@@ -203,8 +197,11 @@ model CourseEnroll {
   AccountId String
   Account   Account @relation(fields: [AccountId], references: [Id])
 
-  CourseId Int
-  Course   Course @relation(fields: [CourseId], references: [Id])
+  CourseId Int?
+  Course   Course? @relation(fields: [CourseId], references: [Id])
+
+  SpecializationId Int?
+  Specialization   Specialization? @relation(fields: [SpecializationId], references: [Id])
 
   // Active check
   CreatedAt DateTime  @default(now())
@@ -217,8 +214,8 @@ model CourseEnroll {
 model Exam {
   Id Int @id @default(autoincrement())
 
-  CourseId Int
-  Course   Course @relation(fields: [CourseId], references: [Id])
+  ModuleItemId String
+  ModuleItem   ModuleItem @relation(fields: [ModuleItemId], references: [Id])
 
   Title       String
   Description String
@@ -233,7 +230,6 @@ model Exam {
 
   ExamQuestion   ExamQuestion[]
   ExamSubmission ExamSubmission[]
-  ModuleItem     ModuleItem[]
 
   // Active check
   CreatedAt DateTime  @default(now())

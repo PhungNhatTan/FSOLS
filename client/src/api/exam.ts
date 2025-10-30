@@ -1,3 +1,7 @@
+import http from "../service/http"; // axios instance
+import { getAccountId } from "./auth";
+
+// ==== Types ====
 export interface ExamAnswer {
   Id: string;
   AnswerText: string;
@@ -20,27 +24,26 @@ export interface ExamData {
 
 export interface StudentAnswer {
   questionId: string;
-  answerId?: string; // for single choice
-  answerIds?: string[]; // for multi choice
-  answer?: string; // for essay
+  answerId?: string;
+  answerIds?: string[];
+  answer?: string;
 }
 
-export async function getExam(examId: number): Promise<ExamData> {
-  const res = await fetch(`/api/exam/${examId}`);
-  if (!res.ok) throw new Error("Failed to fetch exam");
-  return res.json();
+export async function get(examId: number): Promise<ExamData> {
+  const res = await http.get<ExamData>(`/exam/${examId}`);
+  return res.data;
 }
 
-export async function submitExam(data: {
+export async function submit(data: {
   examId: number;
-  accountId: string;
   answers: StudentAnswer[];
 }) {
-  const res = await fetch("/api/exam-submission/submit", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
+  const accountId = getAccountId();
+  if (!accountId) throw new Error("User not authenticated");
+
+  const res = await http.post("/examSubmission/submit", {
+    ...data,
+    accountId,
   });
-  if (!res.ok) throw new Error("Failed to submit exam");
-  return res.json();
+  return res.data;
 }

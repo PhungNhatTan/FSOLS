@@ -1,37 +1,44 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import { login, type AuthData, type AuthResponse } from "../api/auth";
 
 export default function LoginPage() {
   const [form, setForm] = useState<AuthData>({ username: "", password: "" });
   const [message, setMessage] = useState<string>("");
+  const navigate = useNavigate();
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    const result: AuthResponse = await login(form);
-    if (result.token) {
-      localStorage.setItem("token", result.token);
-      setMessage("Login successful!");
-    } else {
-      setMessage(result.message || "Login failed");
+    try {
+      const result: AuthResponse = await login(form);
+      if (result.token) {
+        setMessage("Login successful!");
+        setTimeout(() => navigate("/courses"), 800);
+      } else {
+        setMessage(result.message || "Login failed");
+      }
+    } catch {
+      setMessage("Server error. Try again later.");
     }
   };
 
   return (
-    <div className="p-6 max-w-sm mx-auto flex justify-center">
-      <h2 className="text-xl font-bold mb-4">Login</h2>
+    <div className="p-6 max-w-sm mx-auto">
+      <h2 className="text-xl font-bold mb-4 text-center">Login</h2>
       <form onSubmit={handleSubmit} className="space-y-3">
         <input
+          required
           className="border p-2 w-full"
           name="username"
           placeholder="Username"
           value={form.username}
           onChange={handleChange}
         />
-        <br/>
         <input
+          required
           className="border p-2 w-full"
           type="password"
           name="password"
@@ -39,15 +46,15 @@ export default function LoginPage() {
           value={form.password}
           onChange={handleChange}
         />
-        <br/>
         <button
           type="submit"
-          className="bg-green-500 text-white px-4 py-2 rounded"
+          disabled={!form.username || !form.password}
+          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded w-full disabled:opacity-50"
         >
           Login
         </button>
       </form>
-      {message && <p className="mt-2 text-sm">{message}</p>}
+      {message && <p className="mt-3 text-sm text-center">{message}</p>}
     </div>
   );
 }
