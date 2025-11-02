@@ -4,10 +4,12 @@ import ExamPage from "./pages/ExamPage";
 import RegisterPage from "./pages/RegisterPage";
 import CoursePage from "./pages/CoursePage";
 import LessonPage from "./pages/LessonPage";
+import Navbar from "./components/navbar";
 
 export default function App() {
   return (
     <BrowserRouter>
+      <Navbar />
       <Routes>
         {/* Home (placeholder) */}
         <Route path="/" element={<h1 className="p-6 text-xl">Home Page</h1>} />

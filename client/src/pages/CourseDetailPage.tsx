@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import client from "../api/client";
+import CourseSidebar from "../components/CourseSidebar";
 
 interface CourseDetail {
   Id: number;
@@ -24,6 +25,7 @@ export default function CourseDetailPage() {
 
   return (
     <div className="p-6 max-w-3xl mx-auto">
+      <CourseSidebar />
       {course ? (
         <>
           <h1 className="text-2xl font-bold mb-3">{course.Title}</h1>

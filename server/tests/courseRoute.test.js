@@ -3,7 +3,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import express from "express";
 import courseRoute from "../src/routers/courseRoute.js";
 
-// 🧠 Mock the model used by the controller
 vi.mock("../src/models/course/index.js", () => ({
   default: {
     create: vi.fn(),
