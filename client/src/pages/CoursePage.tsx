@@ -1,31 +1,22 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import client from "../api/client";
-
-interface Course {
-  Id: number;
-  Title: string;
-  Description: string;
-  Instructor: string;
-  LessonCount: number;
-}
+import courseApi, { type Course } from "../api/course";
 
 export default function CoursePage() {
   const [courses, setCourses] = useState<Course[]>([]);
-  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    client
-      .get("/course")
-      .then((res) => setCourses(res.data))
-      .catch((err) => setMessage(`Error loading courses: ${err.message}`));
+    courseApi
+      .getAll()
+      .then(setCourses)
+      .catch((err) => setError(`Failed to load courses: ${err.message}`));
   }, []);
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold mb-6">Available Courses</h1>
-
-      {message && <p className="text-red-600 mb-4">{message}</p>}
+      {error && <p className="text-red-500">{error}</p>}
 
       {courses.length === 0 ? (
         <p>No courses found.</p>
@@ -37,14 +28,13 @@ export default function CoursePage() {
               className="border rounded-xl p-4 shadow hover:shadow-md transition"
             >
               <h2 className="text-lg font-semibold mb-2">{course.Title}</h2>
-              <p className="text-sm text-gray-600 mb-2">
+              <p className="text-sm text-gray-600 mb-1">
                 Instructor: {course.Instructor}
               </p>
-              <p className="text-sm text-gray-700 mb-3">
+              <p className="text-sm text-gray-700 mb-2">
                 Lessons: {course.LessonCount}
               </p>
               <p className="text-gray-800 mb-4">{course.Description}</p>
-
               <Link
                 to={`/course/${course.Id}`}
                 className="text-blue-600 hover:underline font-medium"

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { getLesson, type Lesson } from "../service/lesson";
+import { lessonApi, type Lesson } from "../api/lesson";
 
 export default function LessonPage() {
   const { id } = useParams();
@@ -9,7 +9,8 @@ export default function LessonPage() {
 
   useEffect(() => {
     if (!id) return;
-    getLesson(Number(id))
+    lessonApi
+      .getById(Number(id))
       .then(setLesson)
       .catch(() => setError("Failed to load lesson"));
   }, [id]);

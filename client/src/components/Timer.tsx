@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useTimer } from "../hooks/useTimer";
 
 interface TimerProps {
   timeLeft: number;
@@ -8,21 +8,7 @@ interface TimerProps {
 }
 
 export default function Timer({ timeLeft, setTimeLeft, onExpire, submitted }: TimerProps) {
-  useEffect(() => {
-    if (!timeLeft || submitted) return;
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          onExpire();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [timeLeft, submitted, onExpire, setTimeLeft]);
+  useTimer(timeLeft, setTimeLeft, onExpire, submitted);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);

@@ -1,63 +1,49 @@
 import { Link, useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
-import { getToken, logout } from "../api/auth";
+import { useAuth } from "../hooks/useAuth";
 
 export default function Navbar() {
-    const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
-    const navigate = useNavigate();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
-    useEffect(() => {
-        setIsLoggedIn(!!getToken());
-    }, []);
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
 
-    const handleLogout = () => {
-        logout();
-        setIsLoggedIn(false);
-        navigate("/login");
-    };
+  return (
+    <nav className="bg-gray-900 text-white px-6 py-3 flex justify-between items-center shadow">
+      <Link to="/" className="text-lg font-bold hover:text-green-400">
+        FSOLS
+      </Link>
 
-    return (
-        <nav className="bg-gray-800 text-white px-6 py-3 flex justify-between items-center shadow-md">
-            {/* Logo / Brand */}
-            <Link to="/" className="text-xl font-bold hover:text-green-400 transition-colors">
-                FSOLS
+      <div className="flex gap-5 items-center">
+        <Link to="/courses" className="hover:text-green-400">
+          Courses
+        </Link>
+
+        {user ? (
+          <>
+            <span className="text-gray-300 text-sm">
+              Hello, <b>{user.username}</b> ({user.role ?? "User"})
+            </span>
+            <button
+              onClick={handleLogout}
+              className="bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-sm"
+            >
+              Logout
+            </button>
+          </>
+        ) : (
+          <>
+            <Link to="/login" className="hover:text-green-400">
+              Login
             </Link>
-
-            {/* Links */}
-            <div className="flex items-center space-x-6">
-                <Link
-                    to="/courses"
-                    className="hover:text-green-400 transition-colors"
-                >
-                    Courses
-                </Link>
-
-                {isLoggedIn ? (
-                    <>
-                        <button
-                            onClick={handleLogout}
-                            className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded transition-colors"
-                        >
-                            Logout
-                        </button>
-                    </>
-                ) : (
-                    <>
-                        <Link
-                            to="/login"
-                            className="hover:text-green-400 transition-colors"
-                        >
-                            Login
-                        </Link>
-                        <Link
-                            to="/register"
-                            className="hover:text-green-400 transition-colors"
-                        >
-                            Register
-                        </Link>
-                    </>
-                )}
-            </div>
-        </nav>
-    );
+            <Link to="/register" className="hover:text-green-400">
+              Register
+            </Link>
+          </>
+        )}
+      </div>
+    </nav>
+  );
 }

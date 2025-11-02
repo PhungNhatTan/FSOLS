@@ -4,7 +4,7 @@ import ExamPage from "./pages/ExamPage";
 import RegisterPage from "./pages/RegisterPage";
 import CoursePage from "./pages/CoursePage";
 import LessonPage from "./pages/LessonPage";
-import Navbar from "./components/navbar";
+import Navbar from "./components/Navbar";
 
 export default function App() {
   return (

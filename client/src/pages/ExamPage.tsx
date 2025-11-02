@@ -1,13 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useParams } from "react-router-dom";
-import Timer from "../components/Timer.tsx";
-import Question from "../components/Question.tsx";
-import {
-  getExam,
-  submitExam,
-  type ExamData,
-  type StudentAnswer,
-} from "../service/exam.ts";
+import Timer from "../components/Timer";
+import Question from "../components/Question";
+import examApi, { type ExamData, type StudentAnswer } from "../api/exam";
 
 export default function ExamPage() {
   const { examId } = useParams<{ examId: string }>();
@@ -18,32 +13,27 @@ export default function ExamPage() {
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
-    if (examId) {
-      getExam(Number(examId))
-        .then((data) => {
-          setExam(data);
-          setTimeLeft(data.Duration * 60);
-        })
-        .catch((err) => setMessage(`Error: ${err.message}`));
-    }
+    if (!examId) return;
+    examApi
+      .get(Number(examId))
+      .then((data) => {
+        setExam(data);
+        setTimeLeft(data.Duration * 60);
+      })
+      .catch((err) => setMessage(`Error: ${err.message}`));
   }, [examId]);
 
   const submitNow = async () => {
     if (!exam || submitted) return;
     setSubmitted(true);
-
-    const payload = {
-      examId: exam.Id,
-      accountId: "student-id-123", // TODO: replace with JWT user
-      answers: Object.values(answers),
-    };
-
     try {
-      const result = await submitExam(payload);
+      const result = await examApi.submit({
+        examId: exam.Id,
+        answers: Object.values(answers),
+      });
       setMessage(`✅ Submitted! Score: ${result.score}/${result.total}`);
-    } catch (err) {
+    } catch {
       setMessage("❌ Submission failed");
-      console.log(err);
     }
   };
 
