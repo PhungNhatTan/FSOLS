@@ -4,9 +4,9 @@ import accountModel from "../../models/account/index.js";
 
 export default async function login(req, res) {
   try {
-    const { identifier, password } = req.body;
+    const { username, password } = req.body;
 
-    const accountIdentifier = await accountModel.authenticate(identifier);
+    const accountIdentifier = await accountModel.authenticate(username);
     if (!accountIdentifier) {
       return res.status(401).json({ message: "Invalid credentials" });
     }

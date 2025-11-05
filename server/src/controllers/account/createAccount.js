@@ -4,13 +4,13 @@ import accountModel from "../../models/account/index.js";
 
 export default async function register(req, res) {
   try {
-    const { username, displayName, identifier, password, providerId } = req.body;
+    const { username, password} = req.body;
 
     // Step 1: Check duplicates
-    if (await accountModel.findAccountByUsername(username)) {
+    if (await accountModel.getByUsername(username)) {
       return res.status(400).json({ message: "Username already taken" });
     }
-    if (await accountModel.findIdentifier(identifier)) {
+    if (await accountModel.getByIdentifier(username, 1)) {
       return res.status(400).json({ message: "Identifier already registered" });
     }
 
@@ -18,10 +18,10 @@ export default async function register(req, res) {
 
     const account = await accountModel.createAccount({
       username,
-      displayName,
-      identifier,
+      displayName: username,
+      identifier: username,
       password: hashedPassword,
-      providerId,
+      providerId: 1,
     });
 
     const roles = account.AccountRole.length > 0

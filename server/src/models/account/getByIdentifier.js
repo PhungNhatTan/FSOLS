@@ -1,7 +1,12 @@
 import prisma from "../../prismaClient.js";
 
-export default async function getByIdentifier(identifier) {
+export default async function getByIdentifier(identifier, providerId) {
     return prisma.accountIdentifier.findUnique({
-        where: { Identifier: identifier },
+        where: {
+            ProviderId_Identifier: {
+                ProviderId: providerId,
+                Identifier: identifier,
+            },
+        },
     });
 }

@@ -20,7 +20,8 @@ export default function LoginPage() {
       } else {
         setMessage(result.message || "Login failed");
       }
-    } catch {
+    } catch(e) {
+      console.error(e);
       setMessage("Server error. Try again later.");
     }
   };

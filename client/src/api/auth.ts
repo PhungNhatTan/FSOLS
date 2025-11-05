@@ -22,7 +22,7 @@ interface TokenPayload {
 export async function register(data: AuthData): Promise<AuthResponse> {
   const res = await http.post<AuthResponse>("/account/register", data);
   if (res.data.token) {
-    localStorage.setItem("token", res.data.token);
+    setToken(res.data.token); // ✅ dispatches tokenChanged
   }
   return res.data;
 }
@@ -30,17 +30,23 @@ export async function register(data: AuthData): Promise<AuthResponse> {
 export async function login(data: AuthData): Promise<AuthResponse> {
   const res = await http.post<AuthResponse>("/account/login", data);
   if (res.data.token) {
-    localStorage.setItem("token", res.data.token);
+    setToken(res.data.token); // ✅ dispatches tokenChanged
   }
   return res.data;
 }
 
-export function logout() {
-  localStorage.removeItem("token");
+export function setToken(token: string) {
+  localStorage.setItem("token", token);
+  window.dispatchEvent(new Event("tokenChanged")); // ✅ triggers re-render
 }
 
-export function getToken(): string | null {
+export function getToken() {
   return localStorage.getItem("token");
+}
+
+export function logout() {
+  localStorage.removeItem("token");
+  window.dispatchEvent(new Event("tokenChanged")); // ✅ triggers logout update
 }
 
 export function getAccountId(): string | null {
