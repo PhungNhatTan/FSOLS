@@ -3,6 +3,7 @@ import LoginPage from "./pages/LoginPage";
 import ExamPage from "./pages/ExamPage";
 import RegisterPage from "./pages/RegisterPage";
 import CoursePage from "./pages/CoursePage";
+import CourseDetailPage from "./pages/CourseDetailPage";
 import LessonPage from "./pages/LessonPage";
 import Navbar from "./components/Navbar";
 
@@ -23,6 +24,7 @@ export default function App() {
 
         {/* Course */}
         <Route path="/courses" element={<CoursePage />} />
+        <Route path="/courses/:id" element={<CourseDetailPage />} />
         <Route path="/lesson/:id" element={<LessonPage />} />
 
         {/* Catch-all (404) */}

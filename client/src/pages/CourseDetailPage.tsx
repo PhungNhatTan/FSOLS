@@ -7,30 +7,55 @@ export default function CourseDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [course, setCourse] = useState<CourseDetail | null>(null);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!id) return;
+    // reset trạng thái khi đổi id
+    setCourse(null);
+    setError("");
+    setLoading(true);
+
+    const numericId = Number(id);
+    if (!id || !Number.isFinite(numericId) || numericId <= 0) {
+      setError("Invalid course id");
+      setLoading(false);
+      return;
+    }
+
+    let mounted = true;
     courseApi
-      .getById(Number(id))
-      .then(setCourse)
-      .catch(() => setError("Failed to load course"));
+      .getById(numericId)
+      .then((data) => mounted && setCourse(data))
+      .catch(() => mounted && setError("Failed to load course"))
+      .finally(() => mounted && setLoading(false));
+
+    return () => {
+      mounted = false;
+    };
   }, [id]);
 
   return (
     <div className="flex">
-      <CourseSidebar/>
+      <CourseSidebar />
       <div className="p-6 max-w-3xl mx-auto flex-1">
         {error && <p className="text-red-500">{error}</p>}
-        {course ? (
+        {!error && loading && <p>Loading course...</p>}
+        {!loading && !error && course && (
           <>
             <h1 className="text-2xl font-bold mb-3">{course.Title}</h1>
             <p className="mb-4 text-gray-700">{course.Description}</p>
+
             <h2 className="text-lg font-semibold mb-2">Lessons</h2>
-            <ul className="list-disc list-inside space-y-1">
-              {course.Lessons.map((l) => (
-                <li key={l.Id}>{l.Title}</li>
-              ))}
-            </ul>
+            {course.Lessons?.length ? (
+              <ul className="list-disc list-inside space-y-1">
+                {course.Lessons.map((l) => (
+                  <li key={l.Id}>{l.Title}</li>
+                ))}
+              </ul>
+            ) : (
+              <p>No lessons.</p>
+            )}
+
             <Link
               to="/courses"
               className="block mt-6 text-blue-600 hover:underline"
@@ -38,8 +63,6 @@ export default function CourseDetailPage() {
               ← Back to courses
             </Link>
           </>
-        ) : (
-          <p>Loading course...</p>
         )}
       </div>
     </div>
