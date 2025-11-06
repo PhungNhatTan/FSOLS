@@ -1,12 +1,6 @@
-import type { QuestionData, QuestionValue, Answer } from "./types";
+import type { QuestionTypeProps } from "../../../types";
 
-interface MCQuestionProps {
-  question: QuestionData & { Answers: Answer[] };
-  value: QuestionValue | null;
-  onChange: (questionId: string, data: Partial<QuestionValue>) => void;
-}
-
-export default function MCQuestion({ question, value, onChange }: MCQuestionProps) {
+export default function MCQuestion({ question, value, onChange }: QuestionTypeProps) {
   return (
     <div className="p-4 border rounded-lg">
       <p className="font-semibold mb-2">{question.QuestionText}</p>

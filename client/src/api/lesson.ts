@@ -1,15 +1,11 @@
-import client from "./client";
+import client from "../service/client";
+import type { LessonDetail } from "../types";
 
-export interface Lesson {
-  Id: number;
-  Title: string;
-  LessonType: string;
-  Content: string;
+async function getById(id: number): Promise<LessonDetail> {
+  const res = await client.get<LessonDetail>(`/lesson/${id}`);
+  return res.data;
 }
 
-export const lessonApi = {
-  getById: async (id: number): Promise<Lesson> => {
-    const res = await client.get<Lesson>(`/lesson/${id}`);
-    return res.data;
-  },
+export default {
+  getById,
 };
