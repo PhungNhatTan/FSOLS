@@ -26,7 +26,7 @@ export default async function create(req, res, next) {
 
         res.status(201).json(question);
     } catch (error) {
-        console.error("❌ Error creating question bank entry:", error);
+        console.error("Error creating question bank entry:", error);
         res.status(500).json({ error: "Failed to create question bank entry" });
         next(error);
     }

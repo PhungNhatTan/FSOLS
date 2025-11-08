@@ -5,4 +5,4 @@ import { authorize } from "../../middleware/role.js";
 
 const router = Router();
 
-router.post("/", authenticate, authorize(["Admin, Mentor"]), questionBankController.create);
+router.post("/", authenticate, authorize(["Admin", "Mentor"]), questionBankController.create);
