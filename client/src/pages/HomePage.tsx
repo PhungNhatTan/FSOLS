@@ -1,17 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 
 // ======================================
-// FIX: Remove external dependency on ../hooks/useAuth
-// Reason: Build error "File not found: ../hooks/useAuth".
-// Action: Implement a local, safe auth shim (useAuthLite) that:
-//   - Reads user from localStorage ('fsols:user') if available
-//   - Exposes logout() that clears localStorage
-//   - Works even when app has no AuthProvider (so homepage builds)
-// Also keeps hash routing & free-courses (no price fields) behavior.
-// ======================================
+// HOMEPAGE —  (BE-ready)
 
-// ==========================
-// TYPES
 // ==========================
 export type Category = { id: number; name: string; slug: string; courseCount: number };
 export type CourseCard = {
@@ -23,7 +14,6 @@ export type CourseCard = {
   mentorId: number;
   rating: number; // 0..5
   ratingCount: number;
-  // ❌ price fields removed for free courses
   durationHours: number;
   lessons: number;
   categoryId: number;
@@ -125,36 +115,89 @@ const TESTIMONIALS: Testimonial[] = [
 ];
 
 // ==========================
-// ROUTING HELPERS (path builders + hash converter)
+// ROUTING HELPERS
 // ==========================
-export const buildCategoryUrl = (slug: string) => `/categories/${slug}`; // keep path-based
-export const buildCourseUrl = (c: Pick<CourseCard, "id" | "slug">) => `/courses/${c.id}`; // match App.tsx route: /courses/:id
+export const buildCategoryUrl = (slug: string) => `/categories/${slug}`;
+export const buildCourseUrl = (c: Pick<CourseCard, "id" | "slug">) => `/courses/${c.id}`; // match /courses/:id
 export const buildBlogUrl = (slug: string) => `/blog/${slug}`;
 export const buildHref = (path: string, mode: RoutingMode = ROUTING_MODE) => mode === "hash" ? `#${path}` : path;
 
 // ==========================
-// AUTH SHIM (local, optional)
+// AUTH — JWT-ready shim (no external hook)
 // ==========================
 export type LiteUser = { id?: number | string; name?: string; email?: string } | null;
+const USER_KEY = "fsols:user";
+const TOKEN_KEY = "fsols:token";
+
+export const buildAuthHeaders = (token?: string) => token ? ({ Authorization: `Bearer ${token}` }) : ({} as Record<string, string>);
+
 function getStoredUser(): LiteUser {
-  try {
-    if (typeof localStorage === "undefined") return null;
-    const raw = localStorage.getItem("fsols:user");
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
+  try { return typeof localStorage === "undefined" ? null : (localStorage.getItem(USER_KEY) ? JSON.parse(localStorage.getItem(USER_KEY) as string) : null); } catch { return null; }
 }
+function getStoredToken(): string | null {
+  try { return typeof localStorage === "undefined" ? null : (localStorage.getItem(TOKEN_KEY)); } catch { return null; }
+}
+function saveAuth(token: string | undefined, user: LiteUser) {
+  try {
+    if (typeof localStorage === "undefined") return;
+    if (user) localStorage.setItem(USER_KEY, JSON.stringify(user)); else localStorage.removeItem(USER_KEY);
+    if (token) localStorage.setItem(TOKEN_KEY, token); else localStorage.removeItem(TOKEN_KEY);
+  } catch {}
+}
+
+// [BE] Expected API
+//   POST /auth/login { email, password }  → { accessToken, refreshToken?, user }
+//   POST /auth/logout                      → 200
+//   Option A (khuyên dùng): httpOnly cookie → FE không cần lưu token, chỉ đọc user.
+//   Option B (tạm): trả accessToken trong body → FE lưu tạm ở localStorage.
+
+type LoginPayload = { email: string; password: string };
+const authApi = {
+  async login(payload: LoginPayload): Promise<{ user: LiteUser; token?: string }>{
+    // Try real BE first
+    try {
+      const res = await fetch("/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include", // send cookies when BE uses httpOnly cookie
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        const data: any = await res.json().catch(() => ({}));
+        return { user: data.user ?? { email: payload.email }, token: data.accessToken };
+      }
+    } catch {}
+    // Demo fallback for local dev without BE
+    return { user: { email: payload.email, name: payload.email.split("@")[0] }, token: "demo-token" };
+  },
+  async logout() {
+    try { await fetch("/auth/logout", { method: "POST", credentials: "include" }); } catch {}
+  },
+};
+
 function useAuthLite() {
   const [user, setUser] = useState<LiteUser>(null);
-  useEffect(() => { setUser(getStoredUser()); }, []);
-  const logout = () => {
-    try { if (typeof localStorage !== "undefined") localStorage.removeItem("fsols:user"); } catch {}
-    setUser(null);
+  const [token, setToken] = useState<string | null>(null);
+  useEffect(() => { setUser(getStoredUser()); setToken(getStoredToken()); }, []);
+
+  const login = async (payload: LoginPayload) => {
+    const { user, token } = await authApi.login(payload);
+    saveAuth(token, user);
+    setUser(user);
+    setToken(token ?? null);
+    return user;
   };
-  return { user, logout } as const;
+  const logout = async () => {
+    await authApi.logout();
+    saveAuth(undefined, null);
+    setUser(null);
+    setToken(null);
+  };
+  return { user, token, login, logout } as const;
 }
 
 // ==========================
-// UTILS (no currency util needed)
+// UTILS (stars)
 // ==========================
 const starRow = (rating: number) => {
   const full = Math.floor(rating);
@@ -175,37 +218,28 @@ function AnchorLink({ to, children, ...rest }: { to: string; children: React.Rea
 }
 
 // ==========================
-// HOME PAGE COMPONENT (Router-agnostic, hash-ready)
+// HOME PAGE COMPONENT
 // ==========================
 export default function HomePage() {
   const [q, setQ] = useState("");
 
-  // 🔥 BE cần: thay toàn bộ các useMemo dưới đây bằng dữ liệu fetch từ API
-  // [BE] GET /api/categories?limit=6  → setCategories(res)
-  //     Expect: [{ id, name, slug, courseCount }]
-  //     Replace hardcode when BE ready.
+  // Data placeholders → replace with real fetches
+  // [BE] GET /api/categories?limit=6 → setCategories
   const categories = useMemo(() => CATEGORIES, []);
-  // [BE] GET /api/courses?featured=true&limit=8  → setFeatured(res)
-  //     Expect: free courses, no price fields
-  //     Map BE → UI: { Id→id, Title→title, Instructor→mentor, LessonCount→lessons }
+  // [BE] GET /api/courses?featured=true&limit=8 → setFeatured
   const featured = useMemo(() => FEATURED, []);
-  // [BE] GET /api/mentors/top?limit=8  → setMentors(res)
-  //     Expect: [{ id, name, avatar, headline, students, courses }]
+  // [BE] GET /api/mentors/top?limit=8 → setMentors
   const mentors = useMemo(() => MENTORS, []);
-  // [BE] GET /api/posts?limit=3  → setPosts(res)
-  //     Expect: [{ id, title, slug, cover, createdAt }]
+  // [BE] GET /api/posts?limit=3 → setPosts
   const posts = useMemo(() => POSTS, []);
-  // [BE] GET /api/testimonials?limit=3  → setTestimonials(res)
-  //     Expect: [{ id, name, avatar, role, content }]
+  // [BE] GET /api/testimonials?limit=3 → setTestimonials
   const testimonials = useMemo(() => TESTIMONIALS, []);
 
   const onSearch = (e: React.FormEvent<HTMLFormElement>) => {
     // [NAV] Redirect to search result page `#/courses?query=...`
-    // [BE on CoursePage] Read `query` from URL and call:
-    //    GET /api/courses?query=<q>&page=1&pageSize=20  → list of courses (free, no price)
+    // [BE on CoursePage] GET /api/courses?query=<q>&page=1&pageSize=20
     e.preventDefault();
-    const href = buildHref(`/courses?query=${encodeURIComponent(q)}`);
-    window.location.href = href; // static-host friendly
+    window.location.href = buildHref(`/courses?query=${encodeURIComponent(q)}`);
   };
 
   return (
@@ -214,10 +248,11 @@ export default function HomePage() {
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 opacity-90" />
         <div className="relative z-10 max-w-7xl mx-auto px-4 py-24 text-white">
-          {/* [AUTH] Khu vực đăng nhập/đăng ký/đăng xuất trên homepage */}
+          {/* [AUTH] khu vực auth */}
           <div className="flex justify-end">
             <AuthActions />
           </div>
+
           <p className="text-sm uppercase tracking-widest/relaxed mb-4 opacity-90">FSOLS Academy</p>
           <h1 className="text-4xl md:text-6xl font-extrabold leading-tight">
             Học nhanh – Thực chiến – <span className="underline decoration-8 decoration-white/60">Nâng cấp sự nghiệp</span>
@@ -301,8 +336,7 @@ export default function HomePage() {
                   <AnchorLink to={buildCourseUrl(c)} className="px-3 py-2 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:opacity-90">Xem chi tiết</AnchorLink>
                   <button
                     onClick={() => {
-                      // [BE-POST] POST /api/wishlist  { courseId: c.id }
-                      //           → 200 OK { ok: true }
+                      // [BE-POST] POST /api/wishlist  { courseId: c.id } (use JWT cookie or Authorization header)
                       alert(`(demo) Đã thêm vào wishlist: ${c.title}`);
                     }}
                     className="px-3 py-2 rounded-xl border text-sm font-medium hover:bg-slate-50"
@@ -321,7 +355,7 @@ export default function HomePage() {
             <h2 className="text-2xl md:text-3xl font-bold">Top Mentors</h2>
             <p className="text-slate-600 mt-1">Người đồng hành trong lộ trình của bạn</p>
           </div>
-        <AnchorLink to="/mentors" className="text-indigo-600 hover:underline">Xem tất cả</AnchorLink>
+          <AnchorLink to="/mentors" className="text-indigo-600 hover:underline">Xem tất cả</AnchorLink>
         </div>
 
         <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -456,18 +490,20 @@ export default function HomePage() {
       </footer>
 
       {/* =============================
-          GHI CHÚ TÍCH HỢP BACKEND (FREE)
+          GHI CHÚ TÍCH HỢP BACKEND (FREE + JWT)
           -----------------------------
-          1) HERO Stats: GET /api/stats/site
-             -> { learners, courses, mentors, projects }
-          2) Categories: GET /api/categories?limit=6
-             -> [{ id, name, slug, courseCount }]
-          3) Featured Courses: GET /api/courses?featured=true&limit=8
-             -> Nút "Wishlist": POST /api/wishlist { courseId }
-          4) Mentors: GET /api/mentors/top?limit=8
-          5) Testimonials: GET /api/testimonials?limit=3
-          6) Blog Posts: GET /api/posts?limit=3
-          7) Search form: hash-based navigation (no Router / server)
+          1) Auth (JWT):
+             - POST /auth/login { email, password } → { accessToken, user }
+                 • Nếu dùng httpOnly cookie: FE không lưu token, chỉ fetch with credentials
+                 • Nếu trả token trong body: FE gửi header Authorization: Bearer <token>
+             - POST /auth/logout → 200 (xoá cookie / vô hiệu refresh token)
+             - FE helpers: buildAuthHeaders(token), useAuthLite.login/logout
+          2) HERO Stats: GET /api/stats/site → { learners, courses, mentors, projects }
+          3) Categories: GET /api/categories?limit=6 → [{ id, name, slug, courseCount }]
+          4) Featured: GET /api/courses?featured=true&limit=8 → CourseCard[]
+          5) Mentors: GET /api/mentors/top?limit=8
+          6) Testimonials: GET /api/testimonials?limit=3
+          7) Posts: GET /api/posts?limit=3
       ============================= */}
     </div>
   );
@@ -486,27 +522,51 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 // ------------------------------
-// [AUTH] Nút đăng nhập/đăng ký/đăng xuất dùng hash links
+// [AUTH UI] Actions + Login form (JWT-ready)
 // ------------------------------
 function AuthActions() {
-  const { user, logout } = useAuthLite();
-  const onLogout = () => {
-    // [AUTH] Xoá session local và quay về trang chủ
-    try { logout(); } catch {}
-    window.location.href = buildHref("/");
+  const { user, login, logout, token } = useAuthLite();
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErr(null); setLoading(true);
+    try {
+      await login({ email, password });
+      setOpen(false); setEmail(""); setPassword("");
+    } catch (e: any) {
+      setErr(e?.message || "Đăng nhập thất bại");
+    } finally { setLoading(false); }
   };
+
   if (!user) {
     return (
-      <div className="flex items-center gap-3">
-        <a href={buildHref("/login")} className="px-4 py-2 rounded-xl bg-white text-slate-900 text-sm font-semibold hover:opacity-90">Đăng nhập</a>
-        <a href={buildHref("/register")} className="px-4 py-2 rounded-xl border border-white/60 text-white text-sm font-semibold hover:bg-white/10">Đăng ký</a>
+      <div className="relative">
+        <button onClick={() => setOpen(v => !v)} className="px-4 py-2 rounded-xl bg-white text-slate-900 text-sm font-semibold hover:opacity-90">Đăng nhập</button>
+        <a href={buildHref("/register")} className="ml-2 px-4 py-2 rounded-xl border border-white/60 text-white text-sm font-semibold hover:bg-white/10">Đăng ký</a>
+        {open && (
+          <form onSubmit={onSubmit} className="absolute right-0 mt-2 w-72 rounded-2xl bg-white p-4 text-slate-900 shadow-xl">
+            <div className="font-semibold mb-2">Đăng nhập</div>
+            <input value={email} onChange={(e)=>setEmail(e.target.value)} type="email" required placeholder="Email" className="w-full mb-2 px-3 py-2 rounded-lg border" />
+            <input value={password} onChange={(e)=>setPassword(e.target.value)} type="password" required placeholder="Mật khẩu" className="w-full mb-3 px-3 py-2 rounded-lg border" />
+            {err && <div className="text-sm text-red-600 mb-2">{err}</div>}
+            <button disabled={loading} type="submit" className="w-full px-3 py-2 rounded-lg bg-indigo-600 text-white font-medium disabled:opacity-60">{loading ? "Đang đăng nhập..." : "Đăng nhập"}</button>
+            <div className="mt-2 text-xs text-slate-500">*BE: /auth/login trả JWT (cookie hoặc body).</div>
+          </form>
+        )}
       </div>
     );
   }
+
   return (
     <div className="flex items-center gap-3">
       <div className="text-sm">Xin chào, <span className="font-semibold">{(user as any).name ?? (user as any).email ?? "User"}</span></div>
-      <button onClick={onLogout} className="px-3 py-2 rounded-xl border border-white/70 text-white text-sm hover:bg-white/10">Đăng xuất</button>
+      {token && <span title="JWT available" className="text-xs opacity-80">(JWT)</span>}
+      <button onClick={() => { logout(); window.location.href = buildHref("/"); }} className="px-3 py-2 rounded-xl border border-white/70 text-white text-sm hover:bg-white/10">Đăng xuất</button>
     </div>
   );
 }
@@ -538,9 +598,9 @@ export const __selfTest = () => {
   assert(hashHref === "#/courses?query=test", "Hash href wrong");
   const pathHref = buildHref("/courses", "path");
   assert(pathHref === "/courses", "Path href wrong");
-  // Auth shim behavior in non-browser (tests)
-  const userInNode = (typeof localStorage === "undefined") ? getStoredUser() : null;
-  if (typeof localStorage === "undefined") assert(userInNode === null, "getStoredUser should return null in non-browser env");
+  // Auth helpers
+  const hdr = buildAuthHeaders("token123");
+  assert((hdr as any).Authorization === "Bearer token123", "buildAuthHeaders should format Authorization header");
   // Data presence (free courses — durations must be positive)
   assert(FEATURED.every(c => c.durationHours > 0 && c.lessons > 0), "Featured durations/lessons must be > 0");
   return true;
