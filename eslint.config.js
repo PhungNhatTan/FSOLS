@@ -18,6 +18,7 @@ export default [
       "coverage",
       "server/src/generated/prisma",
       ".vercel",
+      "client",
     ],
   },
 
@@ -48,8 +49,8 @@ export default [
       sourceType: "module",
       globals: { ...globals.browser },
       parserOptions: {
-        project: "./client/tsconfig.json",
-        tsconfigRootDir: path.resolve(),
+        project: "./client/tsconfig.eslint.json",
+        tsconfigRootDir: path.resolve("client"),
         ecmaFeatures: { jsx: true },
       },
     },

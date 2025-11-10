@@ -22,8 +22,8 @@ export interface Course {
   Id: number;
   Title: string;
   Description: string;
-  Instructor: string;
-  LessonCount: number;
+  Instructor?: string;
+  LessonCount?: number;
 }
 
 export interface CourseDetail extends Course {
