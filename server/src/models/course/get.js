@@ -2,11 +2,12 @@ import prisma from '../../prismaClient.js';
 
 export default async function get(id) {
   return prisma.course.findUnique({
-    where: { Id: parseInt(id) },
+    where: { Id: Number(id) },
     select: {
       Id: true,
       Name: true,
       Description: true,
+      CreatedAt: true,
       CourseModule: {
         select: {
           Id: true,
@@ -16,19 +17,23 @@ export default async function get(id) {
               Id: true,
               OrderNo: true,
               CourseLesson: {
-                select: { Id: true, Title: true, LessonType: true },
+                select: {
+                  Id: true,
+                  Title: true,
+                  LessonType: true,
+                },
               },
               Exam: {
-                select: { Id: true, Title: true },
+                select: {
+                  Id: true,
+                  Title: true,
+                },
               },
             },
-            orderBy: { OrderNo: 'asc' }
+            orderBy: { OrderNo: "asc" },
           },
         },
-        orderBy: { OrderNo: 'asc' }
-      },
-      Exam: {
-        select: { Id: true, Title: true },
+        orderBy: { OrderNo: "asc" },
       },
     },
   });

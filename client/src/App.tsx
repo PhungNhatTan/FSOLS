@@ -4,6 +4,7 @@ import RegisterPage from "./pages/RegisterPage";
 import CoursePage from "./pages/CoursePage";
 import CourseDetailPage from "./pages/CourseDetailPage";
 import Navbar from "./components/navbar/Navbar";
+import HomePage from "./pages/HomePage";
 
 export default function App() {
   return (
@@ -11,7 +12,7 @@ export default function App() {
       <Navbar />
       <Routes>
         {/* Home (placeholder) */}
-        <Route path="/" element={<h1 className="p-6 text-xl">Home Page</h1>} />
+        <Route path="/" element={<HomePage/>} />
 
         {/* Auth */}
         <Route path="/login" element={<LoginPage />} />

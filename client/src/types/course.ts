@@ -20,7 +20,7 @@ export interface CourseNavData {
 
 export interface Course {
   Id: number;
-  Title: string;
+  Name: string;
   Description: string;
   Instructor?: string;
   LessonCount?: number;

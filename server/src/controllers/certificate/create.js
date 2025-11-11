@@ -1,4 +1,4 @@
-import create from "../../models/certificate/create";
+import create from "../../models/certificate/index.js";
 
 export default async function createCertificate(req, res, next) {
     try {

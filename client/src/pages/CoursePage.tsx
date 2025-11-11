@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import courseApi, { type CourseDetail } from "../api/course";
-import CourseSidebar from "../components/CourseSidebar";
+import courseApi from "../api/course";
+import { type CourseDetail } from "../types/course";
 
-// Dùng type từ CourseDetail để tránh phải export thêm Course từ api
-type CourseListItem = Pick<CourseDetail, "Id" | "Title" | "Description">;
+type CourseListItem = Pick<CourseDetail, "Id" | "Name" | "Description">;
 
 export default function CoursePage() {
   const [courses, setCourses] = useState<CourseListItem[]>([]);
@@ -16,7 +15,6 @@ export default function CoursePage() {
     setError("");
     setLoading(true);
 
-    // Yêu cầu: courseApi.getAll() trả về mảng có các key: Id, Title, Description
     courseApi
       .getAll()
       .then((data: CourseListItem[]) => {
@@ -33,7 +31,6 @@ export default function CoursePage() {
 
   return (
     <div className="flex">
-      <CourseSidebar />
       <div className="p-6 max-w-3xl mx-auto flex-1">
         {error && <p className="text-red-500">{error}</p>}
         {!error && loading && <p>Loading courses...</p>}
@@ -50,7 +47,7 @@ export default function CoursePage() {
                       to={`/courses/${c.Id}`}
                       className="text-blue-600 hover:underline"
                     >
-                      {c.Title}
+                      {c.Name}
                     </Link>
                     <p className="text-gray-600 text-sm">{c.Description}</p>
                   </li>

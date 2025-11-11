@@ -1,4 +1,4 @@
-import questionBankModel from "../../models/questionBank";
+import questionBankModel from "../../models/questionBank/index.js";
 
 export default async function create(req, res, next) {
     try {

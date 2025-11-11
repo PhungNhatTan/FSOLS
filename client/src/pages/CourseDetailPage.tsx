@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import courseApi, { type CourseDetail } from "../api/course";
-import CourseSidebar from "../components/CourseSidebar";
+import courseApi from "../api/course";
+import type { CourseDetail } from "../types/course";
 
 export default function CourseDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -10,7 +10,6 @@ export default function CourseDetailPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // reset trạng thái khi đổi id
     setCourse(null);
     setError("");
     setLoading(true);
@@ -36,13 +35,12 @@ export default function CourseDetailPage() {
 
   return (
     <div className="flex">
-      <CourseSidebar />
       <div className="p-6 max-w-3xl mx-auto flex-1">
         {error && <p className="text-red-500">{error}</p>}
         {!error && loading && <p>Loading course...</p>}
         {!loading && !error && course && (
           <>
-            <h1 className="text-2xl font-bold mb-3">{course.Title}</h1>
+            <h1 className="text-2xl font-bold mb-3">{course.Name}</h1>
             <p className="mb-4 text-gray-700">{course.Description}</p>
 
             <h2 className="text-lg font-semibold mb-2">Lessons</h2>
