@@ -1,11 +1,16 @@
 import { Router } from "express";
 
+// public route import 
 import accountRoutes from "./public/accountRoute.js";
 import userCertificateRoutes from "./public/userCertificateRoute.js";
 import specializationCourseRoutes from "./public/specializationCourseRoute.js";
 
+// manage route import
 import certificateRoutesManage from "./manage/certificateRoute.js";
+import questionBankRoutesManage from "./manage/questionBankRoute.js";
+import courseRouteManage from "./manage/courseRoute.js";
 
+// old
 import courseRoutes from "./courseRoute.js";
 import certificateRoute from "./certificateRoute.js";
 import lessonRoute from "./lessonRoute.js";
@@ -37,6 +42,8 @@ router.use("/api/examSubmission", examSubmissionRoute);
 // manage
 
 router.use("/api/manage/certificate", certificateRoutesManage);
+router.use("/api/manage/questionBank", questionBankRoutesManage);
+router.use("/api/manage/course", courseRouteManage);
 
 // admin
 

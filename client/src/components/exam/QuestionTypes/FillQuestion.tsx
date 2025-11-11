@@ -1,13 +1,7 @@
 import type { ChangeEvent } from "react";
-import type { QuestionData, QuestionValue } from "./types";
+import type { QuestionTypeProps } from "../../../types";
 
-interface FillQuestionProps {
-  question: QuestionData;
-  value: QuestionValue | null;
-  onChange: (questionId: string, data: Partial<QuestionValue>) => void;
-}
-
-export default function FillQuestion({ question, value, onChange }: FillQuestionProps) {
+export default function FillQuestion({ question, value, onChange }: QuestionTypeProps) {
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     onChange(question.QuestionBankId, { answer: e.target.value });
   };
@@ -17,7 +11,7 @@ export default function FillQuestion({ question, value, onChange }: FillQuestion
       <p className="font-semibold mb-2">{question.QuestionText}</p>
       <input
         type="text"
-        className="border p-2 w-full"
+        className="border p-2 w-full rounded"
         value={value?.answer || ""}
         onChange={handleChange}
       />

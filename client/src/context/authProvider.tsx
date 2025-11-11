@@ -1,54 +1,40 @@
+// src/context/authProvider.tsx
 import { type ReactNode, useEffect, useState } from "react";
-import { jwtDecode } from "jwt-decode";
-import { getToken, logout } from "../api/auth";
+import { decodeToken, logout as clearAuth } from "../utils/auth";
 import { AuthContext, type User } from "./authContext";
-
-interface TokenPayload {
-  accountId: string;
-  username: string;
-  role?: string;
-  exp: number;
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    const checkAuth = () => {
-      const token = getToken();
-      if (!token) return setUser(null);
+    const updateAuth = () => {
+      const decoded = decodeToken();
+      if (!decoded) return setUser(null);
 
-      try {
-        const decoded = jwtDecode<TokenPayload>(token);
-        const now = Math.floor(Date.now() / 1000);
-
-        if (decoded.exp && decoded.exp < now) {
-          handleLogout();
-        } else {
-          setUser({
-            accountId: decoded.accountId,
-            username: decoded.username,
-            role: decoded.role ?? "Student",
-          });
-        }
-      } catch {
+      const now = Math.floor(Date.now() / 1000);
+      if (decoded.exp && decoded.exp < now) {
         handleLogout();
+      } else {
+        setUser({
+          accountId: decoded.accountId,
+          username: decoded.username,
+          role: decoded.role ?? "Student",
+        });
       }
     };
 
-    const handleChange = () => checkAuth();
-    window.addEventListener("tokenChanged", handleChange);
-    window.addEventListener("storage", handleChange);
-    checkAuth();
+    window.addEventListener("tokenChanged", updateAuth);
+    window.addEventListener("storage", updateAuth);
+    updateAuth();
 
     return () => {
-      window.removeEventListener("tokenChanged", handleChange);
-      window.removeEventListener("storage", handleChange);
+      window.removeEventListener("tokenChanged", updateAuth);
+      window.removeEventListener("storage", updateAuth);
     };
   }, []);
 
   const handleLogout = () => {
-    logout();
+    clearAuth();
     setUser(null);
   };
 
