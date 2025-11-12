@@ -1,40 +1,27 @@
 import prisma from '../../prismaClient.js';
 
 export default async function get(id) {
-  return prisma.course.findUnique({
+  const course = await prisma.course.findUnique({
     where: { Id: Number(id) },
     select: {
       Id: true,
       Name: true,
       Description: true,
-      CreatedAt: true,
       CourseModule: {
         select: {
           Id: true,
           OrderNo: true,
           ModuleItems: {
             select: {
-              Id: true,
               OrderNo: true,
-              CourseLesson: {
-                select: {
-                  Id: true,
-                  Title: true,
-                  LessonType: true,
-                },
-              },
-              Exam: {
-                select: {
-                  Id: true,
-                  Title: true,
-                },
-              },
+              CourseLesson: { select: { Id: true, Title: true } },
+              Exam: { select: { Id: true, Title: true } },
             },
-            orderBy: { OrderNo: "asc" },
           },
         },
-        orderBy: { OrderNo: "asc" },
       },
     },
   });
+
+  return course;
 }

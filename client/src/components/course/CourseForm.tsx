@@ -8,7 +8,7 @@ interface Props {
 }
 
 const CourseForm: React.FC<Props> = ({ course, onSaved }) => {
-    const [name, setName] = useState(course?.Title || "");
+    const [name, setName] = useState(course?.Name || "");
     const [description, setDescription] = useState(course?.Description || "");
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -16,9 +16,9 @@ const CourseForm: React.FC<Props> = ({ course, onSaved }) => {
         try {
             let savedCourse: Course;
             if (course) {
-                savedCourse = await update(course.Id, { Title: name, Description: description });
+                savedCourse = await update(course.Id, { Name: name, Description: description });
             } else {
-                savedCourse = await create({ Title: name, Description: description });
+                savedCourse = await create({ Name: name, Description: description });
             }
             onSaved?.(savedCourse);
         } catch (err) {

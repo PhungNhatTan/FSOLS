@@ -5,6 +5,7 @@ import CoursePage from "./pages/CoursePage";
 import CourseDetailPage from "./pages/CourseDetailPage";
 import Navbar from "./components/navbar/Navbar";
 import HomePage from "./pages/HomePage";
+import { CourseStudyPage } from "./pages";
 
 export default function App() {
   return (
@@ -18,7 +19,9 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         {<Route path="/register" element={<RegisterPage />} />}
 
-        {/* Exam */}
+        {/* StudyPage */}
+        <Route path="/lesson/:lid" element={< CourseStudyPage/>}/>
+        <Route path="/exam/:lid" element={< CourseStudyPage/>}/>
 
         {/* Course */}
         <Route path="/courses" element={<CoursePage />} />

@@ -34,7 +34,7 @@ const CourseList: React.FC<Props> = ({ courses, onEdit, onDeleted }) => {
         {courses.map(c => (
           <tr key={c.Id}>
             <td className="border px-2">{c.Id}</td>
-            <td className="border px-2">{c.Title}</td>
+            <td className="border px-2">{c.Name}</td>
             <td className="border px-2">{c.Description}</td>
             <td className="border px-2 space-x-2">
               <button onClick={() => onEdit?.(c)} className="bg-yellow-500 text-white px-2 rounded">Edit</button>

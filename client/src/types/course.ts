@@ -22,14 +22,34 @@ export interface Course {
   Id: number;
   Name: string;
   Description: string;
-  Instructor?: string;
-  LessonCount?: number;
 }
 
 export interface CourseDetail extends Course {
-  Lessons: LessonSummary[];
+  Lessons: LessonSummary[][]; // nested arrays
+  Exams: Exam[][];            // nested arrays
 }
 
 export interface CourseStudyContext {
   courseId: string | undefined;
+}
+
+export interface RawModuleItem {
+  Id: number;
+  OrderNo: number;
+  CourseLesson?: LessonSummary | null;
+  Exam?: Exam | null;
+}
+
+export interface RawCourseModule {
+  Id: number;
+  OrderNo: number;
+  ModuleItems: RawModuleItem[];
+}
+
+export interface RawCourseDetail {
+  Id: number;
+  Name: string;
+  Description: string;
+  Lessons?: LessonSummary[]; // flattened by backend
+  Exams?: Exam[];             // flattened by backend
 }
