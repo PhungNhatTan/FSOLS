@@ -1,6 +1,7 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { register, type AuthData, type AuthResponse } from "../api/auth";
+import { register } from "../api/auth";
+import { type AuthData, type AuthResponse } from "../types/auth";
 
 export default function RegisterPage() {
   const [form, setForm] = useState<AuthData>({ username: "", password: "" });

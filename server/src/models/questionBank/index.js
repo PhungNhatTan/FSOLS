@@ -1,4 +1,4 @@
-// import create from './create.js';
+import create from './create.js';
 import get from './get.js';
 import getByCourse from './getByCourse.js';
 import getByLesson from './getByLesson.js';
@@ -7,7 +7,7 @@ import getByLesson from './getByLesson.js';
 // import remove from './delete.js';
 
 export default {
-//   create,
+  create,
   get,
   getByCourse,
   getByLesson,

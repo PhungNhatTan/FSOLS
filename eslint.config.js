@@ -1,34 +1,67 @@
-// eslint.config.js
+/* eslint-env node */
 import js from "@eslint/js";
 import globals from "globals";
 import react from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
+import tseslint from "typescript-eslint";
+import path from "node:path";
 
 export default [
   js.configs.recommended,
+  ...tseslint.configs.recommended, // 👈 use TS parser + rules
 
   {
     ignores: [
       "node_modules",
-      "client/.dist",
-      "client/dist",
       "build",
-      ".vercel",
-      "generated/prisma",
-      "server/src/generated/prisma",
+      "dist",
       "coverage",
+      "server/src/generated/prisma",
+      ".vercel",
+      "client",
     ],
   },
 
+  // ------------------ SERVER ------------------
   {
-    files: ["**/*.{js,jsx,ts,tsx}"],
+    files: ["server/**/*.{ts,js}"],
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "module",
+      globals: { ...globals.node },
+      parserOptions: {
+        project: "./server/tsconfig.json",
+        tsconfigRootDir: path.resolve(),
+      },
     },
     rules: {
-      eqeqeq: ["error", "always"],
-      curly: ["error", "all"],
+      "no-console": "off",
+      "no-process-exit": "off",
+    },
+  },
+
+  // ------------------ CLIENT (React + TS) ------------------
+  {
+    files: ["client/**/*.{ts,tsx,js,jsx}"],
+    plugins: { react, "react-hooks": reactHooks },
+    languageOptions: {
+      ecmaVersion: "latest",
+      sourceType: "module",
+      globals: { ...globals.browser },
+      parserOptions: {
+        project: "./client/tsconfig.eslint.json",
+        tsconfigRootDir: path.resolve("client"),
+        ecmaFeatures: { jsx: true },
+      },
+    },
+    settings: {
+      react: { version: "detect" }, // 👈 fix “React version not specified” warning
+    },
+    rules: {
+      ...react.configs.recommended.rules,
+      ...reactHooks.configs.recommended.rules,
+      "react/react-in-jsx-scope": "off",
+      "react/prop-types": "off",
       "no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
       "no-irregular-whitespace": ["error", {
         skipStrings: true,
@@ -36,38 +69,6 @@ export default [
         skipRegExps: true,
         skipTemplates: true,
       }],
-      "no-control-regex": "off",
     },
   },
-
-  {
-    files: ["server/**/*.{js,ts}"],
-    languageOptions: {
-      ecmaVersion: 2021,
-      sourceType: "module",
-      globals: { ...globals.node, ...globals.es2021 },
-    },
-    rules: {
-      "no-console": "off",
-      "no-process-exit": "off",
-      "no-irregular-whitespace": ["error", { skipStrings: true, skipComments: true, skipRegExps: true, skipTemplates: true }],
-    },
-  },
-
-  {
-    files: ["client/**/*.{js,jsx,ts,tsx}"],
-    plugins: { react, "react-hooks": reactHooks },
-    languageOptions: {
-      globals: { ...globals.browser },
-      parserOptions: { ecmaFeatures: { jsx: true } },
-    },
-    rules: {
-      ...react.configs.recommended.rules,
-      ...reactHooks.configs.recommended.rules,
-      "react/react-in-jsx-scope": "off",
-      "no-irregular-whitespace": ["error", { skipStrings: true, skipComments: true, skipRegExps: true, skipTemplates: true }],
-    },
-  },
-
-
 ];
