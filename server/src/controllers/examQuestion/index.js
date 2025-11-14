@@ -1,4 +1,4 @@
-// import create from './create.js';
+import create from './create.js';
 // import get from './get.js';
 import getForExam from "./getForExam.js";
 // import getAll from './getAll.js';
@@ -6,7 +6,7 @@ import getForExam from "./getForExam.js";
 // import remove from './delete.js';
 
 export default {
-    //   create,
+      create,
     //   get,
     getForExam,
     //   getAll,

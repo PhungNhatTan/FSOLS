@@ -9,6 +9,7 @@ import specializationCourseRoutes from "./public/specializationCourseRoute.js";
 import certificateRoutesManage from "./manage/certificateRoute.js";
 import questionBankRoutesManage from "./manage/questionBankRoute.js";
 import courseRouteManage from "./manage/courseRoute.js";
+import examQuestionRouteManage from "./manage/examQuestionRoute.js";
 
 // old
 import courseRoutes from "./courseRoute.js";
@@ -44,6 +45,7 @@ router.use("/api/examSubmission", examSubmissionRoute);
 router.use("/api/manage/certificate", certificateRoutesManage);
 router.use("/api/manage/questionBank", questionBankRoutesManage);
 router.use("/api/manage/course", courseRouteManage);
+router.use("/api/manage/examQuestion", examQuestionRouteManage);
 
 // admin
 
