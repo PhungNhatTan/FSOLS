@@ -142,7 +142,7 @@ function saveAuth(token: string | undefined, user: LiteUser) {
     if (typeof localStorage === "undefined") return;
     if (user) localStorage.setItem(USER_KEY, JSON.stringify(user)); else localStorage.removeItem(USER_KEY);
     if (token) localStorage.setItem(TOKEN_KEY, token); else localStorage.removeItem(TOKEN_KEY);
-  } catch {}
+  } catch { }
 }
 
 // [BE] Expected API
@@ -153,7 +153,7 @@ function saveAuth(token: string | undefined, user: LiteUser) {
 
 type LoginPayload = { email: string; password: string };
 const authApi = {
-  async login(payload: LoginPayload): Promise<{ user: LiteUser; token?: string }>{
+  async login(payload: LoginPayload): Promise<{ user: LiteUser; token?: string }> {
     // Try real BE first
     try {
       const res = await fetch("/auth/login", {
@@ -166,12 +166,12 @@ const authApi = {
         const data: any = await res.json().catch(() => ({}));
         return { user: data.user ?? { email: payload.email }, token: data.accessToken };
       }
-    } catch {}
+    } catch { }
     // Demo fallback for local dev without BE
     return { user: { email: payload.email, name: payload.email.split("@")[0] }, token: "demo-token" };
   },
   async logout() {
-    try { await fetch("/auth/logout", { method: "POST", credentials: "include" }); } catch {}
+    try { await fetch("/auth/logout", { method: "POST", credentials: "include" }); } catch { }
   },
 };
 
@@ -204,9 +204,9 @@ const starRow = (rating: number) => {
   const half = rating - full >= 0.5;
   const total = 5;
   const nodes: React.ReactNode[] = [];
-  for (let i = 0; i < full; i++) nodes.push(<span key={"f"+i}>★</span>);
+  for (let i = 0; i < full; i++) nodes.push(<span key={"f" + i}>★</span>);
   if (half) nodes.push(<span key="h">☆</span>);
-  for (let i = nodes.length; i < total; i++) nodes.push(<span key={"e"+i}>☆</span>);
+  for (let i = nodes.length; i < total; i++) nodes.push(<span key={"e" + i}>☆</span>);
   return <span className="text-yellow-500">{nodes}</span>;
 };
 
@@ -551,8 +551,8 @@ function AuthActions() {
         {open && (
           <form onSubmit={onSubmit} className="absolute right-0 mt-2 w-72 rounded-2xl bg-white p-4 text-slate-900 shadow-xl">
             <div className="font-semibold mb-2">Đăng nhập</div>
-            <input value={email} onChange={(e)=>setEmail(e.target.value)} type="email" required placeholder="Email" className="w-full mb-2 px-3 py-2 rounded-lg border" />
-            <input value={password} onChange={(e)=>setPassword(e.target.value)} type="password" required placeholder="Mật khẩu" className="w-full mb-3 px-3 py-2 rounded-lg border" />
+            <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required placeholder="Email" className="w-full mb-2 px-3 py-2 rounded-lg border" />
+            <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" required placeholder="Mật khẩu" className="w-full mb-3 px-3 py-2 rounded-lg border" />
             {err && <div className="text-sm text-red-600 mb-2">{err}</div>}
             <button disabled={loading} type="submit" className="w-full px-3 py-2 rounded-lg bg-indigo-600 text-white font-medium disabled:opacity-60">{loading ? "Đang đăng nhập..." : "Đăng nhập"}</button>
             <div className="mt-2 text-xs text-slate-500">*BE: /auth/login trả JWT (cookie hoặc body).</div>

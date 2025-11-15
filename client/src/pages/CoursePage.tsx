@@ -1,62 +1,109 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import courseApi from "../api/course";
-import { type CourseDetail } from "../types/course";
 
-type CourseListItem = Pick<CourseDetail, "Id" | "Name" | "Description">;
+/** Kiểu dữ liệu rút gọn cho list */
+type CourseListItem = { Id: number; Name: string; Description?: string };
+
+/** Fallback demo khi API lỗi */
+const MOCK_COURSES: CourseListItem[] = [
+  { Id: 1001, Name: "React + TS A-Z", Description: "Khoá học thực chiến" },
+  { Id: 1002, Name: "Python Data", Description: "Phân tích dữ liệu cơ bản" },
+];
 
 export default function CoursePage() {
   const [courses, setCourses] = useState<CourseListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    let mounted = true;
-    setError("");
+  const load = async () => {
     setLoading(true);
+    setError("");
+    try {
+      // BE của bạn: courseApi.getAll() -> GET /course
+      const data = await courseApi.getAll();
+      // Nếu BE trả kiểu khác, map về {Id,Name,Description} tại đây
+      setCourses((data as any[]).map((x) => ({
+        Id: x.Id ?? x.id,
+        Name: x.Name ?? x.name ?? x.Title ?? "Untitled",
+        Description: x.Description ?? x.description ?? "",
+      })));
+    } catch (e) {
+      setError("Failed to load courses");
+      setCourses([]); // clear để thấy banner lỗi + nút demo
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    courseApi
-      .getAll()
-      .then((data: CourseListItem[]) => {
-        if (!mounted) return;
-        setCourses(data);
-      })
-      .catch(() => mounted && setError("Failed to load courses"))
-      .finally(() => mounted && setLoading(false));
-
-    return () => {
-      mounted = false;
-    };
+  useEffect(() => {
+    load();
   }, []);
 
   return (
-    <div className="flex">
-      <div className="p-6 max-w-3xl mx-auto flex-1">
-        {error && <p className="text-red-500">{error}</p>}
-        {!error && loading && <p>Loading courses...</p>}
-        {!loading && !error && (
-          <>
-            <h1 className="text-2xl font-bold mb-4">Courses</h1>
-            {courses.length === 0 ? (
-              <p>No courses found.</p>
-            ) : (
-              <ul className="space-y-2">
-                {courses.map((c) => (
-                  <li key={c.Id} className="border rounded p-3 hover:bg-gray-50">
-                    <Link
-                      to={`/courses/${c.Id}`}
-                      className="text-blue-600 hover:underline"
-                    >
-                      {c.Name}
-                    </Link>
-                    <p className="text-gray-600 text-sm">{c.Description}</p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </>
-        )}
+    <div className="max-w-5xl mx-auto px-4 py-6">
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold">Courses</h1>
+
+        {/* Thanh action luôn hiện (kể cả khi lỗi) */}
+        <div className="flex gap-2">
+          <button
+            onClick={load}
+            className="px-3 py-2 rounded-lg border hover:bg-slate-50"
+          >
+            Thử lại
+          </button>
+          <button
+            onClick={() => { setCourses(MOCK_COURSES); setError(""); setLoading(false); }}
+            className="px-3 py-2 rounded-lg bg-indigo-600 text-white hover:opacity-90"
+          >
+            Dùng dữ liệu demo
+          </button>
+        </div>
       </div>
+
+      {loading && <p>Loading courses...</p>}
+
+      {!loading && error && (
+        <div className="mb-4 text-red-500">{error}</div>
+      )}
+
+      {!loading && courses.length === 0 && !error && (
+        <p>Không có khóa học.</p>
+      )}
+
+      {!loading && courses.length > 0 && (
+        <ul className="space-y-3">
+          {courses.map((c) => (
+            <li
+              key={c.Id}
+              className="flex items-start justify-between gap-3 border rounded-xl p-4 hover:bg-slate-50"
+            >
+              <div>
+                <Link
+                  to={`/courses/${c.Id}`}
+                  className="text-indigo-600 font-medium hover:underline"
+                >
+                  {c.Name}
+                </Link>
+                {c.Description && (
+                  <p className="text-slate-600 text-sm">{c.Description}</p>
+                )}
+              </div>
+
+              {/* Nút Manage — luôn hiện để bạn demo */}
+              <div className="shrink-0">
+                <Link
+                  to={`/courses/${c.Id}/manage`}
+                  className="px-3 py-2 rounded-lg border hover:bg-slate-100 text-sm"
+                >
+                  Manage
+                </Link>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

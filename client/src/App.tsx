@@ -1,32 +1,31 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+// App.tsx
+import { HashRouter as Router, Routes, Route } from "react-router-dom";
+import Navbar from "./components/navbar/Navbar";
+import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import CoursePage from "./pages/CoursePage";
 import CourseDetailPage from "./pages/CourseDetailPage";
-import Navbar from "./components/navbar/Navbar";
-import HomePage from "./pages/HomePage";
+import CourseManagePage from "./pages/CourseManagePage";
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <Router>
       <Navbar />
       <Routes>
-        {/* Home (placeholder) */}
-        <Route path="/" element={<HomePage/>} />
+        <Route path="/" element={<HomePage />} />
+
+        {/* Courses */}
+        <Route path="/courses" element={<CoursePage />} />
+        <Route path="/courses/:id" element={<CourseDetailPage />} />
+        <Route path="/courses/:id/manage" element={<CourseManagePage />} /> {/* ✅ */}
 
         {/* Auth */}
         <Route path="/login" element={<LoginPage />} />
-        {<Route path="/register" element={<RegisterPage />} />}
+        <Route path="/register" element={<RegisterPage />} />
 
-        {/* Exam */}
-
-        {/* Course */}
-        <Route path="/courses" element={<CoursePage />} />
-        <Route path="/courses/:id" element={<CourseDetailPage />} />
-
-        {/* Catch-all (404) */}
         <Route path="*" element={<h1 className="p-6 text-red-500">404 Not Found</h1>} />
       </Routes>
-    </BrowserRouter>
+    </Router>
   );
 }
