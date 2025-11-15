@@ -1,10 +1,10 @@
-import type { LessonSummary } from "./lesson";
+import type {  } from "./lesson";
 import type { Exam } from "./exam";
 
 export interface ModuleItem {
   Id: number;
   OrderNo: number;
-  CourseLesson?: LessonSummary | null;
+  CourseLesson?:  | null;
   Exam?: Exam | null;
 }
 
@@ -27,7 +27,7 @@ export interface Course {
 }
 
 export interface CourseDetail extends Course {
-  Lessons: LessonSummary[];
+  Lessons: [];
 }
 
 export interface CourseStudyContext {
