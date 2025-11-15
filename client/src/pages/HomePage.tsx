@@ -601,7 +601,7 @@ export const __selfTest = () => {
   // Auth helpers
   const hdr = buildAuthHeaders("token123");
   assert((hdr as any).Authorization === "Bearer token123", "buildAuthHeaders should format Authorization header");
-  // Data presence (free courses — durations must be positive)
+  // Data presence (free courses — durations must be positives)
   assert(FEATURED.every(c => c.durationHours > 0 && c.lessons > 0), "Featured durations/lessons must be > 0");
   return true;
 };
