@@ -9,7 +9,7 @@ export default async function createAccount({ username, displayName, identifier,
         create: {
           Identifier: identifier,
           Secret: password, 
-          ProviderId: providerId, 
+          Provider: { connect: { Id: providerId } }, 
         },
       },
     },

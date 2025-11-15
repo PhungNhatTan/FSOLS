@@ -5,7 +5,6 @@ export default async function create(data) {
     data: {
       Title: data.Title,
       Description: data.Description,
-      CourseId: data.CourseId,
       DurationPreset: data.DurationPreset,
       DurationCustom: data.DurationCustom,
       ModuleItem: {

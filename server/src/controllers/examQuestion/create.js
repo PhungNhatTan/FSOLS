@@ -6,7 +6,7 @@ export default async function createExam(req, res) {
 
     if (mode === "useQB"){
         const {questionId } = data;
-        const examQuestion = await create.create(examId, questionId);
+        const examQuestion = await examQuestionModel.create(examId, questionId);
         return res.status(201).json({ "Question added successfully": examQuestion });
     };
 
