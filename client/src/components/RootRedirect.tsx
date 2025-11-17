@@ -7,7 +7,7 @@ export default function RootRedirect() {
 
   if (!user) return <Navigate to="/home" replace />;      // guest
 
-  if (user.role === "Mentor") return <Navigate to="/dashboard" replace />;
+  if (user.role === "Mentor") return <Navigate to="/manage/dashboard" replace />;
 
   return <Navigate to="/home" replace />;                 // student or other
 }

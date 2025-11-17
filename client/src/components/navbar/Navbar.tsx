@@ -22,13 +22,17 @@ export default function Navbar() {
 
       {/* Links for all users */}
       <div className="flex gap-5 items-center">
-        <Link to="/courses" className="hover:text-green-400">
-          My Courses
-        </Link>
+
+        {/* Student-only Courses link */}
+        {user && user.role === "Student" && (
+          <Link to="/courses" className="hover:text-green-400">
+            My Courses
+          </Link>
+        )}
 
         {/* Mentor-only Dashboard link */}
         {user && user.role === "Mentor" && (
-          <Link to="/dashboard" className="hover:text-green-400">
+          <Link to="manage/dashboard" className="hover:text-green-400">
             Dashboard
           </Link>
         )}
