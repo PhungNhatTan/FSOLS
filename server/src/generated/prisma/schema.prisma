@@ -67,6 +67,8 @@ model Mentor {
   AccountId String  @id
   Account   Account @relation(fields: [AccountId], references: [Id])
 
+  courses Course[]
+
   // Active check
   CreatedAt DateTime  @default(now())
   DeletedAt DateTime?
@@ -90,10 +92,8 @@ model Course {
   Name        String
   Description String
 
-  // Self-reference
-  // PrerequisiteId Int?
-  // Prerequisite   Course?  @relation("pre", fields: [PrerequisiteId], references: [Id])
-  // NextCourse     Course[] @relation("pre")
+  CreatedById String
+  CreatedBy   Mentor @relation(fields: [CreatedById], references: [AccountId])
 
   Certificate          Certificate?
   CourseModule         CourseModule[]
