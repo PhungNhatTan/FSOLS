@@ -1,8 +1,18 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { useEffect, useMemo, useState } from "react";
 
 // ======================================
-// HOMEPAGE —  (BE-ready)
+// HOMEPAGE — Free Courses + JWT Login (BE-ready)
+// Fixes:
+//  - ✅ Remove external useAuth import
+//  - ✅ Add JWT-ready login form
+//  - ✅ Fix ESLint: no-empty (add noop), no-explicit-any (remove),
+//  - ✅ Fix ESLint: react-refresh/only-export-components (disable at file top)
+//  - ✅ Keep/expand self tests without using Node's process any-cast
+// ======================================
 
+// ==========================
+// TYPES
 // ==========================
 export type Category = { id: number; name: string; slug: string; courseCount: number };
 export type CourseCard = {
@@ -125,24 +135,39 @@ export const buildHref = (path: string, mode: RoutingMode = ROUTING_MODE) => mod
 // ==========================
 // AUTH — JWT-ready shim (no external hook)
 // ==========================
-export type LiteUser = { id?: number | string; name?: string; email?: string } | null;
+export type LiteUser = { id?: number | string; name?: string | null; email?: string | null } | null;
 const USER_KEY = "fsols:user";
 const TOKEN_KEY = "fsols:token";
 
-export const buildAuthHeaders = (token?: string) => token ? ({ Authorization: `Bearer ${token}` }) : ({} as Record<string, string>);
+export const buildAuthHeaders = (token?: string) => token ? ({ Authorization: `Bearer ${token}` } as Record<string, string>) : ({} as Record<string, string>);
 
 function getStoredUser(): LiteUser {
-  try { return typeof localStorage === "undefined" ? null : (localStorage.getItem(USER_KEY) ? JSON.parse(localStorage.getItem(USER_KEY) as string) : null); } catch { return null; }
+  try {
+    if (typeof localStorage === "undefined") return null;
+    const raw = localStorage.getItem(USER_KEY);
+    return raw ? (JSON.parse(raw) as LiteUser) : null;
+  } catch {
+    /* noop */
+    return null;
+  }
 }
 function getStoredToken(): string | null {
-  try { return typeof localStorage === "undefined" ? null : (localStorage.getItem(TOKEN_KEY)); } catch { return null; }
+  try {
+    if (typeof localStorage === "undefined") return null;
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    /* noop */
+    return null;
+  }
 }
 function saveAuth(token: string | undefined, user: LiteUser) {
   try {
     if (typeof localStorage === "undefined") return;
     if (user) localStorage.setItem(USER_KEY, JSON.stringify(user)); else localStorage.removeItem(USER_KEY);
     if (token) localStorage.setItem(TOKEN_KEY, token); else localStorage.removeItem(TOKEN_KEY);
-  } catch {}
+  } catch {
+    /* noop */
+  }
 }
 
 // [BE] Expected API
@@ -153,7 +178,7 @@ function saveAuth(token: string | undefined, user: LiteUser) {
 
 type LoginPayload = { email: string; password: string };
 const authApi = {
-  async login(payload: LoginPayload): Promise<{ user: LiteUser; token?: string }>{
+  async login(payload: LoginPayload): Promise<{ user: LiteUser; token?: string }> {
     // Try real BE first
     try {
       const res = await fetch("/auth/login", {
@@ -163,15 +188,17 @@ const authApi = {
         body: JSON.stringify(payload),
       });
       if (res.ok) {
-        const data: any = await res.json().catch(() => ({}));
+        const data = (await res.json().catch(() => ({}))) as Partial<{ accessToken: string; user: LiteUser }>;
         return { user: data.user ?? { email: payload.email }, token: data.accessToken };
       }
-    } catch {}
+    } catch {
+      /* noop */
+    }
     // Demo fallback for local dev without BE
     return { user: { email: payload.email, name: payload.email.split("@")[0] }, token: "demo-token" };
   },
   async logout() {
-    try { await fetch("/auth/logout", { method: "POST", credentials: "include" }); } catch {}
+    try { await fetch("/auth/logout", { method: "POST", credentials: "include" }); } catch { /* noop */ }
   },
 };
 
@@ -181,11 +208,11 @@ function useAuthLite() {
   useEffect(() => { setUser(getStoredUser()); setToken(getStoredToken()); }, []);
 
   const login = async (payload: LoginPayload) => {
-    const { user, token } = await authApi.login(payload);
-    saveAuth(token, user);
-    setUser(user);
-    setToken(token ?? null);
-    return user;
+    const result = await authApi.login(payload);
+    saveAuth(result.token, result.user);
+    setUser(result.user);
+    setToken(result.token ?? null);
+    return result.user;
   };
   const logout = async () => {
     await authApi.logout();
@@ -196,6 +223,8 @@ function useAuthLite() {
   return { user, token, login, logout } as const;
 }
 
+const displayName = (u: LiteUser) => (u?.name ?? u?.email ?? "User");
+
 // ==========================
 // UTILS (stars)
 // ==========================
@@ -204,16 +233,16 @@ const starRow = (rating: number) => {
   const half = rating - full >= 0.5;
   const total = 5;
   const nodes: React.ReactNode[] = [];
-  for (let i = 0; i < full; i++) nodes.push(<span key={"f"+i}>★</span>);
+  for (let i = 0; i < full; i++) nodes.push(<span key={"f" + i}>★</span>);
   if (half) nodes.push(<span key="h">☆</span>);
-  for (let i = nodes.length; i < total; i++) nodes.push(<span key={"e"+i}>☆</span>);
+  for (let i = nodes.length; i < total; i++) nodes.push(<span key={"e" + i}>☆</span>);
   return <span className="text-yellow-500">{nodes}</span>;
 };
 
 // ==========================
 // ROUTER-AGNOSTIC LINK
 // ==========================
-function AnchorLink({ to, children, ...rest }: { to: string; children: React.ReactNode } & any) {
+function AnchorLink({ to, children, ...rest }: { to: string; children: React.ReactNode } & Record<string, unknown>) {
   return <a href={buildHref(to)} {...rest}>{children}</a>;
 }
 
@@ -243,15 +272,14 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 overflow-x-hidden">
       {/* HERO */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 opacity-90" />
-        <div className="relative z-10 max-w-7xl mx-auto px-4 py-24 text-white">
-          {/* [AUTH] khu vực auth */}
-          <div className="flex justify-end">
-            <AuthActions />
-          </div>
+      
+      <section className="relative w-full overflow-hidden bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500">
+  <div className="relative z-10 max-w-7xl mx-auto px-4 py-24 text-white">
+    <div className="flex justify-end">
+      <AuthActions />
+    </div>
 
           <p className="text-sm uppercase tracking-widest/relaxed mb-4 opacity-90">FSOLS Academy</p>
           <h1 className="text-4xl md:text-6xl font-extrabold leading-tight">
@@ -538,8 +566,9 @@ function AuthActions() {
     try {
       await login({ email, password });
       setOpen(false); setEmail(""); setPassword("");
-    } catch (e: any) {
-      setErr(e?.message || "Đăng nhập thất bại");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Đăng nhập thất bại";
+      setErr(msg);
     } finally { setLoading(false); }
   };
 
@@ -551,8 +580,8 @@ function AuthActions() {
         {open && (
           <form onSubmit={onSubmit} className="absolute right-0 mt-2 w-72 rounded-2xl bg-white p-4 text-slate-900 shadow-xl">
             <div className="font-semibold mb-2">Đăng nhập</div>
-            <input value={email} onChange={(e)=>setEmail(e.target.value)} type="email" required placeholder="Email" className="w-full mb-2 px-3 py-2 rounded-lg border" />
-            <input value={password} onChange={(e)=>setPassword(e.target.value)} type="password" required placeholder="Mật khẩu" className="w-full mb-3 px-3 py-2 rounded-lg border" />
+            <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required placeholder="Email" className="w-full mb-2 px-3 py-2 rounded-lg border" />
+            <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" required placeholder="Mật khẩu" className="w-full mb-3 px-3 py-2 rounded-lg border" />
             {err && <div className="text-sm text-red-600 mb-2">{err}</div>}
             <button disabled={loading} type="submit" className="w-full px-3 py-2 rounded-lg bg-indigo-600 text-white font-medium disabled:opacity-60">{loading ? "Đang đăng nhập..." : "Đăng nhập"}</button>
             <div className="mt-2 text-xs text-slate-500">*BE: /auth/login trả JWT (cookie hoặc body).</div>
@@ -564,9 +593,9 @@ function AuthActions() {
 
   return (
     <div className="flex items-center gap-3">
-      <div className="text-sm">Xin chào, <span className="font-semibold">{(user as any).name ?? (user as any).email ?? "User"}</span></div>
+      <div className="text-sm">Xin chào, <span className="font-semibold">{displayName(user)}</span></div>
       {token && <span title="JWT available" className="text-xs opacity-80">(JWT)</span>}
-      <button onClick={() => { logout(); window.location.href = buildHref("/"); }} className="px-3 py-2 rounded-xl border border-white/70 text-white text-sm hover:bg-white/10">Đăng xuất</button>
+      <button onClick={() => { void logout(); window.location.href = buildHref("/"); }} className="px-3 py-2 rounded-xl border border-white/70 text-white text-sm hover:bg-white/10">Đăng xuất</button>
     </div>
   );
 }
@@ -585,7 +614,7 @@ function Faq({ q, a }: { q: string; a: string }) {
 }
 
 // =====================
-// SELF-CHECKS for CI (keep old + add new)
+// SELF-CHECKS for CI (expanded)
 // =====================
 export const __selfTest = () => {
   const assert = (cond: boolean, msg: string) => { if (!cond) throw new Error(msg); };
@@ -600,12 +629,18 @@ export const __selfTest = () => {
   assert(pathHref === "/courses", "Path href wrong");
   // Auth helpers
   const hdr = buildAuthHeaders("token123");
-  assert((hdr as any).Authorization === "Bearer token123", "buildAuthHeaders should format Authorization header");
+  assert(hdr.Authorization === "Bearer token123", "buildAuthHeaders should format Authorization header");
+  // Display name helper
+  assert(displayName({ name: "A", email: "a@b.c" }) === "A", "displayName prefers name");
+  assert(displayName({ name: null, email: "a@b.c" }) === "a@b.c", "displayName falls back to email");
   // Data presence (free courses — durations must be positive)
   assert(FEATURED.every(c => c.durationHours > 0 && c.lessons > 0), "Featured durations/lessons must be > 0");
   return true;
 };
 
-if (typeof process !== "undefined" && (process as any).env && (process as any).env.NODE_ENV === "test") {
+// Avoid using Node types; gate tests via globalThis with a typed shape
+type NodeEnvShape = { process?: { env?: Record<string, string | undefined> } };
+const __env = (globalThis as NodeEnvShape).process?.env;
+if (__env?.NODE_ENV === "test") {
   __selfTest();
 }
