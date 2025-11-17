@@ -1,4 +1,4 @@
-import questionBankModel from "../models/questionBank/index.js";
+import questionBankModel from "../../models/questionBank/index.js";
 
 export default async function createQuestionBankEntry(data) {
   const { questionText, type, answer, courseId, lessonId, answers } = data;
