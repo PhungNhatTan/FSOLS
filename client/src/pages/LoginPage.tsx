@@ -17,7 +17,7 @@ export default function LoginPage() {
       const result: AuthResponse = await login(form);
       if (result.token) {
         setMessage("Login successful!");
-        const redirectPath = result.roles?.includes("Mentor") ? "/dashboard" : "/";
+        const redirectPath = result.roles?.includes("Mentor") ? "/manage/dashboard" : "/";
 
         setTimeout(() => navigate(redirectPath), 800);
       } else {

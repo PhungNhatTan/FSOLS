@@ -44,20 +44,21 @@ export const getById = async (id: number): Promise<CourseDetail> => {
   };
 };
 
-export const create = async (data: Pick<Course, "Name" | "Description">): Promise<Course> => {
+export const create = async (data: { name: string; description: string }): Promise<Course> => {
   const res = await client.post<Course>("/manage/course", data);
   return res.data;
 };
 
-export const update = async (id: number, data: Partial<Pick<Course, "Name" | "Description">>): Promise<Course> => {
+export const update = async (id: number, data: { name: string; description: string }): Promise<Course> => {
   const res = await client.put<Course>(`/manage/course/${id}`, data);
   return res.data;
 };
 
-export const remove = async (id: number): Promise<Course> => {
-  const res = await client.delete<Course>(`/manage/course/${id}`);
+export const remove = async (id: number): Promise<{ Id: number } | null> => {
+  const res = await client.delete(`/manage/course/${id}`);
   return res.data;
 };
+
 
 export const course = { getAll, getById };
 export default course;

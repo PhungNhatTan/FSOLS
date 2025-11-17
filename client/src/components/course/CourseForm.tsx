@@ -14,11 +14,12 @@ const CourseForm: React.FC<Props> = ({ course, onSaved }) => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
+            const payload = { name, description }; // lowercase
             let savedCourse: Course;
             if (course) {
-                savedCourse = await update(course.Id, { Name: name, Description: description });
+                savedCourse = await update(course.Id, payload);
             } else {
-                savedCourse = await create({ Name: name, Description: description });
+                savedCourse = await create(payload);
             }
             onSaved?.(savedCourse);
         } catch (err) {

@@ -2,6 +2,7 @@
 import { HashRouter as Router, Routes, Route } from "react-router-dom";
 import Navbar from "./components/navbar/Navbar";
 
+// Public Pages
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import CoursePage from "./pages/CoursePage";
@@ -9,12 +10,18 @@ import CourseDetailPage from "./pages/CourseDetailPage";
 import LessonPage from "./components/lesson/LessonPage";
 import ExamPage from "./components/exam/ExamPage";
 
+// Mentor Pages
 import Dashboard from "./pages/mentor/Dashboard";
+import CourseManagePage from "./pages/CourseManagePage";
+
+// Auth
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/authProvider";
 
+// Layouts and Helpers
 import ManageLayout from "./layout/ManageLayout";
 import RootRedirect from "./components/RootRedirect";
+import HomePage from "./pages/HomePage";
 
 export default function App() {
   return (
@@ -29,6 +36,7 @@ export default function App() {
       <Routes>
         {/* Public */}
         <Route path="/" element={<RootRedirect />} />
+        <Route path="/home" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
 
@@ -47,6 +55,7 @@ export default function App() {
           </ProtectedRoute>
         }>
           <Route path="dashboard" element={<Dashboard />} />
+          <Route path="courses" element={<CourseManagePage />} />
         </Route>
 
         {/* 404 */}

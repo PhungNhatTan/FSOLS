@@ -2,7 +2,7 @@ import prisma from "../../prismaClient.js";
 
 const deleteCourse = async (id, date) => {
     const result = await prisma.course.updateMany({
-        where: { id, DeletedAt: null },
+        where: { Id: id, DeletedAt: null },
         data: { DeletedAt: date },
     });
 

@@ -8,7 +8,7 @@ interface SidebarItem {
 
 const sidebarItems: SidebarItem[] = [
     { name: "Overview", path: "/manage/dashboard" },
-    { name: "Courses", path: "#" },
+    { name: "Courses", path: "/manage/courses" },
     { name: "Certificates", path: "#" },
     { name: "Settings", path: "#" },
 ];
