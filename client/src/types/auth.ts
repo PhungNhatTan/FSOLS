@@ -1,5 +1,6 @@
 export interface AuthResponse {
   token?: string;
+  roles?: string[];
   message?: string;
 }
 

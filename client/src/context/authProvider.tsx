@@ -18,7 +18,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser({
           accountId: decoded.accountId,
           username: decoded.username,
-          role: decoded.role ?? "Student",
+          role: decoded.roles?.[0] ?? "Student",
         });
       }
     };

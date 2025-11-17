@@ -1,7 +1,7 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { login} from "../api/auth";
-import {type AuthData, type AuthResponse } from "../types/auth";
+import { login } from "../api/auth";
+import { type AuthData, type AuthResponse } from "../types/auth";
 
 export default function LoginPage() {
   const [form, setForm] = useState<AuthData>({ username: "", password: "" });
@@ -17,11 +17,13 @@ export default function LoginPage() {
       const result: AuthResponse = await login(form);
       if (result.token) {
         setMessage("Login successful!");
-        setTimeout(() => navigate("/courses"), 800);
+        const redirectPath = result.roles?.includes("Mentor") ? "/dashboard" : "/";
+
+        setTimeout(() => navigate(redirectPath), 800);
       } else {
         setMessage(result.message || "Login failed");
       }
-    } catch(e) {
+    } catch (e) {
       console.error(e);
       setMessage("Server error. Try again later.");
     }

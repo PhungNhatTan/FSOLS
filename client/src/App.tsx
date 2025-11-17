@@ -10,6 +10,8 @@ import CourseDetailPage from "./pages/CourseDetailPage";
 import LessonPage from "./components/lesson/LessonPage";
 import ExamPage from "./components/exam/ExamPage";
 
+import Dashboard from "./pages/mentor/Dashboard";
+
 export default function App() {
   return (
     <Router>
@@ -27,6 +29,9 @@ export default function App() {
         {/* Courses */}
         <Route path="/courses" element={<CoursePage />} />
         <Route path="/courses/:id" element={<CourseDetailPage />} />
+
+        {/* Mentor Dashboard */}
+        <Route path="/dashboard" element={<Dashboard />} />
 
         {/* 404 */}
         <Route
