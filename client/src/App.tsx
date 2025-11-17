@@ -11,11 +11,18 @@ import LessonPage from "./components/lesson/LessonPage";
 import ExamPage from "./components/exam/ExamPage";
 
 import Dashboard from "./pages/mentor/Dashboard";
+import ProtectedRoute from "./components/ProtectedRoute";
+import { AuthProvider } from "./context/authProvider";
 
 export default function App() {
   return (
     <Router>
-      <Navbar />
+      <AuthProvider>
+        <Navbar />
+        <Routes>
+          ...
+        </Routes>
+      </AuthProvider>
       <Routes>
         {/* Public */}
         <Route path="/" element={<HomePage />} />
@@ -31,7 +38,12 @@ export default function App() {
         <Route path="/courses/:id" element={<CourseDetailPage />} />
 
         {/* Mentor Dashboard */}
-        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={["Mentor"]}>
+              <Dashboard />
+            </ProtectedRoute>
+          } />
 
         {/* 404 */}
         <Route

@@ -10,21 +10,34 @@ export default function Navbar() {
     navigate("/login");
   };
 
+  // While AuthProvider is initializing, don't render user-dependent UI
+  if (user === undefined) return null;
+
   return (
     <nav className="bg-gray-900 text-white px-6 py-3 flex justify-between items-center shadow">
+      {/* Logo */}
       <Link to="/" className="text-lg font-bold hover:text-green-400">
         FSOLS
       </Link>
 
+      {/* Links for all users */}
       <div className="flex gap-5 items-center">
         <Link to="/courses" className="hover:text-green-400">
-          Courses
+          My Courses
         </Link>
 
+        {/* Mentor-only Dashboard link */}
+        {user && user.role === "Mentor" && (
+          <Link to="/dashboard" className="hover:text-green-400">
+            Dashboard
+          </Link>
+        )}
+
+        {/* Auth / Guest actions */}
         {user ? (
           <>
             <span className="text-gray-300 text-sm">
-              Hello, <b>{user.username}</b> ({user.role ?? "User"})
+              Hello, <b>{user.username}</b> ({user.role})
             </span>
             <button
               onClick={handleLogout}

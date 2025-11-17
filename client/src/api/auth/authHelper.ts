@@ -1,9 +1,9 @@
 import { jwtDecode } from "jwt-decode";
 
 interface TokenPayload {
-  accountId: string;
+  userId: string;       // match backend
   username: string;
-  role?: string;
+  roles?: string[];     // array from backend
   exp: number;
   iat: number;
 }
@@ -14,7 +14,7 @@ export function getAccountId(): string | null {
 
   try {
     const decoded = jwtDecode<TokenPayload>(token);
-    return decoded.accountId;
+    return decoded.userId;
   } catch {
     return null;
   }
