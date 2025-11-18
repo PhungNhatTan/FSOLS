@@ -3,11 +3,13 @@ import get from './get.js';
 import getAll from './getAll.js';
 import update from './update.js';
 import remove from './delete.js';
+import getByCreator from './getByCreator.js';
 
 export default {
   create,
   get,
   getAll,
+  getByCreator,
   update,
   remove,
 };

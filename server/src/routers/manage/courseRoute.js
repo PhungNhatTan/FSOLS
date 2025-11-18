@@ -5,6 +5,7 @@ import { authorize } from '../../middleware/role.js';
 
 const router = Router();
 
+router.get('/', authenticate, authorize(["Admin", "Mentor"]), course.getByCreator);
 router.post('/', authenticate, authorize(["Admin", "Mentor"]), course.create);
 router.put('/:id(\\d+)', authenticate, authorize(["Admin", "Mentor"]), course.update);
 router.delete('/:id(\\d+)', authenticate, authorize(["Admin", "Mentor"]), course.remove);

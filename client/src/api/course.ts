@@ -6,6 +6,10 @@ export const getAll = async (): Promise<Course[]> => {
   return res.data;
 };
 
+export const getByCreator = async (): Promise<Course[]> => {
+  const res = await client.get<Course[]>("/manage/course");
+  return res.data;
+};
 
 export const getById = async (id: number): Promise<CourseDetail> => {
 
