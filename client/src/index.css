@@ -2,21 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Global resets (phù hợp Tailwind) */
+/* --- Global reset: diệt khoảng trắng 8px & tràn ngang --- */
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
 html, body, #root {
   width: 100%;
   max-width: 100%;
   height: 100%;
-  margin: 0;
+  margin: 0;              /* <- xoá margin mặc định 8px của body */
   padding: 0;
-  overflow-x: hidden;     /* khóa tràn ngang */
+  overflow-x: hidden;     /* <- chặn mọi phần tử con gây tràn ngang */
+  background: #f8fafc;    /* tương đương slate-50 */
 }
 
-body {
-  display: block;         /* GỠ body flex của Vite */
-  background: #ffffff;    /* nền sáng mặc định */
-  color: #0f172a;         /* slate-900 gần với Tailwind */
-}
-
-/* Ảnh/video không tràn khung */
-img, video { max-width: 100%; height: auto; }
+img, video { display: block; max-width: 100%; height: auto; }
