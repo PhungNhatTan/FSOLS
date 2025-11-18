@@ -27,13 +27,19 @@ export default function CoursePage() {
               key={course.Id}
               className="border rounded-xl p-4 shadow hover:shadow-md transition"
             >
-              <h2 className="text-lg font-semibold mb-2">{course.Title}</h2>
-              <p className="text-sm text-gray-600 mb-1">
-                Instructor: {course.Instructor}
-              </p>
-              <p className="text-sm text-gray-700 mb-2">
-                Lessons: {course.LessonCount}
-              </p>
+              <h2 className="text-lg font-semibold mb-2">
+                {course.Name || course.Title || "Untitled Course"}
+              </h2>
+              {course.Instructor && (
+                <p className="text-sm text-gray-600 mb-1">
+                  Instructor: {course.Instructor}
+                </p>
+              )}
+              {course.LessonCount !== undefined && (
+                <p className="text-sm text-gray-700 mb-2">
+                  Lessons: {course.LessonCount}
+                </p>
+              )}
               <p className="text-gray-800 mb-4">{course.Description}</p>
               <Link
                 to={`/course/${course.Id}`}
