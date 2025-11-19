@@ -3,7 +3,7 @@ import get from './get.js';
 import getForExam from './getForExam.js';
 // import getAll from './getAll.js';
 // import update from './update.js';
-// import remove from './delete.js';
+import remove from './delete.js';
 
 export default {
   create,
@@ -11,5 +11,5 @@ export default {
   getForExam,
   //   getAll,
   //   update,
-  //   remove,
+    remove,
 };
