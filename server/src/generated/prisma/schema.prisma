@@ -104,6 +104,9 @@ model Course {
   QuestionBank         QuestionBank[]
   SpecializationCourse SpecializationCourse[]
 
+  // Verified check
+  IsVerified Boolean @default(false)
+
   // Active check
   CreatedAt DateTime  @default(now())
   DeletedAt DateTime?
@@ -121,6 +124,9 @@ model Specialization {
   SpecializationCourse SpecializationCourse[]
   CourseEnroll         CourseEnroll[]
   Certificate          Certificate?
+
+  // Verified check
+  IsVerified Boolean @default(false)
 
   // Active check
   CreatedAt DateTime  @default(now())
