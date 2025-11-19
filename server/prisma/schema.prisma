@@ -67,11 +67,14 @@ model Mentor {
   AccountId String  @id
   Account   Account @relation(fields: [AccountId], references: [Id])
 
-  courses   Course[]
-  
+  courses       Course[]
+  exams         Exam[]
+  courseLessons CourseLesson[]
+
   // Active check
-  CreatedAt DateTime  @default(now())
-  DeletedAt DateTime?
+  CreatedAt       DateTime         @default(now())
+  DeletedAt       DateTime?
+  specializations Specialization[]
 }
 
 model Admin {
@@ -92,8 +95,8 @@ model Course {
   Name        String
   Description String
 
-  CreatedById String
-  CreatedBy   Mentor @relation(fields: [CreatedById], references: [AccountId])
+  CreatedById String?
+  CreatedBy   Mentor? @relation(fields: [CreatedById], references: [AccountId])
 
   Certificate          Certificate?
   CourseModule         CourseModule[]
@@ -111,6 +114,9 @@ model Specialization {
 
   SpecializationCode String @unique
   SpecializationName String
+
+  CreatedById String?
+  CreatedBy   Mentor? @relation(fields: [CreatedById], references: [AccountId])
 
   SpecializationCourse SpecializationCourse[]
   CourseEnroll         CourseEnroll[]
@@ -184,6 +190,9 @@ model CourseLesson {
   ModuleItemId String?
   ModuleItem   ModuleItem? @relation(fields: [ModuleItemId], references: [Id])
 
+  CreatedById String?
+  CreatedBy   Mentor? @relation(fields: [CreatedById], references: [AccountId])
+
   QuestionBank QuestionBank[]
 
   // Active check
@@ -219,6 +228,9 @@ model Exam {
 
   Title       String
   Description String
+
+  CreatedById String?
+  CreatedBy   Mentor? @relation(fields: [CreatedById], references: [AccountId])
 
   // SlotId Int
   // DurationPreset DurationPreset @relation("Slot", fields: [SlotId], references: [Id])
@@ -409,6 +421,7 @@ model Post {
 enum SpecialRole {
   Mentor
   Admin
+  Moderator
 }
 
 enum QuestionType {
