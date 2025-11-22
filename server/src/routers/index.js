@@ -13,6 +13,9 @@ import examQuestionRouteManage from "./manage/examQuestionRoute.js";
 import lessonRouteManage from "./manage/lessonRoute.js";
 import examRouteManage from "./manage/examRouteManage.js";
 
+// moderator route import
+import courseRouteModerator from "./moderator/courseRoute.js";
+
 // old
 import courseRoutes from "./courseRoute.js";
 import certificateRoute from "./certificateRoute.js";
@@ -51,6 +54,9 @@ router.use("/api/manage/examQuestion", examQuestionRouteManage);
 router.use("/api/manage/lesson", lessonRouteManage)
 router.use("/api/manage/exam", examRouteManage);
 
+// moderator
+
+router.use("/api/moderator/course", courseRouteModerator);
 
 // admin
 
