@@ -14,6 +14,9 @@ import ExamPage from "./components/exam/ExamPage";
 import Dashboard from "./pages/mentor/Dashboard";
 import CourseManagePage from "./pages/CourseManagePage";
 
+// Moderator Pages
+import DashboardManager from "./pages/moderator/Dashboard";
+
 // Auth
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/authProvider";
@@ -56,6 +59,16 @@ export default function App() {
         }>
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="courses" element={<CourseManagePage />} />
+        </Route>
+
+        {/* Moderator Dashboard */}
+
+        <Route path="/moderator" element={
+          <ProtectedRoute allowedRoles={["Moderator"]}>
+            <ManageLayout />
+          </ProtectedRoute>
+        }>
+          <Route path="dashboard" element={<DashboardManager />} />
         </Route>
 
         {/* 404 */}

@@ -9,5 +9,7 @@ export default function RootRedirect() {
 
   if (user.role === "Mentor") return <Navigate to="/manage/dashboard" replace />;
 
+  if (user.role === "Moderator") return <Navigate to="/moderator/dashboard" replace />;
+
   return <Navigate to="/home" replace />;                 // student or other
 }
