@@ -5,6 +5,7 @@ import RegisterPage from "./pages/RegisterPage";
 import CoursePage from "./pages/CoursePage";
 import CourseDetailPage from "./pages/CourseDetailPage";
 import LessonPage from "./pages/LessonPage";
+import UploadLessonPage from "./pages/UploadLessonPage";
 import Navbar from "./components/Navbar";
 
 export default function App() {
@@ -26,6 +27,7 @@ export default function App() {
         <Route path="/courses" element={<CoursePage />} />
         <Route path="/course/:id" element={<CourseDetailPage />} />
         <Route path="/lesson/:id" element={<LessonPage />} />
+        <Route path="/lesson/upload" element={<UploadLessonPage />} />
 
         {/* Catch-all (404) */}
         <Route path="*" element={<h1 className="p-6 text-red-500">404 Not Found</h1>} />
