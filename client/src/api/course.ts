@@ -67,5 +67,11 @@ export const remove = async (id: number): Promise<{ Id: number } | null> => {
   return res.data;
 };
 
-const course = { getAll, getById, create, update, remove };
+export const verify = async (id: number): Promise<void> => {
+  // moderator route is mounted under /api/moderator/course on the server,
+  // client base uses same pattern as other endpoints (e.g. "/course")
+  await client.put(`/moderator/course/${id}/verify`);
+};
+
+const course = { getAll, getById, getByCreator, create, update, remove, verify };
 export default course;

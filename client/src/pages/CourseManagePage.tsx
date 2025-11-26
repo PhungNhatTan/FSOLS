@@ -382,7 +382,7 @@ function NewQuestion({ exam, onExamChange }: { exam: Exam; onExamChange: (ex: Ex
 
   return (
     <div className="space-y-3">
-      <select className="w-full px-3 py-2 rounded-xl border" value={type} onChange={(e)=>setType(e.target.value as any)}>
+      <select className="w-full px-3 py-2 rounded-xl border" value={type} onChange={(e)=>setType(e.target.value as "mcq" | "text")}>
         <option value="mcq">Multiple Choice</option>
         <option value="text">Text</option>
       </select>

@@ -12,10 +12,11 @@ import ExamPage from "./components/exam/ExamPage";
 
 // Mentor Pages
 import Dashboard from "./pages/mentor/Dashboard";
-import CourseManagePage from "./pages/CourseManagePage";
+import CourseManagePageMentor from "./pages/CourseManagePage";
 
 // Moderator Pages
 import DashboardManager from "./pages/moderator/Dashboard";
+import CourseManagePageManager from "./pages/moderator/CoursesManagePage";
 
 // Auth
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -58,7 +59,7 @@ export default function App() {
           </ProtectedRoute>
         }>
           <Route path="dashboard" element={<Dashboard />} />
-          <Route path="courses" element={<CourseManagePage />} />
+          <Route path="courses" element={<CourseManagePageMentor />} />
         </Route>
 
         {/* Moderator Dashboard */}
@@ -69,6 +70,7 @@ export default function App() {
           </ProtectedRoute>
         }>
           <Route path="dashboard" element={<DashboardManager />} />
+          <Route path="courses" element={<CourseManagePageManager />} />
         </Route>
 
         {/* 404 */}
