@@ -72,3 +72,10 @@ client/dist/
 # Placeholders
 # -------------------------------
 example/
+
+# -------------------------------
+# Ignore uploaded files
+# -------------------------------
+/server/uploads
+/server/uploads/*
+!server/uploads/.gitkeep

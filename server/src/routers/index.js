@@ -26,6 +26,9 @@ import questionBankRoute from "./questionBankRoute.js";
 import examQuestionRoute from "./examQuestionRoute.js";
 import examSubmissionRoute from "./examSubmissionRoute.js";
 
+// file upload route import
+import uploadRoute from "./uploadRoute.js";
+
 const router = Router();
 
 // public
@@ -59,5 +62,8 @@ router.use("/api/manage/exam", examRouteManage);
 router.use("/api/moderator/course", courseRouteModerator);
 
 // admin
+
+// file upload
+router.use("/api/upload", uploadRoute);
 
 export default router;
