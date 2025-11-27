@@ -1,10 +1,10 @@
-import type {  } from "./lesson";
+import type { LessonSummary } from "./lesson";
 import type { Exam } from "./exam";
 
 export interface ModuleItem {
   Id: number;
   OrderNo: number;
-  CourseLesson?:  | null;
+  CourseLesson?: LessonSummary | null;
   Exam?: Exam | null;
 }
 
@@ -25,13 +25,10 @@ export interface Course {
 }
 
 export interface CourseDetail extends Course {
-<<<<<<< HEAD
-  Lessons: LessonSummary[][]; // nested arrays
-  Exams: Exam[][];            // nested arrays
-=======
-  Lessons: [];
->>>>>>> origin/phamquanghung
+  Lessons: LessonSummary[][]; // nested arrays grouped by module
+  Exams: Exam[][]; // nested arrays grouped by module
 }
+
 
 export interface CourseStudyContext {
   courseId: string | undefined;

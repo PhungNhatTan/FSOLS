@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { create, update } from "../../api/course";
+import courseApi from "../../api/course";
 import type { Course } from "../../types";
 
 interface Props {
@@ -14,12 +14,12 @@ const CourseForm: React.FC<Props> = ({ course, onSaved }) => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const payload = { name, description }; // lowercase
+            const payload = { Name: name, Description: description };
             let savedCourse: Course;
             if (course) {
-                savedCourse = await update(course.Id, payload);
+                savedCourse = await courseApi.update(course.Id, payload);
             } else {
-                savedCourse = await create(payload);
+                savedCourse = await courseApi.create(payload);
             }
             onSaved?.(savedCourse);
         } catch (err) {

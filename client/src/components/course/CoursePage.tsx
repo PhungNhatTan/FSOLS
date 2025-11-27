@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { getByCreator } from "../../api/course";
+import courseApi from "../../api/course";
 import type { Course } from "../../types";
 import CourseList from "./CourseList";
 import CourseForm from "./CourseForm";
@@ -9,7 +9,7 @@ const CoursePage: React.FC = () => {
   const [editing, setEditing] = useState<Course | null>(null);
 
   const loadCourses = async () => {
-    const data = await getByCreator();
+    const data = await courseApi.getByCreator();
     setCourses(data);
   };
 

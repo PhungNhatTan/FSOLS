@@ -1,7 +1,7 @@
 import express from "express";
 import routes from "./routers/index.js";
 import cors from "cors";
-import { uploadsDir } from "./config/fileUpload.js";
+import { uploadsDir } from "./middleware/upload.js";
 
 const app = express();
 

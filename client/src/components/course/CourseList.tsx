@@ -1,5 +1,5 @@
 import React from "react";
-import { remove } from "../../api/course";
+import courseApi from "../../api/course";
 import type { Course } from "../../types";
 
 interface Props {
@@ -12,7 +12,7 @@ const CourseList: React.FC<Props> = ({ courses, onEdit, onDeleted }) => {
   const handleDelete = async (id: number) => {
     if (!confirm("Are you sure you want to delete this course?")) return;
     try {
-      await remove(id);
+      await courseApi.remove(id);
       onDeleted?.(id);
     } catch (err) {
       console.error(err);

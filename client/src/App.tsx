@@ -26,6 +26,7 @@ import { AuthProvider } from "./context/authProvider";
 import ManageLayout from "./layout/ManageLayout";
 import RootRedirect from "./components/RootRedirect";
 import HomePage from "./pages/HomePage";
+import UploadLessonPage from "./pages/UploadLessonPage";
 
 export default function App() {
   return (
@@ -50,7 +51,9 @@ export default function App() {
 
         {/* Courses */}
         <Route path="/courses" element={<CoursePage />} />
-        <Route path="/courses/:id" element={<CourseDetailPage />} />
+        <Route path="/course/:id" element={<CourseDetailPage />} />
+        <Route path="/lesson/:id" element={<LessonPage />} />
+        <Route path="/lesson/upload" element={<UploadLessonPage />} />
 
         {/* Mentor Dashboard */}
         <Route path="/manage" element={

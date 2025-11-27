@@ -1,4 +1,5 @@
-export type QuestionType = "MCQ" | "Fill" | "Essay" | "TF";
+import type { QuestionType } from "./exam";
+export type { QuestionType };
 
 export interface AnswerInput {
   text: string;

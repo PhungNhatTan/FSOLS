@@ -3,11 +3,13 @@ export interface ExamAnswer {
   AnswerText: string;
 }
 
+export type QuestionType = "MCQ" | "TF" | "Fill" | "Essay";
+
 export interface ExamQuestion {
   ExamQuestionId: string;
   QuestionBankId: string;
   QuestionText: string;
-  Type: "MCQ" | "TF" | "Fill" | "Essay";
+  Type: QuestionType;
   Answers: ExamAnswer[];
 }
 
@@ -29,13 +31,6 @@ export interface ExamResult {
 export interface ExamDetailWithResult {
   exam: ExamData;
   result: ExamResult | null;
-}
-
-export interface StudentAnswer {
-  questionId: string;
-  answerId?: string;
-  answerIds?: string[];
-  answer?: string;
 }
 
 export interface StudentAnswer {

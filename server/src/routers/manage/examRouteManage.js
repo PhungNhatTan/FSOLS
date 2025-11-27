@@ -1,6 +1,6 @@
 import { Router } from "express";
 import exam from "../../controllers/exam/index.js";
-import authenticate from "../../middleware/aut.js";
+import authenticate from "../../middleware/auth.js";
 import { authorize } from "../../middleware/role.js";
 
 const router = Router();
