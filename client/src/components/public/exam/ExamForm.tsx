@@ -1,5 +1,5 @@
 import Question from "./Question";
-import type { ExamFormProps } from "../../types";
+import type { ExamFormProps } from "../../../types";
 
 export default function ExamForm({
   exam,

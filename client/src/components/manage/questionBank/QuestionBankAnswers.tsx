@@ -1,4 +1,4 @@
-import type { AnswerInput } from "../../types/questionBank";
+import type { AnswerInput } from "../../../types/questionBank";
 
 interface QuestionBankAnswersProps {
   answers: AnswerInput[];

@@ -1,6 +1,7 @@
 import React from "react";
-import courseApi from "../../api/course";
-import type { Course } from "../../types";
+import { useNavigate } from "react-router-dom";
+import courseApi from "../../../api/course";
+import type { Course } from "../../../types";
 
 interface Props {
   courses: Course[];
@@ -9,6 +10,7 @@ interface Props {
 }
 
 const CourseList: React.FC<Props> = ({ courses, onEdit, onDeleted }) => {
+  const navigate = useNavigate();
   const handleDelete = async (id: number) => {
     if (!confirm("Are you sure you want to delete this course?")) return;
     try {
@@ -38,6 +40,8 @@ const CourseList: React.FC<Props> = ({ courses, onEdit, onDeleted }) => {
             <td className="border px-2">{c.Description}</td>
             <td className="border px-2 space-x-2">
               <button onClick={() => onEdit?.(c)} className="bg-yellow-500 text-white px-2 rounded">Edit</button>
+              <button onClick={() => navigate(`/manage/course/${c.Id}`)} className="bg-indigo-500 text-white px-2 rounded">Manage</button>
+              <button onClick={() => navigate(`/lesson/upload?courseId=${c.Id}`)} className="bg-green-600 text-white px-2 rounded">Upload Lesson</button>
               <button onClick={() => handleDelete(c.Id)} className="bg-red-500 text-white px-2 rounded">Delete</button>
             </td>
           </tr>

@@ -1,7 +1,7 @@
 import { useEffect, useState, type SetStateAction } from "react";
 import { useParams, useLocation } from "react-router-dom";
-import http from "../../service/http";
-import type { CourseNavData } from "../../types/course";
+import http from "../../../service/http";
+import type { CourseNavData } from "../../../types/course";
 import ModuleList from "./ModuleList";
 
 export default function CourseSidebar() {

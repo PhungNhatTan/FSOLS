@@ -1,6 +1,6 @@
-// src/components/exam/Question.tsx
-import { MCQuestion, FillQuestion, EssayQuestion } from "./QuestionTypes";
-import type { QuestionProps } from "../../types";
+// src/components/public/exam/Question.tsx
+import { MCQuestion, FillQuestion, EssayQuestion } from "./QuestionTypes/index";
+import type { QuestionProps } from "../../../types";
 
 export default function Question({ question, value, onChange }: QuestionProps) {
   switch (question.Type) {

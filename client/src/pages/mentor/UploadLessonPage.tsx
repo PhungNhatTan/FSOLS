@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import lessonApi from "../api/lesson";
-import courseApi from "../api/course";
-import type { CreateLessonData } from "../types/lesson";
-import type { RawCourseModule } from "../types/course";
-import { useAuth } from "../hooks/useAuth";
+import lessonApi from "../../api/lesson";
+import courseApi from "../../api/course";
+import type { CreateLessonData } from "../../types/lesson";
+import type { RawCourseModule } from "../../types/course";
+import { useAuth } from "../../hooks/useAuth";
 
 export default function UploadLessonPage() {
   const navigate = useNavigate();
@@ -320,4 +320,3 @@ export default function UploadLessonPage() {
     </div>
   );
 }
-

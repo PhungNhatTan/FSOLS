@@ -1,4 +1,4 @@
-import type { QuestionType, AnswerInput } from "../../types/questionBank";
+import type { QuestionType, AnswerInput } from "../../../types/questionBank";
 
 interface QuestionBankFieldsProps {
   form: {

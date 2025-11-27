@@ -1,18 +1,20 @@
 // src/App.tsx
 import { HashRouter as Router, Routes, Route } from "react-router-dom";
-import Navbar from "./components/navbar/Navbar";
+import Navbar from "./components/public/navbar/Navbar";
 
 // Public Pages
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
-import CoursePage from "./pages/CoursePage";
-import CourseDetailPage from "./pages/CourseDetailPage";
-import LessonPage from "./components/lesson/LessonPage";
-import ExamPage from "./components/exam/ExamPage";
+import LessonPage from "./components/public/lesson/LessonPage";
+import ExamPage from "./components/public/exam/ExamPage";
 
 // Mentor Pages
 import Dashboard from "./pages/mentor/Dashboard";
-import CourseManagePageMentor from "./pages/CourseManagePage";
+import CourseManagePageMentor from "./pages/mentor/CourseManagePage";
+import CoursePage from "./components/public/course/CoursePage";
+import CourseDetailPage from "./pages/CourseDetailPage";
+import QuestionBankPage from "./pages/QuestionBankPage";
+import UploadLessonPage from "./pages/mentor/UploadLessonPage";
 
 // Moderator Pages
 import DashboardManager from "./pages/moderator/Dashboard";
@@ -26,7 +28,6 @@ import { AuthProvider } from "./context/authProvider";
 import ManageLayout from "./layout/ManageLayout";
 import RootRedirect from "./components/RootRedirect";
 import HomePage from "./pages/HomePage";
-import UploadLessonPage from "./pages/UploadLessonPage";
 
 export default function App() {
   return (
@@ -52,8 +53,6 @@ export default function App() {
         {/* Courses */}
         <Route path="/courses" element={<CoursePage />} />
         <Route path="/course/:id" element={<CourseDetailPage />} />
-        <Route path="/lesson/:id" element={<LessonPage />} />
-        <Route path="/lesson/upload" element={<UploadLessonPage />} />
 
         {/* Mentor Dashboard */}
         <Route path="/manage" element={
@@ -62,11 +61,13 @@ export default function App() {
           </ProtectedRoute>
         }>
           <Route path="dashboard" element={<Dashboard />} />
-          <Route path="courses" element={<CourseManagePageMentor />} />
+          <Route path="courses" element={<CoursePage />} />
+          <Route path="course/:id" element={<CourseManagePageMentor />} />
+          <Route path="lesson/upload" element={<UploadLessonPage />} />
+          <Route path="questions" element={<QuestionBankPage />} />
         </Route>
 
         {/* Moderator Dashboard */}
-
         <Route path="/moderator" element={
           <ProtectedRoute allowedRoles={["Moderator"]}>
             <ManageLayout />

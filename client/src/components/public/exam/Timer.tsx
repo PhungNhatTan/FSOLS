@@ -1,5 +1,5 @@
-import { useTimer } from "../../hooks/useTimer";
-import type { TimerProps } from "../../types";
+import { useTimer } from "../../../hooks/useTimer";
+import type { TimerProps } from "../../../types";
 
 export default function Timer({ timeLeft, setTimeLeft, onExpire, submitted }: TimerProps) {
   useTimer(timeLeft, setTimeLeft, onExpire, submitted);

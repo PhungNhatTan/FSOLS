@@ -1,11 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import lessonApi from "../api/lesson";
-import type { CreateLessonData, Lesson as ApiLesson } from "../types/lesson";
+import LessonUploadForm from "../../components/manage/lesson/LessonUploadForm";
+import { Lesson as ApiLesson } from "../../types/lesson";
 
-/** ================================
- *  Types (nhẹ, độc lập để demo)
- *  ================================ */
 type Resource = { id: number; name: string; size?: number; url?: string };
 type Lesson = { id: number; title: string; description?: string; resources: Resource[] };
 type Module = { id: number; title: string; order: number; lessons: Lesson[]; exam?: Exam };
@@ -19,9 +16,6 @@ type Question = {
   correctIndex?: number | null;
 };
 
-/** ================================
- *  Mock stores (demo, không cần BE)
- *  ================================ */
 let rid = 1000, lid = 2000, mid = 3000, exid = 4000, qid = 5000;
 
 const QUESTION_BANK: Question[] = [
@@ -29,9 +23,6 @@ const QUESTION_BANK: Question[] = [
   { id: ++qid, type: "text", text: "Giải thích kiến trúc RESTful.", correctIndex: null },
 ];
 
-/** ================================
- *  Small UI primitives
- *  ================================ */
 const Btn: React.FC<React.PropsWithChildren<{ variant?: "primary" | "ghost" | "outline"; size?: "sm" | "md"; className?: string; onClick?: () => void; type?: "button" | "submit" }>>
 = ({ variant = "outline", size = "md", className = "", children, onClick, type = "button" }) => {
   const base = "inline-flex items-center justify-center rounded-xl font-medium transition focus:outline-none";
@@ -74,9 +65,7 @@ const Modal: React.FC<React.PropsWithChildren<{ title: string; onClose: () => vo
   </div>
 );
 
-/** ================================
- *  PAGE
- *  ================================ */
+
 export default function CourseManagePage() {
   const { id } = useParams<{ id: string }>();
   const courseId = Number(id ?? 0);
@@ -128,8 +117,8 @@ export default function CourseManagePage() {
             ))}
           </Card>
 
-          {/* Exams panel (tổng hợp – chỉ hiển thị) */}
-          <Card title="Exams (tổng hợp)">
+          {/* Exams panel) */}
+          <Card title="Exams">
               {modules.filter(x=>x.exam).length === 0 ? (
                 <div className="text-sm text-slate-500">No exams yet.</div>
             ) : (
@@ -149,9 +138,6 @@ export default function CourseManagePage() {
   );
 }
 
-/** ================================
- *  Module card (lessons + exam)
- *  ================================ */
 function ModuleCard({ module, onChange }: { module: Module; onChange: (m: Module) => void }) {
   const [openAddLesson, setOpenAddLesson] = useState(false);
   const [openCreateExam, setOpenCreateExam] = useState(false);
@@ -227,7 +213,24 @@ function ModuleCard({ module, onChange }: { module: Module; onChange: (m: Module
 
       {openAddLesson && (
         <Modal title="Add Lesson" onClose={() => setOpenAddLesson(false)}>
-          <LessonForm moduleId={module.id} onSubmit={addLesson} />
+          <LessonUploadForm
+            moduleId={module.id}
+            onSuccess={(lesson: ApiLesson) => {
+              const newLesson: Lesson = {
+                id: Number(lesson.Id) || ++lid,
+                title: lesson.Title || "Untitled",
+                description: lesson.Content,
+                resources: lesson.VideoUrl
+                  ? [{ id: ++rid, name: "video", url: lesson.VideoUrl }]
+                  : lesson.DocUrl
+                    ? [{ id: ++rid, name: "document", url: lesson.DocUrl }]
+                    : [],
+              };
+              addLesson(newLesson);
+            }}
+            onError={(err) => console.error(err)}
+            showCourseModuleSelect={false}
+          />
         </Modal>
       )}
 
@@ -246,103 +249,6 @@ function ModuleCard({ module, onChange }: { module: Module; onChange: (m: Module
   );
 }
 
-/** ================================
- *  Sub-components for forms / exam
- *  ================================ */
-function LessonForm({ moduleId, onSubmit }: { moduleId: number; onSubmit: (l: Lesson) => void }) {
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [lessonType, setLessonType] = useState<"Video" | "Document">("Video");
-  const [file, setFile] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [error, setError] = useState("");
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || !e.target.files[0]) return setFile(null);
-    const f = e.target.files[0];
-    if (lessonType === "Video") {
-      const videoTypes = ["video/mp4", "video/webm", "video/ogg", "video/quicktime"];
-      if (!videoTypes.includes(f.type)) return setError("Invalid video file");
-      if (f.size > 500 * 1024 * 1024) return setError("Video too large (max 500MB)");
-    } else {
-      const docTypes = [
-        "application/pdf",
-        "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      ];
-      if (!docTypes.includes(f.type)) return setError("Invalid document file");
-      if (f.size > 50 * 1024 * 1024) return setError("Document too large (max 50MB)");
-    }
-    setError("");
-    setFile(f);
-  };
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    if (!title.trim()) return setError("Please enter lesson title");
-    if (!file) return setError("Please select a file");
-
-    setIsUploading(true);
-    try {
-      const payload: CreateLessonData = {
-        Title: title.trim(),
-        LessonType: lessonType,
-        file,
-        CourseModuleId: moduleId,
-      };
-
-      const created: ApiLesson = await lessonApi.create(payload);
-
-      // Map server lesson to local Lesson shape
-      const resources: Resource[] = [];
-      if (created.VideoUrl) {
-        resources.push({ id: ++rid, name: file.name, size: file.size, url: created.VideoUrl });
-      } else if (created.DocUrl) {
-        resources.push({ id: ++rid, name: file.name, size: file.size, url: created.DocUrl });
-      }
-
-      const localLesson: Lesson = {
-        id: Number(created.Id) || ++lid,
-        title: created.Title ?? title.trim(),
-        description: created.Content ?? description.trim(),
-        resources,
-      };
-
-      onSubmit(localLesson);
-    } catch (err: unknown) {
-      console.error(err);
-      const serverMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setError(serverMessage || "Upload failed");
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  return (
-    <form onSubmit={submit}>
-      <div className="space-y-3">
-        {error && <div className="text-sm text-red-600">{error}</div>}
-        <input className="w-full px-3 py-2 rounded-xl border" placeholder="Lesson title" value={title} onChange={(e) => setTitle(e.target.value)} />
-        <textarea className="w-full px-3 py-2 rounded-xl border min-h-[90px]" placeholder="Description (optional)" value={description} onChange={(e) => setDescription(e.target.value)} />
-
-        <div>
-          <label className="block text-sm mb-1">Lesson Type</label>
-          <select value={lessonType} onChange={(e) => setLessonType(e.target.value as "Video" | "Document")} className="w-full px-3 py-2 rounded-xl border">
-            <option value="Video">Video</option>
-            <option value="Document">Document</option>
-          </select>
-        </div>
-
-        <input type="file" onChange={handleFileChange} />
-
-        <div className="pt-2">
-          <Btn variant="primary" type="submit">{isUploading ? "Uploading..." : "Upload"}</Btn>
-        </div>
-      </div>
-    </form>
-  );
-}
 
 function CreateExamForm({ onSubmit }: { onSubmit: (title: string) => void }) {
   const [title, setTitle] = useState("Midterm");

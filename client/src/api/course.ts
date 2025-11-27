@@ -78,6 +78,11 @@ const getById = async (id: number): Promise<CourseDetail> => {
   return mapRawToCourseDetail(raw);
 };
 
+const getRawById = async (id: number): Promise<RawCourseDetail & { CourseModule?: RawCourseModule[] }> => {
+  const res = await client.get<RawCourseDetail & { CourseModule?: RawCourseModule[] }>(`/course/${id}`);
+  return res.data;
+};
+
 const create = async (data: Pick<Course, "Name" | "Description">): Promise<Course> => {
   const res = await client.post<Course>("/manage/course", data);
   return res.data;
@@ -97,5 +102,5 @@ const verify = async (id: number): Promise<void> => {
   await client.put(`/moderator/course/${id}/verify`);
 };
 
-const course = { getAll, getById, getByCreator, create, update, remove, verify };
+const course = { getAll, getById, getRawById, getByCreator, create, update, remove, verify };
 export default course;

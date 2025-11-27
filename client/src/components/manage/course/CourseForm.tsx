@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import courseApi from "../../api/course";
-import type { Course } from "../../types";
+import courseApi from "../../../api/course";
+import type { Course } from "../../../types";
 
 interface Props {
     course?: Course;

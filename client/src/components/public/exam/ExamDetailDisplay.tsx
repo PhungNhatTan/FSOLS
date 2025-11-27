@@ -1,7 +1,7 @@
-// src/components/exam/ExamDetailDisplay.tsx
+// src/components/public/exam/ExamDetailDisplay.tsx
 import { useParams, useNavigate } from "react-router-dom";
-import { useFetch } from "../../hooks/useFetch";
-import * as examApi from "../../api/exam";
+import { useFetch } from "../../../hooks/useFetch";
+import * as examApi from "../../../api/exam";
 
 export default function ExamDetailDisplay() {
   const { examId } = useParams<{ examId: string }>();
@@ -29,7 +29,7 @@ export default function ExamDetailDisplay() {
           Your Score: {result.score}
         </p>
       ) : (
-        <p className="text-gray-500 mb-4">You haven’t taken this exam yet.</p>
+        <p className="text-gray-500 mb-4">You haven't taken this exam yet.</p>
       )}
 
       <button

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import lesson from "../../api/lesson";
-import type { LessonDetail } from "../../types";
+import lesson from "../../../api/lesson";
+import type { LessonDetail } from "../../../types";
 
 /**
  * Displays the content of a single lesson.

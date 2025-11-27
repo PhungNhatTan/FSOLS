@@ -1,12 +1,12 @@
 import { useState, type FormEvent } from "react";
-import * as questionBankApi from "../../api/questionBank";
+import * as questionBankApi from "../../../api/questionBank";
 import type {
   QuestionType,
   AnswerInput,
   CreateQuestionBankPayload,
   QuestionBank,
-} from "../../types/questionBank";
-import { ErrorMessage, LoadingMessage } from "../common/StatusMessages";
+} from "../../../types/questionBank";
+import { ErrorMessage, LoadingMessage } from "../../common/StatusMessages";
 import QuestionBankFields from "./QuestionBankFields";
 import QuestionBankAnswers from "./QuestionBankAnswers";
 

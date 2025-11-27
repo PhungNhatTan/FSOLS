@@ -1,4 +1,4 @@
-import type { QuestionTypeProps } from "../../../types";
+import type { QuestionTypeProps } from "../../../../types";
 
 export default function MCQuestion({ question, value, onChange }: QuestionTypeProps) {
   return (

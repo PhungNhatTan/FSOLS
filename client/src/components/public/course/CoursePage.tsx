@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
-import courseApi from "../../api/course";
-import type { Course } from "../../types";
+import courseApi from "../../../api/course";
+import type { Course } from "../../../types";
 import CourseList from "./CourseList";
-import CourseForm from "./CourseForm";
+import CourseForm from "../../manage/course/CourseForm";
 
 const CoursePage: React.FC = () => {
   const [courses, setCourses] = useState<Course[]>([]);

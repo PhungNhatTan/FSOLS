@@ -79,3 +79,8 @@ example/
 /server/uploads
 /server/uploads/*
 !server/uploads/.gitkeep
+
+# -------------------------------
+# Ignore generated files
+# -------------------------------
+COMPONENT_ORGANIZATION_ANALYSIS.md

@@ -3,24 +3,12 @@ import { useParams, Link } from "react-router-dom";
 import courseApi from "../api/course";
 import type { CourseDetail, CourseModule, RawModuleItem } from "../types/course";
 
-// Define UpdateCourseData locally if not exported from types
-type UpdateCourseData = {
-  Name: string;
-  Description: string;
-};
-
-import CourseSidebar from "../components/courseSidebar/CourseSidebar";
+import CourseSidebar from "../components/public/courseSidebar/CourseSidebar";
 
 export default function CourseDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [course, setCourse] = useState<CourseDetail | null>(null);
   const [error, setError] = useState("");
-  const [isEditing, setIsEditing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [editForm, setEditForm] = useState({
-    name: "",
-    description: "",
-  });
 
   useEffect(() => {
     if (!id) return;
@@ -31,71 +19,11 @@ export default function CourseDetailPage() {
     try {
       const courseData = await courseApi.getById(Number(id));
       setCourse(courseData);
-      setEditForm({
-        name: courseData.Name || "",
-        description: courseData.Description || "",
-      });
       setError("");
     } catch (err) {
       setError("Failed to load course");
       console.error(err);
     }
-  };
-
-  const handleEdit = () => {
-    setIsEditing(true);
-  };
-
-  const handleCancel = () => {
-    setIsEditing(false);
-    if (course) {
-      setEditForm({
-        name: course.Name || "",
-        description: course.Description || "",
-      });
-    }
-  };
-
-  const handleSave = async () => {
-    if (!id) return;
-    
-    setIsSaving(true);
-    setError("");
-    
-    try {
-      const updateData: UpdateCourseData = {
-        Name: editForm.name.trim(),
-        Description: editForm.description.trim(),
-      };
-
-      const updatedCourse = await courseApi.update(Number(id), updateData);
-      // Ensure Lessons and Exams are preserved or defaulted
-      const updated = updatedCourse as CourseDetail;
-      setCourse(prev => ({
-        ...(prev ?? ({} as CourseDetail)),
-        ...updated,
-        Lessons: updated.Lessons ?? (prev as CourseDetail)?.Lessons ?? [],
-        Exams: updated.Exams ?? (prev as CourseDetail)?.Exams ?? [],
-      }));
-      setIsEditing(false);
-    } catch (err: unknown) {
-      if (err && typeof err === 'object' && 'response' in err) {
-        const error = err as { response?: { data?: { message?: string } } };
-        setError(error.response?.data?.message || "Failed to update course");
-      } else {
-        setError("Failed to update course");
-      }
-      console.error(err);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value } = e.target;
-    setEditForm((prev) => ({ ...prev, [name]: value }));
   };
 
   if (!course && !error) {
@@ -121,71 +49,18 @@ export default function CourseDetailPage() {
 
         {course && (
           <div className="bg-white rounded-lg shadow-md p-6">
-            {/* Header with Edit Button */}
-            <div className="flex justify-between items-start mb-6">
-              <div className="flex-1">
-                {isEditing ? (
-                  <input
-                    type="text"
-                    name="name"
-                    value={editForm.name}
-                    onChange={handleInputChange}
-                    className="text-2xl font-bold w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Course Name"
-                  />
-                ) : (
-                  <h1 className="text-2xl font-bold mb-3">{course.Name}</h1>
-                )}
-              </div>
-              <div className="flex gap-2 ml-4">
-                {isEditing ? (
-                  <>
-                    <button
-                      onClick={handleSave}
-                      disabled={isSaving || !editForm.name.trim()}
-                      className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                    >
-                      {isSaving ? "Saving..." : "Save"}
-                    </button>
-                    <button
-                      onClick={handleCancel}
-                      disabled={isSaving}
-                      className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 disabled:bg-gray-400"
-                    >
-                      Cancel
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    onClick={handleEdit}
-                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                  >
-                    Edit Course
-                  </button>
-                )}
-              </div>
+            {/* Header */}
+            <div className="mb-6">
+              <h1 className="text-2xl font-bold mb-3">{course.Name}</h1>
             </div>
 
             {/* Description */}
             <div className="mb-6">
-              {isEditing ? (
-                <textarea
-                  name="description"
-                  value={editForm.description}
-                  onChange={handleInputChange}
-                  rows={6}
-                  className="w-full p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Course Description"
-                />
-              ) : (
-                <p className="text-gray-700 whitespace-pre-wrap">
-                  {course.Description}
-                </p>
-              )}
+              <p className="text-gray-700 whitespace-pre-wrap">{course.Description}</p>
             </div>
 
             {/* Course Modules and Lessons */}
-            {!isEditing && 'CourseModule' in course && Array.isArray((course as { CourseModule?: CourseModule[] }).CourseModule) && ((course as { CourseModule?: CourseModule[] }).CourseModule?.length ?? 0) > 0 && (
+            {'CourseModule' in course && Array.isArray((course as { CourseModule?: CourseModule[] }).CourseModule) && ((course as { CourseModule?: CourseModule[] }).CourseModule?.length ?? 0) > 0 && (
               <div className="mb-6">
                 <h2 className="text-xl font-semibold mb-4">Course Modules</h2>
                 <div className="space-y-4">
@@ -222,7 +97,7 @@ export default function CourseDetailPage() {
             )}
 
             {/* Legacy Lessons Display (for backward compatibility) */}
-            {!isEditing && course.Lessons && course.Lessons.length > 0 && (
+            {course.Lessons && course.Lessons.length > 0 && (
               <div className="mb-6">
                 <h2 className="text-lg font-semibold mb-2">Lessons</h2>
                 <ul className="list-disc list-inside space-y-1">

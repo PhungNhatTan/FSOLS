@@ -1,5 +1,5 @@
 import { Outlet } from "react-router-dom";
-import QuestionBankForm from "../components/questionBank/QuestionBankForm";
+import QuestionBankForm from "../components/manage/questionBank/QuestionBankForm";
 
 export default function QuestionBankPage() {
   return (

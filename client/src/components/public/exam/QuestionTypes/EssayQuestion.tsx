@@ -1,5 +1,5 @@
 import type { ChangeEvent } from "react";
-import type { QuestionTypeProps } from "../../../types";
+import type { QuestionTypeProps } from "../../../../types";
 
 export default function EssayQuestion({ question, value, onChange }: QuestionTypeProps) {
   const handleChange = (e: ChangeEvent<HTMLTextAreaElement>) => {

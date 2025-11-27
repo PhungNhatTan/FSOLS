@@ -1,8 +1,8 @@
 import { useState, type FormEvent, useEffect } from "react";
 import { useParams, useNavigate, useOutletContext } from "react-router-dom";
-import * as exam from "../../api/exam";
-import { useFetch } from "../../hooks/useFetch";
-import { type ExamData, type StudentAnswer, type CourseStudyContext } from "../../types";
+import * as exam from "../../../api/exam";
+import { useFetch } from "../../../hooks/useFetch";
+import { type ExamData, type StudentAnswer, type CourseStudyContext } from "../../../types";
 import Timer from "./Timer";
 import ExamForm from "./ExamForm";
 

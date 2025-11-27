@@ -1,5 +1,5 @@
 import ModuleItemComponent from "./ModuleItem";
-import type { CourseModule } from "../../types/course";
+import type { CourseModule } from "../../../types/course";
 
 interface ModuleListProps {
     modules: CourseModule[];

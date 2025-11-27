@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import type { ModuleItem } from "../../types/course";
+import type { ModuleItem } from "../../../types/course";
 
 interface ModuleItemProps {
     item: ModuleItem;
