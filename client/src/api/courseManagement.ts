@@ -1,157 +1,180 @@
-// src/api/courseManagement.ts
 import client from "../service/client";
+import type {
+  CourseStructureRaw,
+  ManageModule,
+  ManageLesson,
+  ResourceFile,
+  QuestionBankSearchItem,
+  UiCourseStructure,
+  UiModule,
+  UiLesson,
+  UiResource,
+  UiExam,
+  UiQuestionSearchItem,
+} from "../types/manage";
+import type { ExamData, ExamQuestion } from "../types/exam";
 
-/** =======================
- * Types dùng bởi UI
- * ======================= */
-export type Resource = {
-  id: number;
-  name: string;
-  url: string;
-};
-
-export type Lesson = {
-  id: number;
-  order: number;
-  title: string;
-  description?: string;
-  resources: Resource[];
-};
-
-export type Question = {
-  id: number;
-  type: "mcq" | "text";
-  text: string;
-  options?: string[];        // với mcq
-  correctIndex?: number | null; // mcq: index đúng, text: null
-};
-
-export type ExamQuestionRef = {
-  questionId: number;
-  points: number;
-  question?: Question; // optional expand
-};
-
-export type Exam = {
-  id: number;
-  title: string;
-  questions: ExamQuestionRef[];
-};
-
-export type CourseModule = {
-  id: number;
-  order: number;
-  title: string;
-  lessons: Lesson[];
-  exam?: Exam;
-};
-
-export type CourseStructure = {
-  course: { id: number; title: string };
-  modules: CourseModule[];
-};
-
-/** =======================
- * API paths – chỉnh nếu BE khác
- * ======================= */
-const PATHS = {
-  structure: (courseId: number) => `/manage/course/${courseId}/structure`,
-  createModule: (courseId: number) => `/manage/course/${courseId}/modules`,
-  createLesson: (moduleId: number) => `/manage/module/${moduleId}/lessons`,
-  uploadResource: `/manage/resources/upload`,
-  attachResources: (lessonId: number) => `/manage/lesson/${lessonId}/resources/attach`,
-  createExam: (moduleId: number) => `/manage/module/${moduleId}/exams`,
-  searchQuestions: (q: string) => `/question-bank/search?q=${encodeURIComponent(q)}`,
-  addExistingQuestion: (examId: number) => `/manage/exam/${examId}/questions`,
-  createQuestionAndAttach: (examId: number) => `/manage/exam/${examId}/questions/new`,
-};
-
-/** =======================
- * API methods
- * ======================= */
-
-async function getStructure(courseId: number): Promise<CourseStructure> {
-  const res = await client.get<CourseStructure>(PATHS.structure(courseId));
-  return res.data;
+/* -------------------------
+   Helpers: normalize Raw → UI
+-------------------------- */
+function toUiResource(r: ResourceFile): UiResource {
+  return { id: r.Id, name: r.Name, url: r.Url };
 }
 
-async function createModule(courseId: number, title: string): Promise<CourseModule> {
-  const res = await client.post<CourseModule>(PATHS.createModule(courseId), { title });
-  return res.data;
+function toUiLesson(l: ManageLesson): UiLesson {
+  return {
+    id: l.Id,
+    title: l.Title,
+    description: l.Description,
+    resources: (l.Resources ?? []).map(toUiResource),
+  };
 }
 
-async function createLesson(
-  moduleId: number,
-  payload: { title: string; description?: string }
-): Promise<Lesson> {
-  const res = await client.post<Lesson>(PATHS.createLesson(moduleId), payload);
-  return res.data;
+function toUiExam(e: ExamData): UiExam {
+  return {
+    id: e.Id,
+    title: e.Title,
+    duration: e.Duration,
+    questions: e.Questions as ExamQuestion[],
+  };
 }
 
-/** Upload từng file (multipart/form-data) → trả về Resource (id/name/url) */
-async function uploadResource(file: File): Promise<Resource> {
-  const fd = new FormData();
-  fd.append("file", file);
-  const res = await client.post<Resource>(PATHS.uploadResource, fd, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
-  return res.data;
+function toUiModule(m: ManageModule): UiModule {
+  return {
+    id: m.Id,
+    title: m.Title,
+    order: m.OrderNo,
+    lessons: (m.Lessons ?? []).map(toUiLesson),
+    exam: m.Exam ? toUiExam(m.Exam) : undefined,
+  };
 }
 
-/** Gắn danh sách resource (đã upload) vào 1 lesson → trả về Lesson cập nhật */
-async function attachResources(lessonId: number, resources: Resource[]): Promise<Lesson> {
-  const resourceIds = resources.map((r) => r.id);
-  const res = await client.post<Lesson>(PATHS.attachResources(lessonId), { resourceIds });
-  return res.data;
-}
-
-async function createExam(moduleId: number, title: string): Promise<Exam> {
-  const res = await client.post<Exam>(PATHS.createExam(moduleId), { title });
-  return res.data;
-}
-
-/** Search question bank (paging tuỳ BE). Ở đây trả { items: Question[] } */
-async function searchQuestions(q: string): Promise<{ items: Question[] }> {
-  const res = await client.get<{ items: Question[] }>(PATHS.searchQuestions(q));
-  return res.data;
-}
-
-/** Thêm câu hỏi có sẵn vào Exam → trả về Exam cập nhật */
-async function addExistingQuestion(
-  examId: number,
-  questionId: number,
-  points: number
-): Promise<Exam> {
-  const res = await client.post<Exam>(PATHS.addExistingQuestion(examId), {
-    questionId,
-    points,
-  });
-  return res.data;
-}
-
-/** Tạo mới câu hỏi rồi auto attach vào Exam → trả về { exam, question } */
-async function createQuestionAndAttach(
-  examId: number,
-  payload: Omit<Question, "id">
-): Promise<{ exam: Exam; question: Question }> {
-  const res = await client.post<{ exam: Exam; question: Question }>(
-    PATHS.createQuestionAndAttach(examId),
-    payload
-  );
-  return res.data;
-}
-
-/** Export object đúng tên mà UI import */
+/* -------------------------
+   Public API cho CourseManagementPage
+-------------------------- */
 export const courseManagementApi = {
-  getStructure,
-  createModule,
-  createLesson,
-  uploadResource,
-  attachResources,
-  createExam,
-  searchQuestions,
-  addExistingQuestion,
-  createQuestionAndAttach,
+  /** Lấy toàn bộ cấu trúc course (course + modules + lessons + exam) */
+  async getStructure(courseId: number): Promise<UiCourseStructure> {
+    const res = await client.get<CourseStructureRaw>(`/manage/course/${courseId}/structure`);
+    return {
+      course: res.data.course,
+      modules: (res.data.modules ?? []).map(toUiModule),
+    };
+  },
+
+  /* ---------- Module ---------- */
+  async createModule(courseId: number, title: string): Promise<UiModule> {
+    const res = await client.post<ManageModule>(`/manage/course/${courseId}/modules`, { title });
+    return toUiModule(res.data);
+  },
+
+  async renameModule(moduleId: number, title: string): Promise<UiModule> {
+    const res = await client.put<ManageModule>(`/manage/modules/${moduleId}`, { title });
+    return toUiModule(res.data);
+  },
+
+  async removeModule(moduleId: number): Promise<void> {
+    await client.delete(`/manage/modules/${moduleId}`);
+  },
+
+  async reorderModule(moduleId: number, orderNo: number): Promise<UiModule> {
+    const res = await client.patch<ManageModule>(`/manage/modules/${moduleId}/reorder`, { orderNo });
+    return toUiModule(res.data);
+  },
+
+  /* ---------- Lesson ---------- */
+  async createLesson(
+    moduleId: number,
+    payload: { title: string; description?: string }
+  ): Promise<UiLesson> {
+    const res = await client.post<ManageLesson>(`/manage/modules/${moduleId}/lessons`, payload);
+    return toUiLesson(res.data);
+  },
+
+  async updateLesson(
+    lessonId: number,
+    payload: { title?: string; description?: string }
+  ): Promise<UiLesson> {
+    const res = await client.put<ManageLesson>(`/manage/lessons/${lessonId}`, payload);
+    return toUiLesson(res.data);
+  },
+
+  async removeLesson(lessonId: number): Promise<void> {
+    await client.delete(`/manage/lessons/${lessonId}`);
+  },
+
+  /* ---------- Resources ---------- */
+  /** Upload 1 file, trả về metadata của resource mới */
+  async uploadResource(file: File): Promise<UiResource> {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await client.post<ResourceFile>("/manage/resources/upload", fd, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return toUiResource(res.data);
+  },
+
+  /** Gắn danh sách resourceId vào lesson → trả về lesson đã cập nhật */
+  async attachResources(lessonId: number, resources: UiResource[]): Promise<UiLesson> {
+    const resourceIds = resources.map((r) => r.id);
+    const res = await client.post<ManageLesson>(`/manage/lessons/${lessonId}/resources`, {
+      resourceIds,
+    });
+    return toUiLesson(res.data);
+  },
+
+  /* ---------- Exam ---------- */
+  async createExam(moduleId: number, title: string): Promise<UiExam> {
+    const res = await client.post<ExamData>(`/manage/modules/${moduleId}/exam`, { title });
+    return toUiExam(res.data);
+  },
+
+  /** Thêm câu hỏi đã có từ QuestionBank vào exam */
+  async addExistingQuestion(
+    examId: number,
+    questionBankId: string,
+    points: number
+  ): Promise<UiExam> {
+    const res = await client.post<ExamData>(`/manage/exams/${examId}/questions/existing`, {
+      questionBankId, points,
+    });
+    return toUiExam(res.data);
+  },
+
+  /** Tạo mới 1 câu hỏi (MCQ/Text…) rồi attach vào exam */
+  async createQuestionAndAttach(
+    examId: number,
+    payload: {
+      type: "MCQ" | "Fill" | "Essay" | "TF";
+      text: string;
+      options?: string[];        // cho MCQ
+      correctIndex?: number;     // cho MCQ
+    }
+  ): Promise<{ exam: UiExam }> {
+    const res = await client.post<{ exam: ExamData }>(`/manage/exams/${examId}/questions`, payload);
+    return { exam: toUiExam(res.data.exam) };
+  },
+
+  /** Search QuestionBank */
+  async searchQuestions(q: string): Promise<{ items: UiQuestionSearchItem[] }> {
+    const res = await client.get<{ items: QuestionBankSearchItem[] }>(
+      "/manage/questionBank/search",
+      { params: { q } }
+    );
+    const items: UiQuestionSearchItem[] = (res.data.items ?? []).map((it) => ({
+      id: it.Id,
+      text: it.QuestionText,
+      type: it.Type,
+    }));
+    return { items };
+  },
 };
 
-export default courseManagementApi;
+export type {
+  UiCourseStructure as CourseStructure,
+  UiModule as CourseModule,
+  UiLesson as Lesson,
+  UiExam as Exam,
+  UiResource as Resource,
+  UiQuestionSearchItem as Question,
+} from "../types/manage";
