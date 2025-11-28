@@ -25,6 +25,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/authProvider";
 
 // Layouts and Helpers
+import ModeratorLayout from "./layout/ModeratorLayout";
 import ManageLayout from "./layout/ManageLayout";
 import RootRedirect from "./components/RootRedirect";
 import HomePage from "./pages/HomePage";
@@ -35,54 +36,50 @@ export default function App() {
       <AuthProvider>
         <Navbar />
         <Routes>
-          ...
+          {/* Public */}
+          <Route path="/" element={<RootRedirect />} />
+          <Route path="/home" element={<HomePage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+
+          {/* Lesson / Exam */}
+          <Route path="/lesson/:id" element={<LessonPage />} />
+          <Route path="/exam/:examId" element={<ExamPage />} />
+
+          {/* Courses */}
+          <Route path="/courses" element={<CoursePage />} />
+          <Route path="/course/:id" element={<CourseDetailPage />} />
+
+          {/* Mentor Dashboard */}
+          <Route path="/manage" element={
+            <ProtectedRoute allowedRoles={["Mentor"]}>
+              <ManageLayout />
+            </ProtectedRoute>
+          }>
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="courses" element={<CoursePage />} />
+            <Route path="course/:id" element={<CourseManagePageMentor />} />
+            <Route path="lesson/upload" element={<UploadLessonPage />} />
+            <Route path="questions" element={<QuestionBankPage />} />
+          </Route>
+
+          {/* Moderator Dashboard */}
+          <Route path="/moderator" element={
+            <ProtectedRoute allowedRoles={["Moderator"]}>
+              <ModeratorLayout />
+            </ProtectedRoute>
+          }>
+            <Route path="dashboard" element={<DashboardManager />} />
+            <Route path="courses" element={<CourseManagePageManager />} />
+          </Route>
+
+          {/* 404 */}
+          <Route
+            path="*"
+            element={<h1 className="p-6 text-red-500">404 Not Found</h1>}
+          />
         </Routes>
       </AuthProvider>
-
-      <Routes>
-        {/* Public */}
-        <Route path="/" element={<RootRedirect />} />
-        <Route path="/home" element={<HomePage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-
-        {/* Lesson / Exam */}
-        <Route path="/lesson/:id" element={<LessonPage />} />
-        <Route path="/exam/:examId" element={<ExamPage />} />
-
-        {/* Courses */}
-        <Route path="/courses" element={<CoursePage />} />
-        <Route path="/course/:id" element={<CourseDetailPage />} />
-
-        {/* Mentor Dashboard */}
-        <Route path="/manage" element={
-          <ProtectedRoute allowedRoles={["Mentor"]}>
-            <ManageLayout />
-          </ProtectedRoute>
-        }>
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="courses" element={<CoursePage />} />
-          <Route path="course/:id" element={<CourseManagePageMentor />} />
-          <Route path="lesson/upload" element={<UploadLessonPage />} />
-          <Route path="questions" element={<QuestionBankPage />} />
-        </Route>
-
-        {/* Moderator Dashboard */}
-        <Route path="/moderator" element={
-          <ProtectedRoute allowedRoles={["Moderator"]}>
-            <ManageLayout />
-          </ProtectedRoute>
-        }>
-          <Route path="dashboard" element={<DashboardManager />} />
-          <Route path="courses" element={<CourseManagePageManager />} />
-        </Route>
-
-        {/* 404 */}
-        <Route
-          path="*"
-          element={<h1 className="p-6 text-red-500">404 Not Found</h1>}
-        />
-      </Routes>
     </Router>
   );
 }

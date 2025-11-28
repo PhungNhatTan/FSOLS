@@ -2,6 +2,36 @@ import type { Course } from "./course";
 import type { ExamData, ExamQuestion } from "./exam";
 import type { QuestionType } from "./questionBank";
 
+export interface Module {
+  Id: number;
+  OrderNo: number;
+}
+
+export interface CourseData {
+  Id: number;
+  Name: string;
+  Description: string;
+  CourseModule: Module[];
+}
+
+export interface CreateModuleResponse {
+  Id: number;
+  CourseId: number;
+  OrderNo: number;
+}
+
+export interface CreateExamResponse {
+  id: number;
+  title: string;
+  questions: Record<string, unknown>[];
+}
+
+export interface ExamQuestionPayload {
+  mode: "useQB" | "createQB";
+  data: Record<string, unknown>;
+  examId: number;
+}
+
 /** Resource file đính kèm lesson */
 export interface ResourceFile {
   Id: number;
@@ -77,4 +107,41 @@ export type UiQuestionSearchItem = {
   id: string;
   text: string;
   type?: QuestionType;
+};
+
+export type Resource = { id: number; name: string; size?: number; url?: string };
+
+export type UiLessonLocal = {
+  id: number;
+  title: string;
+  description?: string;
+  resources: Resource[];
+};
+
+export type ExamQuestionLocal = {
+  questionId: number;
+  points: number;
+  question?: Question;
+};
+
+export type ExamLocal = {
+  id: number;
+  title: string;
+  questions: ExamQuestionLocal[];
+};
+
+export type Question = {
+  id: number;
+  type: "mcq" | "text";
+  text: string;
+  options?: string[];
+  correctIndex?: number | null;
+};
+
+export type UiModuleLocal = {
+  id: number;
+  title: string;
+  order: number;
+  lessons: UiLessonLocal[];
+  exam?: ExamLocal;
 };

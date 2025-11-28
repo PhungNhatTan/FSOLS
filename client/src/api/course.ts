@@ -84,12 +84,18 @@ const getRawById = async (id: number): Promise<RawCourseDetail & { CourseModule?
 };
 
 const create = async (data: Pick<Course, "Name" | "Description">): Promise<Course> => {
-  const res = await client.post<Course>("/manage/course", data);
+  const res = await client.post<Course>("/manage/course", {
+    name: data.Name,
+    description: data.Description,
+  });
   return res.data;
 };
 
 const update = async (id: number, data: Partial<Pick<Course, "Name" | "Description">>): Promise<Course> => {
-  const res = await client.put<Course>(`/manage/course/${id}`, data);
+  const res = await client.put<Course>(`/manage/course/${id}`, {
+    Name: data.Name,
+    Description: data.Description,
+  });
   return res.data;
 };
 

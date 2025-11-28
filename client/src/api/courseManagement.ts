@@ -1,6 +1,5 @@
 import client from "../service/client";
 import type {
-  CourseStructureRaw,
   ManageModule,
   ManageLesson,
   ResourceFile,
@@ -11,8 +10,10 @@ import type {
   UiResource,
   UiExam,
   UiQuestionSearchItem,
+  CourseData,
 } from "../types/manage";
 import type { ExamData, ExamQuestion } from "../types/exam";
+import type { Course } from "../types/course";
 
 /* -------------------------
    Helpers: normalize Raw → UI
@@ -42,7 +43,7 @@ function toUiExam(e: ExamData): UiExam {
 function toUiModule(m: ManageModule): UiModule {
   return {
     id: m.Id,
-    title: m.Title,
+    title: m.Title || `Module ${m.OrderNo}`,
     order: m.OrderNo,
     lessons: (m.Lessons ?? []).map(toUiLesson),
     exam: m.Exam ? toUiExam(m.Exam) : undefined,
@@ -55,30 +56,50 @@ function toUiModule(m: ManageModule): UiModule {
 export const courseManagementApi = {
   /** Lấy toàn bộ cấu trúc course (course + modules + lessons + exam) */
   async getStructure(courseId: number): Promise<UiCourseStructure> {
-    const res = await client.get<CourseStructureRaw>(`/manage/course/${courseId}/structure`);
+    const res = await client.get<CourseData>(`/course/${courseId}`);
+    const course: Course = {
+      Id: res.data.Id,
+      Name: res.data.Name,
+      Description: res.data.Description,
+    };
     return {
-      course: res.data.course,
-      modules: (res.data.modules ?? []).map(toUiModule),
+      course,
+      modules: (res.data.CourseModule ?? []).map((m) => toUiModule({
+        Id: m.Id,
+        Title: "Untitled Module",
+        OrderNo: m.OrderNo || 0,
+        Lessons: [],
+      })),
     };
   },
 
   /* ---------- Module ---------- */
   async createModule(courseId: number, title: string): Promise<UiModule> {
-    const res = await client.post<ManageModule>(`/manage/course/${courseId}/modules`, { title });
+    const res = await client.post<ManageModule>(`/manage/module`, {
+      CourseId: courseId,
+      Title: title,
+      OrderNo: 10,
+    });
     return toUiModule(res.data);
   },
 
   async renameModule(moduleId: number, title: string): Promise<UiModule> {
-    const res = await client.put<ManageModule>(`/manage/modules/${moduleId}`, { title });
+    const res = await client.post<ManageModule>(`/manage/module`, {
+      Id: moduleId,
+      Title: title,
+    });
     return toUiModule(res.data);
   },
 
   async removeModule(moduleId: number): Promise<void> {
-    await client.delete(`/manage/modules/${moduleId}`);
+    await client.delete(`/manage/module/${moduleId}`);
   },
 
   async reorderModule(moduleId: number, orderNo: number): Promise<UiModule> {
-    const res = await client.patch<ManageModule>(`/manage/modules/${moduleId}/reorder`, { orderNo });
+    const res = await client.post<ManageModule>(`/manage/module`, {
+      Id: moduleId,
+      OrderNo: orderNo,
+    });
     return toUiModule(res.data);
   },
 
@@ -87,7 +108,11 @@ export const courseManagementApi = {
     moduleId: number,
     payload: { title: string; description?: string }
   ): Promise<UiLesson> {
-    const res = await client.post<ManageLesson>(`/manage/modules/${moduleId}/lessons`, payload);
+    const res = await client.post<ManageLesson>(`/manage/lesson`, {
+      CourseModuleId: moduleId,
+      Title: payload.title,
+      Content: payload.description,
+    });
     return toUiLesson(res.data);
   },
 
@@ -95,12 +120,16 @@ export const courseManagementApi = {
     lessonId: number,
     payload: { title?: string; description?: string }
   ): Promise<UiLesson> {
-    const res = await client.put<ManageLesson>(`/manage/lessons/${lessonId}`, payload);
+    const res = await client.post<ManageLesson>(`/manage/lesson`, {
+      Id: lessonId,
+      Title: payload.title,
+      Content: payload.description,
+    });
     return toUiLesson(res.data);
   },
 
   async removeLesson(lessonId: number): Promise<void> {
-    await client.delete(`/manage/lessons/${lessonId}`);
+    await client.delete(`/manage/lesson/${lessonId}`);
   },
 
   /* ---------- Resources ---------- */
@@ -108,7 +137,7 @@ export const courseManagementApi = {
   async uploadResource(file: File): Promise<UiResource> {
     const fd = new FormData();
     fd.append("file", file);
-    const res = await client.post<ResourceFile>("/manage/resources/upload", fd, {
+    const res = await client.post<ResourceFile>("/upload", fd, {
       headers: { "Content-Type": "multipart/form-data" },
     });
     return toUiResource(res.data);
@@ -117,15 +146,21 @@ export const courseManagementApi = {
   /** Gắn danh sách resourceId vào lesson → trả về lesson đã cập nhật */
   async attachResources(lessonId: number, resources: UiResource[]): Promise<UiLesson> {
     const resourceIds = resources.map((r) => r.id);
-    const res = await client.post<ManageLesson>(`/manage/lessons/${lessonId}/resources`, {
-      resourceIds,
+    const res = await client.post<ManageLesson>(`/manage/lesson`, {
+      Id: lessonId,
+      Resources: resourceIds,
     });
     return toUiLesson(res.data);
   },
 
   /* ---------- Exam ---------- */
   async createExam(moduleId: number, title: string): Promise<UiExam> {
-    const res = await client.post<ExamData>(`/manage/modules/${moduleId}/exam`, { title });
+    const res = await client.post<ExamData>(`/manage/exam`, {
+      CourseModuleId: moduleId,
+      Title: title,
+      Description: "",
+      OrderNo: 10,
+    });
     return toUiExam(res.data);
   },
 
@@ -135,8 +170,10 @@ export const courseManagementApi = {
     questionBankId: string,
     points: number
   ): Promise<UiExam> {
-    const res = await client.post<ExamData>(`/manage/exams/${examId}/questions/existing`, {
-      questionBankId, points,
+    const res = await client.post<ExamData>(`/manage/examQuestion`, {
+      ExamId: examId,
+      QuestionBankId: questionBankId,
+      Points: points,
     });
     return toUiExam(res.data);
   },
@@ -147,19 +184,27 @@ export const courseManagementApi = {
     payload: {
       type: "MCQ" | "Fill" | "Essay" | "TF";
       text: string;
-      options?: string[];        // cho MCQ
-      correctIndex?: number;     // cho MCQ
+      options?: string[];
+      correctIndex?: number;
     }
   ): Promise<{ exam: UiExam }> {
-    const res = await client.post<{ exam: ExamData }>(`/manage/exams/${examId}/questions`, payload);
+    const res = await client.post<{ exam: ExamData }>(`/manage/examQuestion`, {
+      ExamId: examId,
+      Type: payload.type,
+      QuestionText: payload.text,
+      Answers: payload.options?.map((opt, idx) => ({
+        AnswerText: opt,
+        IsCorrect: idx === payload.correctIndex,
+      })),
+    });
     return { exam: toUiExam(res.data.exam) };
   },
 
   /** Search QuestionBank */
   async searchQuestions(q: string): Promise<{ items: UiQuestionSearchItem[] }> {
     const res = await client.get<{ items: QuestionBankSearchItem[] }>(
-      "/manage/questionBank/search",
-      { params: { q } }
+      "/questionBank",
+      { params: { search: q } }
     );
     const items: UiQuestionSearchItem[] = (res.data.items ?? []).map((it) => ({
       id: it.Id,

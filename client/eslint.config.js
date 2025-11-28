@@ -3,6 +3,9 @@ import reactPlugin from "eslint-plugin-react";
 import prettier from "eslint-config-prettier";
 
 export default tseslint.config(
+  {
+    ignores: ["dist/**", "node_modules/**", "coverage/**", "*.tsbuildinfo"],
+  },
   ...tseslint.configs.recommended,
   {
     files: ["src/**/*.{ts,tsx}"],

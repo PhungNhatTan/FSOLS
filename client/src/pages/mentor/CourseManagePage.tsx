@@ -1,39 +1,77 @@
-import React, { useMemo, useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import LessonUploadForm from "../../components/manage/lesson/LessonUploadForm";
 import { Lesson as ApiLesson } from "../../types/lesson";
+import { courseManagementApi } from "../../api/courseManagement";
+import type {
+  UiLessonLocal as Lesson,
+  UiModuleLocal as Module,
+  ExamLocal as Exam,
+  UiQuestionSearchItem,
+  UiLesson as LessonDto,
+  UiModule as ModuleDto,
+  UiExam as ExamDto,
+  UiResource as ResourceDto,
+} from "../../types/manage";
+import type { ExamQuestion as ExamQuestionDto } from "../../types/exam";
 
-type Resource = { id: number; name: string; size?: number; url?: string };
-type Lesson = { id: number; title: string; description?: string; resources: Resource[] };
-type Module = { id: number; title: string; order: number; lessons: Lesson[]; exam?: Exam };
-type ExamQuestion = { questionId: number; points: number; question?: Question };
-type Exam = { id: number; title: string; questions: ExamQuestion[] };
-type Question = {
-  id: number;
-  type: "mcq" | "text";
-  text: string;
-  options?: string[];
-  correctIndex?: number | null;
+let rid = 1000;
+let lid = 2000;
+let qid = 5000;
+
+const mapResourceDtoToLocal = (resource: ResourceDto): Lesson["resources"][number] => ({
+  id: resource.id,
+  name: resource.name,
+  url: resource.url,
+});
+
+const mapLessonDtoToLocal = (lesson: LessonDto): Lesson => ({
+  id: lesson.id,
+  title: lesson.title,
+  description: lesson.description,
+  resources: (lesson.resources ?? []).map(mapResourceDtoToLocal),
+});
+
+const mapExamQuestionDtoToLocal = (question: ExamQuestionDto): Exam["questions"][number] => {
+  const qbId = Number(question.QuestionBankId);
+  const mappedId = Number.isNaN(qbId) ? ++qid : qbId;
+  return {
+    questionId: mappedId,
+    points: 1,
+    question: {
+      id: mappedId,
+      type: question.Type?.toLowerCase() === "mcq" ? "mcq" : "text",
+      text: question.QuestionText,
+      options: question.Answers?.map((answer) => answer.AnswerText),
+    },
+  };
 };
 
-let rid = 1000, lid = 2000, mid = 3000, exid = 4000, qid = 5000;
+const mapExamDtoToLocal = (exam: ExamDto): Exam => ({
+  id: exam.id,
+  title: exam.title,
+  questions: (exam.questions ?? []).map(mapExamQuestionDtoToLocal),
+});
 
-const QUESTION_BANK: Question[] = [
-  { id: ++qid, type: "mcq", text: "HTTP 200 nghĩa là gì?", options: ["OK", "Not Found", "Server Error"], correctIndex: 0 },
-  { id: ++qid, type: "text", text: "Giải thích kiến trúc RESTful.", correctIndex: null },
-];
+const mapModuleDtoToLocal = (module: ModuleDto): Module => ({
+  id: module.id,
+  title: module.title,
+  order: module.order,
+  lessons: (module.lessons ?? []).map(mapLessonDtoToLocal),
+  exam: module.exam ? mapExamDtoToLocal(module.exam) : undefined,
+});
 
-const Btn: React.FC<React.PropsWithChildren<{ variant?: "primary" | "ghost" | "outline"; size?: "sm" | "md"; className?: string; onClick?: () => void; type?: "button" | "submit" }>>
-= ({ variant = "outline", size = "md", className = "", children, onClick, type = "button" }) => {
+const Btn: React.FC<React.PropsWithChildren<{ variant?: "primary" | "ghost" | "outline"; size?: "sm" | "md"; className?: string; onClick?: () => void; type?: "button" | "submit"; disabled?: boolean }>>
+= ({ variant = "outline", size = "md", className = "", children, onClick, type = "button", disabled = false }) => {
   const base = "inline-flex items-center justify-center rounded-xl font-medium transition focus:outline-none";
   const sz = size === "sm" ? "px-3 py-1.5 text-sm" : "px-3.5 py-2";
   const map: Record<string, string> = {
-    primary: "bg-indigo-600 text-white hover:opacity-90",
-    outline: "border border-slate-300 bg-white hover:bg-slate-50",
-    ghost: "hover:bg-white/10",
+    primary: disabled ? "bg-indigo-400 text-white" : "bg-indigo-600 text-white hover:opacity-90",
+    outline: disabled ? "border border-slate-300 bg-slate-100 text-slate-500" : "border border-slate-300 bg-white hover:bg-slate-50",
+    ghost: disabled ? "opacity-50" : "hover:bg-white/10",
   };
   return (
-    <button type={type} onClick={onClick} className={`${base} ${sz} ${map[variant]} ${className}`}>
+    <button type={type} onClick={onClick} disabled={disabled} className={`${base} ${sz} ${map[variant]} ${className}`}>
       {children}
     </button>
   );
@@ -70,15 +108,34 @@ export default function CourseManagePage() {
   const { id } = useParams<{ id: string }>();
   const courseId = Number(id ?? 0);
 
-  // Demo data (chưa gọi BE)
   const [modules, setModules] = useState<Module[]>([]);
-  const addModule = () => {
-    const title = prompt("Tên module:");
-    if (!title) return;
-    const m: Module = { id: ++mid, title: title.trim(), order: modules.length + 1, lessons: [] };
-    setModules((s) => [...s, m]);
-    // [BE] POST /manage/course/:courseId/modules {title}
+
+  useEffect(() => {
+    loadCourseData();
+  }, [courseId]);
+
+  const loadCourseData = async () => {
+    if (courseId <= 0) return;
+    try {
+      const structure = await courseManagementApi.getStructure(courseId);
+      setModules(structure.modules ? structure.modules.map(mapModuleDtoToLocal) : []);
+    } catch (err) {
+      console.error("Error loading course:", err);
+    }
   };
+
+  const addModule = async () => {
+    const title = prompt("Module title:");
+    if (!title) return;
+    try {
+      const created = await courseManagementApi.createModule(courseId, title.trim());
+      const module = mapModuleDtoToLocal(created);
+      setModules((s) => [...s, module]);
+    } catch (err) {
+      console.error("Error:", err);
+    }
+  };
+
   const updateModule = (m: Module) => setModules((s) => s.map((x) => (x.id === m.id ? m : x)));
 
   return (
@@ -150,11 +207,15 @@ function ModuleCard({ module, onChange }: { module: Module; onChange: (m: Module
   };
 
   // exam
-  const createExam = (title: string) => {
-    const ex: Exam = { id: ++exid, title: title.trim(), questions: [] };
-    onChange({ ...module, exam: ex });
-    setOpenCreateExam(false);
-    // [BE] POST /manage/module/:moduleId/exam {title}
+  const createExam = async (title: string) => {
+    try {
+      const created = await courseManagementApi.createExam(module.id, title.trim());
+      const ex = mapExamDtoToLocal(created);
+      onChange({ ...module, exam: ex });
+      setOpenCreateExam(false);
+    } catch (err) {
+      console.error("Error:", err);
+    }
   };
 
   const onExamChange = (exam: Exam) => onChange({ ...module, exam });
@@ -250,13 +311,24 @@ function ModuleCard({ module, onChange }: { module: Module; onChange: (m: Module
 }
 
 
-function CreateExamForm({ onSubmit }: { onSubmit: (title: string) => void }) {
+function CreateExamForm({ onSubmit }: { onSubmit: (title: string) => Promise<void> | void }) {
   const [title, setTitle] = useState("Midterm");
+  const [loading, setLoading] = useState(false);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim()) return;
+    setLoading(true);
+    try {
+      await onSubmit(title);
+    } finally {
+      setLoading(false);
+    }
+  };
   return (
-    <form onSubmit={(e) => { e.preventDefault(); if (!title.trim()) return; onSubmit(title); }}>
+    <form onSubmit={handleSubmit}>
       <div className="space-y-3">
         <input className="w-full px-3 py-2 rounded-xl border" placeholder="Exam title" value={title} onChange={(e)=>setTitle(e.target.value)} />
-        <Btn variant="primary" type="submit">Create</Btn>
+        <Btn variant="primary" type="submit" disabled={loading}>{loading ? "Creating..." : "Create"}</Btn>
       </div>
     </form>
   );
@@ -297,23 +369,45 @@ function AddQuestion({ exam, onExamChange }: { exam: Exam; onExamChange: (ex: Ex
 
 function BankPicker({ exam, onExamChange }: { exam: Exam; onExamChange: (ex: Exam) => void }) {
   const [q, setQ] = useState("");
-  const rows = useMemo(
-    () => QUESTION_BANK.filter((it) => (q ? it.text.toLowerCase().includes(q.toLowerCase()) : true)),
-    [q]
-  );
+  const [rows, setRows] = useState<UiQuestionSearchItem[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const add = (id: number) => {
-    const found = QUESTION_BANK.find((x) => x.id === id)!;
-    const ex: Exam = { ...exam, questions: [...exam.questions, { questionId: id, points: 1, question: found }] };
-    onExamChange(ex);
-    // [BE] POST /manage/exam/:examId/questions { questionId, points }
+  useEffect(() => {
+    const searchQuestions = async () => {
+      if (!q.trim()) {
+        setRows([]);
+        return;
+      }
+      setLoading(true);
+      try {
+        const result = await courseManagementApi.searchQuestions(q);
+        setRows(result.items);
+      } catch (err) {
+        console.error("Error searching questions:", err);
+        setRows([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const debounceTimer = setTimeout(searchQuestions, 300);
+    return () => clearTimeout(debounceTimer);
+  }, [q]);
+
+  const add = async (id: string) => {
+    try {
+      const updated = await courseManagementApi.addExistingQuestion(exam.id, id, 1);
+      onExamChange(mapExamDtoToLocal(updated));
+    } catch (err) {
+      console.error("Error:", err);
+    }
   };
 
   return (
     <div className="space-y-3">
       <div className="flex gap-2">
         <input className="flex-1 px-3 py-2 rounded-xl border" placeholder="Tìm câu hỏi…" value={q} onChange={(e)=>setQ(e.target.value)} />
-        <Btn>Search</Btn>
+        <Btn disabled={loading}>{loading ? "Searching…" : "Search"}</Btn>
       </div>
       <div className="space-y-2 max-h-[50vh] overflow-auto">
         {rows.map((r) => (
@@ -322,7 +416,8 @@ function BankPicker({ exam, onExamChange }: { exam: Exam; onExamChange: (ex: Exa
             <Btn variant="primary" className="mt-2" onClick={() => add(r.id)}>Add to Exam</Btn>
           </div>
         ))}
-        {rows.length === 0 && <div className="text-sm text-slate-500">Không có câu hỏi.</div>}
+        {rows.length === 0 && !loading && <div className="text-sm text-slate-500">Không có câu hỏi.</div>}
+        {loading && <div className="text-sm text-slate-500">Đang tìm kiếm…</div>}
       </div>
     </div>
   );
@@ -334,19 +429,22 @@ function NewQuestion({ exam, onExamChange }: { exam: Exam; onExamChange: (ex: Ex
   const [options, setOptions] = useState<string[]>(["", "", "", ""]);
   const [correct, setCorrect] = useState(0);
 
-  const create = () => {
+  const create = async () => {
     if (!text.trim()) return;
-    const q: Question = {
-      id: ++qid,
-      type,
-      text: text.trim(),
-      options: type === "mcq" ? options : undefined,
-      correctIndex: type === "mcq" ? correct : null,
-    };
-    QUESTION_BANK.push(q);
-    const ex: Exam = { ...exam, questions: [...exam.questions, { questionId: q.id, points: 1, question: q }] };
-    onExamChange(ex);
-    // [BE] POST /manage/exam/:examId/questions/new { ... }
+    try {
+      const response = await courseManagementApi.createQuestionAndAttach(exam.id, {
+        type: type === "mcq" ? "MCQ" : "Essay",
+        text: text.trim(),
+        options: type === "mcq" ? options : undefined,
+        correctIndex: type === "mcq" ? correct : undefined,
+      });
+      onExamChange(mapExamDtoToLocal(response.exam));
+      setText("");
+      setOptions(["", "", "", ""]);
+      setCorrect(0);
+    } catch (err) {
+      console.error("Error:", err);
+    }
   };
 
   return (

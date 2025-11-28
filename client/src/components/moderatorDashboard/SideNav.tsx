@@ -8,7 +8,7 @@ interface SidebarItem {
 
 const sidebarItems: SidebarItem[] = [
     { name: "Overview", path: "/moderator/dashboard" },
-    { name: "Courses", path: "#" },
+    { name: "Courses", path: "/moderator/courses" },
 ];
 
 export default function SideNav() {
