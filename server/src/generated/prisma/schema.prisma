@@ -9,12 +9,15 @@ datasource db {
 }
 
 // #region Account and all the things that is wrong with it
+
 model Account {
   Id       String @id @default(cuid())
   Username String @unique
 
   // General info go here
   DisplayName String
+  AvatarUrl   String?
+  Bio         String?
 
   UserCertificate UserCertificate[]
   CourseEnroll    CourseEnroll[]
@@ -29,8 +32,14 @@ model Account {
   AccountIdentifier AccountIdentifier[]
 
   // Active check
-  CreatedAt DateTime  @default(now())
-  DeletedAt DateTime?
+  CreatedAt          DateTime            @default(now())
+  DeletedAt          DateTime?
+  lessonProgresses   LessonProgress[]
+  sentMessages       Message[]           @relation("sentMessages")
+  receivedMessages   Message[]           @relation("receivedMessages")
+  courseReviews      CourseReview[]
+  reports            Report[]
+  accountSuspensions AccountSuspension[]
 }
 
 model AccountIdentifier {
@@ -67,6 +76,10 @@ model Mentor {
   AccountId String  @id
   Account   Account @relation(fields: [AccountId], references: [Id])
 
+  Name  String?
+  Email String?
+  Phone String?
+
   courses       Course[]
   exams         Exam[]
   courseLessons CourseLesson[]
@@ -86,6 +99,20 @@ model Admin {
   DeletedAt DateTime?
 }
 
+model AccountSuspension {
+  Id        String  @id @default(cuid())
+  AccountId String
+  Account   Account @relation(fields: [AccountId], references: [Id])
+
+  Reason      String
+  SuspendedBy String? // Admin ID
+  SuspendedAt DateTime  @default(now())
+  ResolvedAt  DateTime?
+  ResolvedBy  String?
+
+  CreatedAt DateTime @default(now())
+}
+
 // #endregion
 
 // #region COURSE AND MORE COURSE WHY IS THIS SO COMPLEX
@@ -98,6 +125,8 @@ model Course {
   CreatedById String?
   CreatedBy   Mentor? @relation(fields: [CreatedById], references: [AccountId])
 
+  CategoryId           Int?
+  Category             Category?              @relation(fields: [CategoryId], references: [Id])
   Certificate          Certificate?
   CourseModule         CourseModule[]
   CourseEnroll         CourseEnroll[]
@@ -105,11 +134,14 @@ model Course {
   SpecializationCourse SpecializationCourse[]
 
   // Verified check
-  IsVerified Boolean @default(false)
+  PublishedAt DateTime?
+  IsVerified  Boolean   @default(false)
 
   // Active check
-  CreatedAt DateTime  @default(now())
-  DeletedAt DateTime?
+  CreatedAt     DateTime       @default(now())
+  DeletedAt     DateTime?
+  courseSkills  CourseSkill[]
+  courseReviews CourseReview[]
 }
 
 model Specialization {
@@ -121,12 +153,16 @@ model Specialization {
   CreatedById String?
   CreatedBy   Mentor? @relation(fields: [CreatedById], references: [AccountId])
 
+  CategoryId Int?
+  Category   Category? @relation(fields: [CategoryId], references: [Id])
+
   SpecializationCourse SpecializationCourse[]
   CourseEnroll         CourseEnroll[]
   Certificate          Certificate?
 
   // Verified check
-  IsVerified Boolean @default(false)
+  PublishedAt DateTime?
+  IsVerified  Boolean   @default(false)
 
   // Active check
   CreatedAt DateTime  @default(now())
@@ -149,6 +185,19 @@ model SpecializationCourse {
   DeletedAt DateTime?
 
   @@unique([SpecId, CourseId])
+}
+
+model Category {
+  Id          Int     @id @default(autoincrement())
+  Name        String  @unique
+  Slug        String  @unique
+  Description String?
+
+  courses         Course[]
+  specializations Specialization[]
+  // Active check
+  CreatedAt       DateTime         @default(now())
+  DeletedAt       DateTime?
 }
 
 model CourseModule {
@@ -202,9 +251,27 @@ model CourseLesson {
   QuestionBank QuestionBank[]
 
   // Active check
+  CreatedAt        DateTime         @default(now())
+  DeletedAt        DateTime?
+  lessonProgresses LessonProgress[]
+}
+
+model CourseSkill {
+  Id Int @id @default(autoincrement())
+
+  CourseId Int
+  Course   Course @relation(fields: [CourseId], references: [Id])
+
+  SkillName String
+
+  // Active check
   CreatedAt DateTime  @default(now())
   DeletedAt DateTime?
 }
+
+// #endregion
+
+// #region Enrollment and progress tracking
 
 model CourseEnroll {
   Id Int @id @default(autoincrement())
@@ -218,9 +285,32 @@ model CourseEnroll {
   SpecializationId Int?
   Specialization   Specialization? @relation(fields: [SpecializationId], references: [Id])
 
+  Status      Status    @default(Enrolled)
+  EnrolledAt  DateTime  @default(now())
+  CompletedAt DateTime?
+
   // Active check
-  CreatedAt DateTime  @default(now())
-  DeletedAt DateTime?
+  CreatedAt        DateTime         @default(now())
+  DeletedAt        DateTime?
+  lessonProgresses LessonProgress[]
+}
+
+model LessonProgress {
+  Id String @id @default(cuid())
+
+  AccountId String
+  Account   Account @relation(fields: [AccountId], references: [Id])
+
+  CourseEnrollId Int
+  CourseEnroll   CourseEnroll @relation(fields: [CourseEnrollId], references: [Id])
+
+  LessonId     String
+  CourseLesson CourseLesson @relation(fields: [LessonId], references: [Id])
+
+  IsCompleted Boolean   @default(false)
+  CompletedAt DateTime?
+
+  CreatedAt DateTime @default(now())
 }
 
 // #endregion
@@ -238,11 +328,7 @@ model Exam {
   CreatedById String?
   CreatedBy   Mentor? @relation(fields: [CreatedById], references: [AccountId])
 
-  // SlotId Int
-  // DurationPreset DurationPreset @relation("Slot", fields: [SlotId], references: [Id])
-
-  // Must use one of the two, should be application-level check since database-level check
-  // is not possible with Prisma
+  // Duration settings
   DurationPreset DurationPreset?
   DurationCustom Int? // in minute // for custom duration
 
@@ -366,6 +452,28 @@ model StudentAnswer {
 
 // #endregion
 
+// #region Review system
+model CourseReview {
+  Id Int @id @default(autoincrement())
+
+  CourseId Int
+  Course   Course @relation(fields: [CourseId], references: [Id])
+
+  AccountId String
+  Account   Account @relation(fields: [AccountId], references: [Id])
+
+  Rating  Int // 1 to 5
+  Comment String?
+
+  // Active check
+  CreatedAt DateTime  @default(now())
+  DeletedAt DateTime?
+}
+
+// #endregion
+
+// #region Certificate system
+
 model Certificate {
   Id Int @id @default(autoincrement())
 
@@ -401,6 +509,11 @@ model UserCertificate {
   DeletedAt DateTime?
 }
 
+// #endregion
+
+// #region Post and Messaging system
+
+// Posts
 model Post {
   Id String @id @default(cuid())
 
@@ -419,9 +532,62 @@ model Post {
   Replied Post[]  @relation("Reply")
 
   // Active check
+  CreatedAt    DateTime      @default(now())
+  DeletedAt    DateTime?
+  postRemovals PostRemoval[]
+}
+
+model PostRemoval {
+  Id     String @id @default(cuid())
+  PostId String
+  Post   Post   @relation(fields: [PostId], references: [Id])
+
+  Reason     String
+  RemovedBy  String? // Admin ID
+  RemovedAt  DateTime  @default(now())
+  RestoredAt DateTime? // if restored
+
+  CreatedAt DateTime @default(now())
+}
+
+// Messages
+
+model Message {
+  Id         String  @id @default(cuid())
+  SenderId   String
+  Sender     Account @relation(fields: [SenderId], references: [Id], name: "sentMessages")
+  ReceiverId String
+  Receiver   Account @relation(fields: [ReceiverId], references: [Id], name: "receivedMessages")
+
+  Content String
+  IsRead  Boolean   @default(false)
+  ReadAt  DateTime?
+
   CreatedAt DateTime  @default(now())
   DeletedAt DateTime?
 }
+
+// #endregion
+
+// #region Misc models
+
+model Report {
+  Id        String  @id @default(cuid())
+  AccountId String
+  Account   Account @relation(fields: [AccountId], references: [Id])
+
+  Type          String // "bug", "issue", "other"
+  Title         String
+  Description   String
+  AttachmentUrl String?
+
+  Status     String    @default("Open") // Open, InProgress, Resolved, Closed
+  ResolvedAt DateTime?
+
+  CreatedAt DateTime @default(now())
+}
+
+// #endregion
 
 // #region Special place for enums because I don't want them anywhere near the actual tables
 enum SpecialRole {
@@ -453,6 +619,12 @@ enum LessonType {
 enum CertificateType {
   Course
   Specialization
+}
+
+enum Status {
+  Enrolled
+  InProgress
+  Completed
 }
 
 // #endregion
