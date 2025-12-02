@@ -1,5 +1,5 @@
 import { Router } from "express";
-import exam from "../controllers/exam/index.js";
+import exam from "../../controllers/exam/index.js";
 
 const router = Router();
 

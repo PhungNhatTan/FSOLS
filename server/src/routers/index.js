@@ -4,6 +4,16 @@ import { Router } from "express";
 import accountRoutes from "./public/accountRoute.js";
 import userCertificateRoutes from "./public/userCertificateRoute.js";
 import specializationCourseRoutes from "./public/specializationCourseRoute.js";
+import courseRoutes from "./public/courseRoute.js";
+import categoryRoute from "./public/categoryRoute.js";
+import mentorRoute from "./public/mentorRoute.js";
+import certificateRoute from "./public/certificateRoute.js";
+import lessonRoute from "./public/lessonRoute.js";
+import examRoute from "./public/examRoute.js";
+import answerRoute from "./public/answerRoute.js";
+import questionBankRoute from "./public/questionBankRoute.js";
+import examQuestionRoute from "./public/examQuestionRoute.js";
+import examSubmissionRoute from "./public/examSubmissionRoute.js";
 
 // manage route import
 import certificateRoutesManage from "./manage/certificateRoute.js";
@@ -17,16 +27,6 @@ import moduleRouteManage from "./manage/moduleRoute.js";
 // moderator route import
 import courseRouteModerator from "./moderator/courseRoute.js";
 
-// old
-import courseRoutes from "./courseRoute.js";
-import certificateRoute from "./certificateRoute.js";
-import lessonRoute from "./lessonRoute.js";
-import examRoute from "./examRoute.js";
-import answerRoute from "./answerRoute.js";
-import questionBankRoute from "./questionBankRoute.js";
-import examQuestionRoute from "./examQuestionRoute.js";
-import examSubmissionRoute from "./examSubmissionRoute.js";
-
 // file upload route import
 import uploadRoute from "./uploadRoute.js";
 
@@ -37,10 +37,9 @@ const router = Router();
 router.use("/api/account", accountRoutes);
 router.use("/api/userCertificate", userCertificateRoutes);
 router.use("/api/specializationCourse", specializationCourseRoutes);
-
-// old
-
 router.use("/api/course", courseRoutes);
+router.use("/api/category", categoryRoute);
+router.use("/api/mentor", mentorRoute);
 router.use("/api/lesson", lessonRoute);
 router.use("/api/certificate", certificateRoute);
 router.use("/api/exam", examRoute);
@@ -56,14 +55,12 @@ router.use("/api/manage/questionBank", questionBankRoutesManage);
 router.use("/api/manage/course", courseRouteManage);
 router.use("/api/manage/module", moduleRouteManage);
 router.use("/api/manage/examQuestion", examQuestionRouteManage);
-router.use("/api/manage/lesson", lessonRouteManage)
+router.use("/api/manage/lesson", lessonRouteManage);
 router.use("/api/manage/exam", examRouteManage);
 
 // moderator
 
 router.use("/api/moderator/course", courseRouteModerator);
-
-// admin
 
 // file upload
 router.use("/api/upload", uploadRoute);

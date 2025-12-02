@@ -9,6 +9,11 @@ const getAll = async (): Promise<Course[]> => {
   return res.data;
 };
 
+const getFeatured = async () => {
+  const res = await client.get("/course/featured");
+  return res.data;
+};
+
 const getByCreator = async (): Promise<Course[]> => {
   const res = await client.get<Course[]>("/manage/course");
   return res.data;
@@ -108,5 +113,5 @@ const verify = async (id: number): Promise<void> => {
   await client.put(`/moderator/course/${id}/verify`);
 };
 
-const course = { getAll, getById, getRawById, getByCreator, create, update, remove, verify };
+const course = { getAll, getFeatured, getById, getRawById, getByCreator, create, update, remove, verify };
 export default course;

@@ -1,7 +1,7 @@
 import request from "supertest";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import express from "express";
-import courseRoute from "../src/routers/courseRoute.js";
+import courseRoute from "../src/routers/public/courseRoute.js";
 
 vi.mock("../src/models/course/index.js", () => ({
   default: {
@@ -24,53 +24,8 @@ describe("Course Route", () => {
   });
 
   // ------------------------
-  // POST /api/course
-  // ------------------------
-  it("POST /api/course should create a course successfully", async () => {
-    const newCourse = { name: "Test Course", description: "Some description" };
-    const created = { id: 1, ...newCourse };
-
-    courseModel.create.mockResolvedValue(created);
-
-    const res = await request(app).post("/api/course").send(newCourse);
-    expect(res.statusCode).toBe(201);
-    expect(res.body).toEqual(created);
-    expect(courseModel.create).toHaveBeenCalledWith(newCourse);
-  });
-
-  it("POST /api/course should return 400 if fields are missing", async () => {
-    const res = await request(app).post("/api/course").send({});
-    expect(res.statusCode).toBe(400);
-    expect(res.body).toEqual({ error: "Name and description are required" });
-    expect(courseModel.create).not.toHaveBeenCalled();
-  });
-
-  // ------------------------
-  // DELETE /api/course/:id
-  // ------------------------
-  it("DELETE /api/course/:id should delete a course successfully", async () => {
-    const deleted = { id: 1, name: "Deleted Course" };
-    courseModel.delete.mockResolvedValue(deleted);
-
-    const res = await request(app).delete("/api/course/1");
-    expect(res.statusCode).toBe(200);
-    expect(res.body).toEqual(deleted);
-    expect(courseModel.delete).toHaveBeenCalledWith(1);
-  });
-
-  it("DELETE /api/course/:id should return 404 if not found", async () => {
-    courseModel.delete.mockResolvedValue(null);
-
-    const res = await request(app).delete("/api/course/999");
-    expect(res.statusCode).toBe(404);
-    expect(res.body).toEqual({ message: "Course not found" });
-  });
-
-  it("DELETE /api/course/:id should handle errors gracefully", async () => {
-    courseModel.delete.mockRejectedValue(new Error("DB error"));
-    const res = await request(app).delete("/api/course/1");
-    expect(res.statusCode).toBe(500);
-  });
+  // Note: POST and DELETE operations are tested in manage/courseRoute tests
+  // This test file focuses on public GET endpoints
 
   // ------------------------
   // GET /api/course

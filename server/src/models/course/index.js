@@ -5,6 +5,7 @@ import update from './update.js';
 import remove from './delete.js';
 import getByCreator from './getByCreator.js';
 import verifyCourse from './verifyCourse.js';
+import getFeatured from './getFeatured.js';
 
 export default {
   create,
@@ -14,4 +15,5 @@ export default {
   update,
   remove,
   verifyCourse,
+  getFeatured,
 };

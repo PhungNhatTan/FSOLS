@@ -1,5 +1,5 @@
 import { Router } from "express";
-import questionBank from "../controllers/questionBank/index.js";
+import questionBank from "../../controllers/questionBank/index.js";
 
 const router=Router();
 
