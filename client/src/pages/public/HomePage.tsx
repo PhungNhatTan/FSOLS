@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import courseApi from "../api/course";
-import categoryApi from "../api/category";
-import mentorApi from "../api/mentor";
-import postApi from "../api/post";
-import CourseCard from "../components/public/course/CourseCard";
-import PostCard from "../components/public/blog/PostCard";
+import courseApi from "../../api/course";
+import categoryApi from "../../api/category";
+import mentorApi from "../../api/mentor";
+import postApi from "../../api/post";
+import CourseCard from "../../components/public/course/CourseCard";
+import PostCard from "../../components/public/blog/PostCard";
 
 /* ======================================
    HOMEPAGE — English, no auth buttons
@@ -29,11 +29,6 @@ export type Post = { id: number; title: string; slug: string; cover: string; cre
 
 export type RoutingMode = "path" | "hash";
 export const ROUTING_MODE: RoutingMode = "hash";
-
-
-
-
-
 
 
 

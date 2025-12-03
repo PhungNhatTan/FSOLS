@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import CourseCard, { buildCourseUrl } from './CourseCard';
-import type { CourseCard as CourseCardType } from '../../../pages/HomePage';
+import type { CourseCard as CourseCardType } from '../../../pages/public/HomePage';
 
 const mockCourse: CourseCardType = {
   id: 1,

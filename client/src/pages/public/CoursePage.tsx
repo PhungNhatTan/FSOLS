@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import courseApi from "../api/course";
-import type { Course } from "../types/course";
+import courseApi from "../../api/course";
+import type { Course } from "../../types/course";
 
 export default function CoursePage() {
   const [courses, setCourses] = useState<Course[]>([]);

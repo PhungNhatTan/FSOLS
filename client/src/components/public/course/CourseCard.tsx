@@ -1,5 +1,5 @@
 import React from "react";
-import type { CourseCard as CourseCardType } from "../../../pages/HomePage";
+import type { CourseCard as CourseCardType } from "../../../pages/public/HomePage";
 
 interface Props {
   course: CourseCardType;

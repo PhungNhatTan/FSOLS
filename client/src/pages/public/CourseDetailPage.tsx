@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import courseApi from "../api/course";
-import type { CourseDetail, CourseModule, RawModuleItem } from "../types/course";
+import courseApi from "../../api/course";
+import type { CourseDetail, CourseModule, RawModuleItem } from "../../types/course";
 
-import CourseSidebar from "../components/public/courseSidebar/CourseSidebar";
+import CourseSidebar from "../../components/public/courseSidebar/CourseSidebar";
 
 export default function CourseDetailPage() {
   const { id } = useParams<{ id: string }>();

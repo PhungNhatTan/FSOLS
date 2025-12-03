@@ -4,7 +4,7 @@ import {
   buildBlogUrl,
   buildHref,
   ROUTING_MODE,
-} from '../pages/HomePage';
+} from '../pages/public/HomePage';
 
 // API mocks (to be installed with @testing-library/react)
 // import courseApi from '../api/course';

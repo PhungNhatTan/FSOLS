@@ -3,16 +3,16 @@ import { HashRouter as Router, Routes, Route } from "react-router-dom";
 import Navbar from "./components/public/navbar/Navbar";
 
 // Public Pages
-import LoginPage from "./pages/LoginPage";
-import RegisterPage from "./pages/RegisterPage";
+import LoginPage from "./pages/public/LoginPage";
+import RegisterPage from "./pages/public/RegisterPage";
 import LessonPage from "./components/public/lesson/LessonPage";
 import ExamPage from "./components/public/exam/ExamPage";
 
 // Mentor Pages
 import Dashboard from "./pages/mentor/Dashboard";
 import CourseManagePageMentor from "./pages/mentor/CourseManagePage";
-import CoursePage from "./components/public/course/CoursePage";
-import CourseDetailPage from "./pages/CourseDetailPage";
+import CoursePage from "./pages/public/CoursePage";
+import CourseDetailPage from "./pages/public/CourseDetailPage";
 import QuestionBankPage from "./pages/QuestionBankPage";
 import UploadLessonPage from "./pages/mentor/UploadLessonPage";
 
@@ -28,7 +28,7 @@ import { AuthProvider } from "./context/authProvider";
 import ModeratorLayout from "./layout/ModeratorLayout";
 import ManageLayout from "./layout/ManageLayout";
 import RootRedirect from "./components/RootRedirect";
-import HomePage from "./pages/HomePage";
+import HomePage from "./pages/public/HomePage";
 
 export default function App() {
   return (

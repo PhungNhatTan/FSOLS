@@ -1,7 +1,7 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { login } from "../api/auth";
-import { type AuthData, type AuthResponse } from "../types/auth";
+import { login } from "../../api/auth";
+import { type AuthData, type AuthResponse } from "../../types/auth";
 
 export default function LoginPage() {
   const [form, setForm] = useState<AuthData>({ username: "", password: "" });
