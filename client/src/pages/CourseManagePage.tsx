@@ -2,13 +2,13 @@ import React, { useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 
 /** ================================
- *  Types (nhẹ, độc lập để demo)
+ *  Types (demo, độc lập FE)
  *  ================================ */
 type Resource = { id: number; name: string; size?: number; url?: string };
-type Lesson = { id: number; title: string; description?: string; resources: Resource[] };
-type Module = { id: number; title: string; order: number; lessons: Lesson[]; exam?: Exam };
+type Lesson = { id: number; title: string; description?: string; order: number; resources: Resource[] };
 type ExamQuestion = { questionId: number; points: number; question?: Question };
-type Exam = { id: number; title: string; questions: ExamQuestion[] };
+type Exam = { id: number; title: string; order: number; questions: ExamQuestion[] };
+type Module = { id: number; title: string; order: number; lessons: Lesson[]; exam?: Exam };
 type Question = {
   id: number;
   type: "mcq" | "text";
@@ -18,7 +18,7 @@ type Question = {
 };
 
 /** ================================
- *  Mock stores (demo, không cần BE)
+ *  Demo stores (không cần BE)
  *  ================================ */
 let rid = 1000, lid = 2000, mid = 3000, exid = 4000, qid = 5000;
 
@@ -79,16 +79,56 @@ export default function CourseManagePage() {
   const { id } = useParams<{ id: string }>();
   const courseId = Number(id ?? 0);
 
-  // Demo data (chưa gọi BE)
+  // Demo data (ban đầu trống để bạn tự thêm)
   const [modules, setModules] = useState<Module[]>([]);
+
   const addModule = () => {
     const title = prompt("Tên module:");
     if (!title) return;
-    const m: Module = { id: ++mid, title: title.trim(), order: modules.length + 1, lessons: [] };
+    const m: Module = { id: ++mid, title: title.trim(), order: modules.length * 10 + 10, lessons: [] };
     setModules((s) => [...s, m]);
     // [BE] POST /manage/course/:courseId/modules {title}
   };
   const updateModule = (m: Module) => setModules((s) => s.map((x) => (x.id === m.id ? m : x)));
+
+  /** ================================
+   *  One-level course outline (toàn khoá)
+   *  Sắp theo module.order → item.order
+   *  ================================ */
+  const courseFlatOutline = useMemo(() => {
+    type FlatItem = {
+      key: string;
+      moduleOrder: number;
+      moduleTitle: string;
+      order: number;
+      kind: "Lesson" | "Exam";
+      title: string;
+    };
+    const rows: FlatItem[] = [];
+    modules.forEach((m) => {
+      m.lessons.forEach((l) => {
+        rows.push({
+          key: `M${m.id}-L${l.id}`,
+          moduleOrder: m.order,
+          moduleTitle: m.title,
+          order: l.order,
+          kind: "Lesson",
+          title: l.title,
+        });
+      });
+      if (m.exam) {
+        rows.push({
+          key: `M${m.id}-E${m.exam.id}`,
+          moduleOrder: m.order,
+          moduleTitle: m.title,
+          order: m.exam.order,
+          kind: "Exam",
+          title: m.exam.title,
+        });
+      }
+    });
+    return rows.sort((a, b) => a.moduleOrder - b.moduleOrder || a.order - b.order);
+  }, [modules]);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -111,7 +151,7 @@ export default function CourseManagePage() {
       <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold">Quản lý nội dung khoá học #{courseId || 1001}</h1>
+            <h1 className="text-2xl md:text-3xl font-bold">Quản lý nội dung khoá học #{isNaN(courseId) || courseId === 0 ? 1001 : courseId}</h1>
             <p className="text-slate-600 mt-1">Tạo module/bài học, tải tài nguyên; thêm đề thi & câu hỏi.</p>
           </div>
           <Link to="/courses" className="text-indigo-600 hover:underline">← Quay lại Courses</Link>
@@ -121,26 +161,61 @@ export default function CourseManagePage() {
           {/* Modules & Lessons */}
           <Card title="Modules & Lessons" action={<Btn variant="primary" size="sm" onClick={addModule}>+ Module</Btn>}>
             {modules.length === 0 && <div className="text-sm text-slate-500">Chưa có module. Nhấn <b>+ Module</b> để tạo.</div>}
-            {modules.sort((a,b)=>a.order-b.order).map((m) => (
+            {modules.slice().sort((a,b)=>a.order-b.order).map((m) => (
               <ModuleCard key={m.id} module={m} onChange={updateModule} />
             ))}
           </Card>
 
-          {/* Exams panel (tổng hợp – chỉ hiển thị) */}
-          <Card title="Exams (tổng hợp)">
-            {modules.filter(x=>x.exam).length === 0 ? (
-              <div className="text-sm text-slate-500">Chưa có exam nào.</div>
-            ) : (
-              <div className="space-y-3">
-                {modules.filter(x=>x.exam).map((m) => (
-                  <div key={m.id} className="rounded-2xl border p-3">
-                    <div className="font-medium text-slate-900">{m.exam!.title} <span className="text-slate-500">• Module: {m.title}</span></div>
-                    <div className="text-xs text-slate-500">Số câu hỏi: {m.exam!.questions.length}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
+          {/* RIGHT COLUMN */}
+          <div className="grid gap-6">
+            {/* Course Outline (flat, toàn khoá) */}
+            <Card title="Course Outline (flat)">
+              {courseFlatOutline.length === 0 ? (
+                <div className="text-sm text-slate-500">Chưa có mục nào.</div>
+              ) : (
+                <ol className="space-y-2">
+                  {courseFlatOutline.map((it, i) => (
+                    <li key={it.key} className="flex items-center gap-3 rounded-2xl border px-3 py-2">
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full border ${
+                          it.kind === "Lesson"
+                            ? "bg-indigo-50 border-indigo-200"
+                            : "bg-amber-50 border-amber-200"
+                        }`}
+                      >
+                        {it.kind}
+                      </span>
+                      <span className="font-medium">{i + 1}.</span>
+                      <span className="font-medium">{it.title}</span>
+                      <span className="ml-auto text-xs text-slate-500">
+                        Module: {it.moduleTitle} • order: {it.order}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </Card>
+
+            {/* Exams (tổng hợp) */}
+            <Card title="Exams (tổng hợp)">
+              {modules.filter(x => x.exam).length === 0 ? (
+                <div className="text-sm text-slate-500">Chưa có exam nào.</div>
+              ) : (
+                <div className="space-y-3">
+                  {modules.filter(x=>x.exam).sort((a,b)=> (a.exam!.order - b.exam!.order)).map((m) => (
+                    <div key={m.id} className="rounded-2xl border p-3">
+                      <div className="font-medium text-slate-900">
+                        {m.exam!.title} <span className="text-slate-500">• Module: {m.title}</span>
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        Số câu hỏi: {m.exam!.questions.length} • Order: {m.exam!.order}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          </div>
         </div>
       </main>
     </div>
@@ -155,6 +230,13 @@ function ModuleCard({ module, onChange }: { module: Module; onChange: (m: Module
   const [openCreateExam, setOpenCreateExam] = useState(false);
   const [openAddQ, setOpenAddQ] = useState(false);
 
+  // Tính order kế tiếp trong module (gộp cả lesson + exam)
+  const nextItemOrder = () => {
+    const maxLesson = module.lessons.reduce((mx, l) => Math.max(mx, l.order), 0);
+    const maxExam = module.exam ? module.exam.order : 0;
+    return Math.max(maxLesson, maxExam) + 10; // bước 10 để chèn giữa sau này
+  };
+
   // lessons
   const addLesson = (p: { title: string; description?: string; files?: FileList | null }) => {
     const resources: Resource[] = Array.from(p.files ?? []).map((f: File) => ({
@@ -163,19 +245,26 @@ function ModuleCard({ module, onChange }: { module: Module; onChange: (m: Module
       size: f.size,
       url: URL.createObjectURL(f),
     }));
-    const newLesson: Lesson = { id: ++lid, title: p.title.trim(), description: p.description?.trim(), resources };
+    const newLesson: Lesson = {
+      id: ++lid,
+      title: p.title.trim(),
+      description: p.description?.trim(),
+      order: nextItemOrder(),
+      resources,
+    };
     onChange({ ...module, lessons: [...module.lessons, newLesson] });
     setOpenAddLesson(false);
-    // [BE] POST /manage/module/:moduleId/lessons {title, description, ...}
+    // [BE] POST /manage/module/:moduleId/lessons {title, description, order}
     //      + POST /manage/lesson/:lessonId/resources (multipart)
   };
 
   // exam
   const createExam = (title: string) => {
-    const ex: Exam = { id: ++exid, title: title.trim(), questions: [] };
+    if (module.exam) return; // 1 exam/module (demo)
+    const ex: Exam = { id: ++exid, title: title.trim(), order: nextItemOrder(), questions: [] };
     onChange({ ...module, exam: ex });
     setOpenCreateExam(false);
-    // [BE] POST /manage/module/:moduleId/exam {title}
+    // [BE] POST /manage/module/:moduleId/exam {title, order}
   };
 
   const onExamChange = (exam: Exam) => onChange({ ...module, exam });
@@ -199,9 +288,9 @@ function ModuleCard({ module, onChange }: { module: Module; onChange: (m: Module
         <div className="text-slate-600 text-sm">Lessons</div>
         <div className="space-y-3 mt-2">
           {module.lessons.length === 0 && <div className="text-sm text-slate-500">Chưa có lesson.</div>}
-          {module.lessons.map((l) => (
+          {module.lessons.slice().sort((a,b)=>a.order-b.order).map((l) => (
             <div key={l.id} className="rounded-2xl border p-3">
-              <div className="font-medium">{l.title}</div>
+              <div className="font-medium">{l.title} <span className="text-xs text-slate-500">(order: {l.order})</span></div>
               {l.description && <div className="text-sm text-slate-600">{l.description}</div>}
               {l.resources.length > 0 && (
                 <div className="mt-2 text-sm">
@@ -254,7 +343,7 @@ function ModuleCard({ module, onChange }: { module: Module; onChange: (m: Module
 }
 
 /** ================================
- *  Sub-components for forms / exam
+ *  Sub-components (forms / exam)
  *  ================================ */
 function LessonForm({ onSubmit }: { onSubmit: (p: { title: string; description?: string; files?: FileList | null }) => void }) {
   const [title, setTitle] = useState("");
@@ -296,7 +385,7 @@ function CreateExamForm({ onSubmit }: { onSubmit: (title: string) => void }) {
 function ExamBox({ exam }: { exam: Exam }) {
   return (
     <div className="mt-2">
-      <div><b>{exam.title}</b></div>
+      <div><b>{exam.title}</b> <span className="text-xs text-slate-500">(order: {exam.order})</span></div>
       {exam.questions.length === 0 ? (
         <div className="text-sm text-slate-500 mt-1">Chưa có câu hỏi.</div>
       ) : (
@@ -365,6 +454,12 @@ function NewQuestion({ exam, onExamChange }: { exam: Exam; onExamChange: (ex: Ex
   const [options, setOptions] = useState<string[]>(["", "", "", ""]);
   const [correct, setCorrect] = useState(0);
 
+  // ✅ handler có kiểu rõ ràng, không dùng any
+  const onTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const v = e.target.value === "text" ? "text" : "mcq";
+    setType(v);
+  };
+
   const create = () => {
     if (!text.trim()) return;
     const q: Question = {
@@ -377,26 +472,29 @@ function NewQuestion({ exam, onExamChange }: { exam: Exam; onExamChange: (ex: Ex
     QUESTION_BANK.push(q);
     const ex: Exam = { ...exam, questions: [...exam.questions, { questionId: q.id, points: 1, question: q }] };
     onExamChange(ex);
-    // [BE] POST /manage/exam/:examId/questions/new { ... }
   };
 
   return (
     <div className="space-y-3">
-      <select className="w-full px-3 py-2 rounded-xl border" value={type} onChange={(e)=>setType(e.target.value as any)}>
+      {/* ⬇️ dùng handler đã typed thay cho `as any` */}
+      <select className="w-full px-3 py-2 rounded-xl border" value={type} onChange={onTypeChange}>
         <option value="mcq">Multiple Choice</option>
         <option value="text">Text</option>
       </select>
       <textarea className="w-full px-3 py-2 rounded-xl border min-h-[90px]" placeholder="Question text" value={text} onChange={(e)=>setText(e.target.value)} />
-      {type === "mcq" &&
-        options.map((op, i) => (
-          <div key={i} className="flex gap-2 items-center">
-            <input className="flex-1 px-3 py-2 rounded-xl border" placeholder={`Option ${i + 1}`} value={op}
-                   onChange={(e) => setOptions(options.map((x, idx) => (idx === i ? e.target.value : x)))} />
-            <label className="text-sm text-slate-600">
-              <input type="radio" name="correct" checked={i === correct} onChange={() => setCorrect(i)} /> Correct
-            </label>
-          </div>
-        ))}
+      {type === "mcq" && options.map((op, i) => (
+        <div key={i} className="flex gap-2 items-center">
+          <input
+            className="flex-1 px-3 py-2 rounded-xl border"
+            placeholder={`Option ${i + 1}`}
+            value={op}
+            onChange={(e) => setOptions(options.map((x, idx) => (idx === i ? e.target.value : x)))}
+          />
+          <label className="text-sm text-slate-600">
+            <input type="radio" name="correct" checked={i === correct} onChange={() => setCorrect(i)} /> Correct
+          </label>
+        </div>
+      ))}
       <Btn variant="primary" onClick={create}>Create & Attach</Btn>
     </div>
   );
