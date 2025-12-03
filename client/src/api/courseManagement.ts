@@ -36,6 +36,7 @@ function toUiExam(e: ExamData): UiExam {
     id: e.Id,
     title: e.Title,
     duration: e.Duration,
+    order: e.ModuleItem?.OrderNo ?? e.OrderNo,
     questions: e.Questions as ExamQuestion[],
   };
 }

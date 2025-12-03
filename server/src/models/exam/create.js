@@ -14,6 +14,6 @@ export default async function create(data) {
         },
       },
     },
-    include: { ModuleItem: true },
+    include: { ModuleItem: true, ExamQuestion: true },
   });
 }

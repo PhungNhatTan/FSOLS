@@ -29,6 +29,7 @@ const mapLessonDtoToLocal = (lesson: LessonDto): Lesson => ({
   id: lesson.id,
   title: lesson.title,
   description: lesson.description,
+  order: lesson.order ?? 0,
   resources: (lesson.resources ?? []).map(mapResourceDtoToLocal),
 });
 
@@ -50,6 +51,7 @@ const mapExamQuestionDtoToLocal = (question: ExamQuestionDto): Exam["questions"]
 const mapExamDtoToLocal = (exam: ExamDto): Exam => ({
   id: exam.id,
   title: exam.title,
+  order: exam.order ?? 0,
   questions: (exam.questions ?? []).map(mapExamQuestionDtoToLocal),
 });
 
@@ -160,7 +162,7 @@ export default function CourseManagePage() {
         <div className="flex items-end justify-between gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold">Manage Course Content #{courseId || 1001}</h1>
-              <p className="text-slate-600 mt-1">Create modules/lessons, upload resources; add exams & questions.</p>
+            <p className="text-slate-600 mt-1">Create modules/lessons, upload resources; add exams & questions.</p>
           </div>
           <Link to="/courses" className="text-indigo-600 hover:underline">← Back to Courses</Link>
         </div>
@@ -169,26 +171,33 @@ export default function CourseManagePage() {
           {/* Modules & Lessons */}
           <Card title="Modules & Lessons" action={<Btn variant="primary" size="sm" onClick={addModule}>+ Module</Btn>}>
             {modules.length === 0 && <div className="text-sm text-slate-500">No modules yet. Click <b>+ Module</b> to create.</div>}
-            {modules.sort((a,b)=>a.order-b.order).map((m) => (
+            {modules.slice().sort((a,b)=>a.order-b.order).map((m) => (
               <ModuleCard key={m.id} module={m} onChange={updateModule} />
             ))}
           </Card>
 
-          {/* Exams panel) */}
-          <Card title="Exams">
+          {/* RIGHT COLUMN */}
+          <div className="grid gap-6">
+            {/* Exams panel */}
+            <Card title="Exams">
               {modules.filter(x=>x.exam).length === 0 ? (
                 <div className="text-sm text-slate-500">No exams yet.</div>
-            ) : (
-              <div className="space-y-3">
-                {modules.filter(x=>x.exam).map((m) => (
-                  <div key={m.id} className="rounded-2xl border p-3">
-                    <div className="font-medium text-slate-900">{m.exam!.title} <span className="text-slate-500">• Module: {m.title}</span></div>
-                    <div className="text-xs text-slate-500">Number of questions: {m.exam!.questions.length}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
+              ) : (
+                <div className="space-y-3">
+                  {modules.filter(x=>x.exam).sort((a,b)=> (a.exam!.order - b.exam!.order)).map((m) => (
+                    <div key={m.id} className="rounded-2xl border p-3">
+                      <div className="font-medium text-slate-900">
+                        {m.exam!.title} <span className="text-slate-500">• Module: {m.title}</span>
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        Number of questions: {m.exam!.questions.length}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          </div>
         </div>
       </main>
     </div>
@@ -199,6 +208,13 @@ function ModuleCard({ module, onChange }: { module: Module; onChange: (m: Module
   const [openAddLesson, setOpenAddLesson] = useState(false);
   const [openCreateExam, setOpenCreateExam] = useState(false);
   const [openAddQ, setOpenAddQ] = useState(false);
+
+  // Tính order kế tiếp trong module (gộp cả lesson + exam)
+  const nextItemOrder = () => {
+    const maxLesson = module.lessons.reduce((mx, l) => Math.max(mx, l.order), 0);
+    const maxExam = module.exam ? module.exam.order : 0;
+    return Math.max(maxLesson, maxExam) + 10; // bước 10 để chèn giữa sau này
+  };
 
   // lessons
   const addLesson = (newLesson: Lesson) => {
@@ -239,9 +255,9 @@ function ModuleCard({ module, onChange }: { module: Module; onChange: (m: Module
         <div className="text-slate-600 text-sm">Lessons</div>
         <div className="space-y-3 mt-2">
           {module.lessons.length === 0 && <div className="text-sm text-slate-500">No lessons yet.</div>}
-          {module.lessons.map((l) => (
+          {module.lessons.slice().sort((a,b)=>a.order-b.order).map((l) => (
             <div key={l.id} className="rounded-2xl border p-3">
-              <div className="font-medium">{l.title}</div>
+              <div className="font-medium">{l.title} <span className="text-xs text-slate-500">(order: {l.order})</span></div>
               {l.description && <div className="text-sm text-slate-600">{l.description}</div>}
               {l.resources.length > 0 && (
                 <div className="mt-2 text-sm">
@@ -281,6 +297,7 @@ function ModuleCard({ module, onChange }: { module: Module; onChange: (m: Module
                 id: Number(lesson.Id) || ++lid,
                 title: lesson.Title || "Untitled",
                 description: lesson.Content,
+                order: nextItemOrder(),
                 resources: lesson.VideoUrl
                   ? [{ id: ++rid, name: "video", url: lesson.VideoUrl }]
                   : lesson.DocUrl
@@ -310,7 +327,6 @@ function ModuleCard({ module, onChange }: { module: Module; onChange: (m: Module
   );
 }
 
-
 function CreateExamForm({ onSubmit }: { onSubmit: (title: string) => Promise<void> | void }) {
   const [title, setTitle] = useState("Midterm");
   const [loading, setLoading] = useState(false);
@@ -337,7 +353,7 @@ function CreateExamForm({ onSubmit }: { onSubmit: (title: string) => Promise<voi
 function ExamBox({ exam }: { exam: Exam }) {
   return (
     <div className="mt-2">
-      <div><b>{exam.title}</b></div>
+      <div><b>{exam.title}</b> <span className="text-xs text-slate-500">(order: {exam.order})</span></div>
       {exam.questions.length === 0 ? (
         <div className="text-sm text-slate-500 mt-1">No questions yet.</div>
       ) : (
@@ -429,6 +445,11 @@ function NewQuestion({ exam, onExamChange }: { exam: Exam; onExamChange: (ex: Ex
   const [options, setOptions] = useState<string[]>(["", "", "", ""]);
   const [correct, setCorrect] = useState(0);
 
+  const onTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const v = e.target.value === "text" ? "text" : "mcq";
+    setType(v);
+  };
+
   const create = async () => {
     if (!text.trim()) return;
     try {
@@ -449,21 +470,24 @@ function NewQuestion({ exam, onExamChange }: { exam: Exam; onExamChange: (ex: Ex
 
   return (
     <div className="space-y-3">
-      <select className="w-full px-3 py-2 rounded-xl border" value={type} onChange={(e)=>setType(e.target.value as "mcq" | "text")}>
+      <select className="w-full px-3 py-2 rounded-xl border" value={type} onChange={onTypeChange}>
         <option value="mcq">Multiple Choice</option>
         <option value="text">Text</option>
       </select>
       <textarea className="w-full px-3 py-2 rounded-xl border min-h-[90px]" placeholder="Question text" value={text} onChange={(e)=>setText(e.target.value)} />
-      {type === "mcq" &&
-        options.map((op, i) => (
-          <div key={i} className="flex gap-2 items-center">
-            <input className="flex-1 px-3 py-2 rounded-xl border" placeholder={`Option ${i + 1}`} value={op}
-                   onChange={(e) => setOptions(options.map((x, idx) => (idx === i ? e.target.value : x)))} />
-            <label className="text-sm text-slate-600">
-              <input type="radio" name="correct" checked={i === correct} onChange={() => setCorrect(i)} /> Correct
-            </label>
-          </div>
-        ))}
+      {type === "mcq" && options.map((op, i) => (
+        <div key={i} className="flex gap-2 items-center">
+          <input
+            className="flex-1 px-3 py-2 rounded-xl border"
+            placeholder={`Option ${i + 1}`}
+            value={op}
+            onChange={(e) => setOptions(options.map((x, idx) => (idx === i ? e.target.value : x)))}
+          />
+          <label className="text-sm text-slate-600">
+            <input type="radio" name="correct" checked={i === correct} onChange={() => setCorrect(i)} /> Correct
+          </label>
+        </div>
+      ))}
       <Btn variant="primary" onClick={create}>Create & Attach</Btn>
     </div>
   );

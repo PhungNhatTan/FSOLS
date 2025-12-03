@@ -80,6 +80,7 @@ export type UiLesson = {
   id: number;
   title: string;
   description?: string;
+  order: number;
   resources: UiResource[];
 };
 
@@ -87,6 +88,7 @@ export type UiExam = {
   id: number;
   title: string;
   duration?: number;
+  order?: number;
   questions: ExamQuestion[];
 };
 
@@ -115,6 +117,7 @@ export type UiLessonLocal = {
   id: number;
   title: string;
   description?: string;
+  order: number;
   resources: Resource[];
 };
 
@@ -127,6 +130,7 @@ export type ExamQuestionLocal = {
 export type ExamLocal = {
   id: number;
   title: string;
+  order: number;
   questions: ExamQuestionLocal[];
 };
 
