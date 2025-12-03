@@ -11,10 +11,13 @@ import ExamPage from "./components/public/exam/ExamPage";
 // Mentor Pages
 import Dashboard from "./pages/mentor/Dashboard";
 import CourseManagePageMentor from "./pages/mentor/CourseManagePage";
-import CoursePage from "./pages/public/CoursePage";
+import CoursesPageMentor from "./pages/mentor/CoursesPage";
 import CourseDetailPage from "./pages/public/CourseDetailPage";
 import QuestionBankPage from "./pages/QuestionBankPage";
 import UploadLessonPage from "./pages/mentor/UploadLessonPage";
+
+// Public Pages
+import CoursePage from "./pages/public/CoursePage";
 
 // Moderator Pages
 import DashboardManager from "./pages/moderator/Dashboard";
@@ -57,7 +60,7 @@ export default function App() {
             </ProtectedRoute>
           }>
             <Route path="dashboard" element={<Dashboard />} />
-            <Route path="courses" element={<CoursePage />} />
+            <Route path="courses" element={<CoursesPageMentor />} />
             <Route path="course/:id" element={<CourseManagePageMentor />} />
             <Route path="lesson/upload" element={<UploadLessonPage />} />
             <Route path="questions" element={<QuestionBankPage />} />

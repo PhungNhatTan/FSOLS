@@ -22,6 +22,7 @@ export interface Course {
   Id: number;
   Name: string;
   Description: string;
+  DeletedAt?: string | null;
 }
 
 export interface CourseDetail extends Course {

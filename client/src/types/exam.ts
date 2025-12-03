@@ -18,18 +18,16 @@ export interface Exam {
   Title: string;
 }
 
-export interface ModuleItem {
-  Id: string;
-  OrderNo: number;
-  CourseModuleId?: number;
-  CreatedAt: string;
-  DeletedAt?: string;
-}
-
 export interface ExamData extends Exam {
   Duration: number;
   OrderNo?: number;
-  ModuleItem?: ModuleItem;
+  ModuleItem?: {
+    Id: string;
+    OrderNo: number;
+    CourseModuleId?: number;
+    CreatedAt: string;
+    DeletedAt?: string;
+  };
   Questions: ExamQuestion[];
 }
 

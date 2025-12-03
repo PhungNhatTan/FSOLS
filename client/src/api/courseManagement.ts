@@ -27,6 +27,7 @@ function toUiLesson(l: ManageLesson): UiLesson {
     id: l.Id,
     title: l.Title,
     description: l.Description,
+    order: 0,
     resources: (l.Resources ?? []).map(toUiResource),
   };
 }

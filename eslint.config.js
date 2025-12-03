@@ -5,10 +5,12 @@ import react from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
 import tseslint from "typescript-eslint";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default [
   js.configs.recommended,
-  ...tseslint.configs.recommended, // 👈 use TS parser + rules
 
   {
     ignores: [
@@ -24,15 +26,11 @@ export default [
 
   // ------------------ SERVER ------------------
   {
-    files: ["server/**/*.{ts,js}"],
+    files: ["server/**/*.js"],
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "module",
       globals: { ...globals.node },
-      parserOptions: {
-        project: "./server/tsconfig.json",
-        tsconfigRootDir: path.resolve(),
-      },
     },
     rules: {
       "no-console": "off",
@@ -41,6 +39,7 @@ export default [
   },
 
   // ------------------ CLIENT (React + TS) ------------------
+  ...tseslint.configs.recommended, // 👈 use TS parser + rules for client
   {
     files: ["client/**/*.{ts,tsx,js,jsx}"],
     plugins: { react, "react-hooks": reactHooks },
@@ -49,8 +48,8 @@ export default [
       sourceType: "module",
       globals: { ...globals.browser },
       parserOptions: {
-        project: "./client/tsconfig.eslint.json",
-        tsconfigRootDir: path.resolve("client"),
+        project: "./tsconfig.json",
+        tsconfigRootDir: path.join(__dirname, "client"),
         ecmaFeatures: { jsx: true },
       },
     },

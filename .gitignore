@@ -84,3 +84,5 @@ example/
 # Ignore generated files
 # -------------------------------
 COMPONENT_ORGANIZATION_ANALYSIS.md
+/-p
+/.zencoder
