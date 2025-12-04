@@ -8,10 +8,12 @@ export default async function get(id) {
       Name: true,
       Description: true,
       CourseModule: {
+        where: { DeletedAt: null },
         select: {
           Id: true,
           OrderNo: true,
           ModuleItems: {
+            where: { DeletedAt: null },
             select: {
               OrderNo: true,
               CourseLesson: { select: { Id: true, Title: true } },
