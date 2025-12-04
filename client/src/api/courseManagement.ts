@@ -42,13 +42,28 @@ function toUiExam(e: ExamData): UiExam {
   };
 }
 
+function normalizeExamResponse(data: any): ExamData {
+  return {
+    Id: data.ExamId ?? data.Id,
+    Title: data.Title,
+    Duration: data.Duration,
+    Questions: (data.Questions ?? []).map((q: any) => ({
+      ExamQuestionId: q.ExamQuestionId ?? q.Id,
+      QuestionBankId: q.QuestionBankId ?? q.Id,
+      QuestionText: q.QuestionText,
+      Type: q.Type,
+      Answers: q.Answers ?? [],
+    })),
+  };
+}
+
 function toUiModule(m: ManageModule): UiModule {
   return {
     id: m.Id,
     title: m.Title || `Module ${m.OrderNo}`,
     order: m.OrderNo,
     lessons: (m.Lessons ?? []).map(toUiLesson),
-    exam: m.Exam ? toUiExam(m.Exam) : undefined,
+    exams: m.Exam ? [toUiExam(m.Exam)] : [],
   };
 }
 
@@ -64,14 +79,40 @@ export const courseManagementApi = {
       Name: res.data.Name,
       Description: res.data.Description,
     };
+    
+    const modules = (res.data.CourseModule ?? []).map((m) => toUiModule({
+      Id: m.Id,
+      Title: "Untitled Module",
+      OrderNo: m.OrderNo || 0,
+      Lessons: [],
+    }));
+
+    // Fetch full exam data with questions for each exam
+    for (const module of modules) {
+      const rawModule = (res.data.CourseModule ?? []).find((m) => m.Id === module.id);
+      const examIds = rawModule?.ModuleItems?.flatMap((mi: any) => mi.Exam?.map((e: any) => e.Id) ?? []) ?? [];
+      
+      const exams: any[] = [];
+      for (const examId of examIds) {
+        try {
+          const examData = await client.get<any>(`/exam/takingExam/${examId}`);
+          const exam = toUiExam({
+            Id: examData.data.ExamId,
+            Title: examData.data.Title,
+            Duration: examData.data.Duration,
+            Questions: examData.data.Questions,
+          } as ExamData);
+          exams.push(exam);
+        } catch (err) {
+          console.error(`Failed to load exam ${examId}:`, err);
+        }
+      }
+      module.exams = exams;
+    }
+
     return {
       course,
-      modules: (res.data.CourseModule ?? []).map((m) => toUiModule({
-        Id: m.Id,
-        Title: "Untitled Module",
-        OrderNo: m.OrderNo || 0,
-        Lessons: [],
-      })),
+      modules,
     };
   },
 
@@ -172,12 +213,15 @@ export const courseManagementApi = {
     questionBankId: string,
     points: number
   ): Promise<UiExam> {
-    const res = await client.post<ExamData>(`/manage/examQuestion`, {
-      ExamId: examId,
-      QuestionBankId: questionBankId,
-      Points: points,
+    const res = await client.post<any>(`/manage/examQuestion`, {
+      examId,
+      mode: "useQB",
+      data: {
+        questionId: questionBankId,
+      },
     });
-    return toUiExam(res.data);
+    const exam = normalizeExamResponse(res.data);
+    return toUiExam(exam);
   },
 
   /** Tạo mới 1 câu hỏi (MCQ/Text…) rồi attach vào exam */
@@ -190,16 +234,28 @@ export const courseManagementApi = {
       correctIndex?: number;
     }
   ): Promise<{ exam: UiExam }> {
-    const res = await client.post<{ exam: ExamData }>(`/manage/examQuestion`, {
-      ExamId: examId,
-      Type: payload.type,
-      QuestionText: payload.text,
-      Answers: payload.options?.map((opt, idx) => ({
-        AnswerText: opt,
-        IsCorrect: idx === payload.correctIndex,
-      })),
-    });
-    return { exam: toUiExam(res.data.exam) };
+    console.log("[API] createQuestionAndAttach called with:", { examId, payload });
+    try {
+      const res = await client.post<any>(`/manage/examQuestion`, {
+        examId,
+        mode: "createQB",
+        data: {
+          questionText: payload.text,
+          type: payload.type,
+          answers: payload.options?.map((opt, idx) => ({
+            text: opt,
+            isCorrect: idx === payload.correctIndex,
+          })),
+        },
+      });
+      console.log("[API] Response received:", res.data);
+      const exam = normalizeExamResponse(res.data);
+      console.log("[API] Normalized exam:", exam);
+      return { exam: toUiExam(exam) };
+    } catch (error) {
+      console.error("[API] Error in createQuestionAndAttach:", error);
+      throw error;
+    }
   },
 
   /** Search QuestionBank */
@@ -214,6 +270,16 @@ export const courseManagementApi = {
       type: it.Type,
     }));
     return { items };
+  },
+
+  /** Delete exam */
+  async deleteExam(examId: number): Promise<void> {
+    await client.delete(`/manage/exam/${examId}`);
+  },
+
+  /** Remove question from exam */
+  async removeExamQuestion(examQuestionId: string): Promise<void> {
+    await client.delete(`/manage/examQuestion/${examQuestionId}`);
   },
 };
 

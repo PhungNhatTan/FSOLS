@@ -2,7 +2,7 @@ import prisma from "../../prismaClient.js";
 
 export default async function remove(id) {
   try {
-    const existing = await prisma.exam.findFirst({
+    const existing = await prisma.courseModule.findFirst({
       where: { Id: id, DeletedAt: null },
     });
     
@@ -10,7 +10,7 @@ export default async function remove(id) {
       return null;
     }
 
-    return await prisma.exam.update({
+    return await prisma.courseModule.update({
       where: { Id: id },
       data: { DeletedAt: new Date() },
     });

@@ -2,9 +2,16 @@ import type { Course } from "./course";
 import type { ExamData, ExamQuestion } from "./exam";
 import type { QuestionType } from "./questionBank";
 
+export interface ModuleItem {
+  OrderNo: number;
+  CourseLesson?: Array<{ Id: string; Title: string }>;
+  Exam?: Array<{ Id: number; Title: string }>;
+}
+
 export interface Module {
   Id: number;
   OrderNo: number;
+  ModuleItems?: ModuleItem[];
 }
 
 export interface CourseData {
@@ -97,7 +104,7 @@ export type UiModule = {
   title: string;
   order: number;
   lessons: UiLesson[];
-  exam?: UiExam;
+  exams?: UiExam[];
 };
 
 export type UiCourseStructure = {
@@ -122,6 +129,7 @@ export type UiLessonLocal = {
 };
 
 export type ExamQuestionLocal = {
+  examQuestionId: string;
   questionId: number;
   points: number;
   question?: Question;
@@ -147,5 +155,5 @@ export type UiModuleLocal = {
   title: string;
   order: number;
   lessons: UiLessonLocal[];
-  exam?: ExamLocal;
+  exams: ExamLocal[];
 };

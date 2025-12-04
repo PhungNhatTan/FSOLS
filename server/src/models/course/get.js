@@ -2,7 +2,7 @@ import prisma from '../../prismaClient.js';
 
 export default async function get(id) {
   const course = await prisma.course.findUnique({
-    where: { Id: Number(id) },
+    where: { Id: Number(id), DeletedAt: null },
     select: {
       Id: true,
       Name: true,

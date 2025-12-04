@@ -12,12 +12,19 @@ client.interceptors.request.use((config) => {
   if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  console.log("[HTTP] Request:", config.method?.toUpperCase(), config.url, config.data);
   return config;
 });
 
 client.interceptors.response.use(
-  (response: AxiosResponse) => response,
-  (error) => Promise.reject(error)
+  (response: AxiosResponse) => {
+    console.log("[HTTP] Response:", response.status, response.config.url, response.data);
+    return response;
+  },
+  (error) => {
+    console.error("[HTTP] Error:", error.response?.status, error.response?.data, error.message);
+    return Promise.reject(error);
+  }
 );
 
 export default client;

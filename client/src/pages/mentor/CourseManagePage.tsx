@@ -37,6 +37,7 @@ const mapExamQuestionDtoToLocal = (question: ExamQuestionDto): Exam["questions"]
   const qbId = Number(question.QuestionBankId);
   const mappedId = Number.isNaN(qbId) ? ++qid : qbId;
   return {
+    examQuestionId: question.ExamQuestionId,
     questionId: mappedId,
     points: 1,
     question: {
@@ -60,7 +61,7 @@ const mapModuleDtoToLocal = (module: ModuleDto): Module => ({
   title: module.title,
   order: module.order,
   lessons: (module.lessons ?? []).map(mapLessonDtoToLocal),
-  exam: module.exam ? mapExamDtoToLocal(module.exam) : undefined,
+  exams: (module.exams ?? []).map(mapExamDtoToLocal),
 });
 
 const Btn: React.FC<React.PropsWithChildren<{ variant?: "primary" | "ghost" | "outline"; size?: "sm" | "md"; className?: string; onClick?: () => void; type?: "button" | "submit"; disabled?: boolean }>>
@@ -111,6 +112,7 @@ export default function CourseManagePage() {
   const courseId = Number(id ?? 0);
 
   const [modules, setModules] = useState<Module[]>([]);
+  const [selectedItem, setSelectedItem] = useState<{ moduleId: number; type: "lesson" | "exam"; id: number } | null>(null);
 
   useEffect(() => {
     loadCourseData();
@@ -138,7 +140,43 @@ export default function CourseManagePage() {
     }
   };
 
-  const updateModule = (m: Module) => setModules((s) => s.map((x) => (x.id === m.id ? m : x)));
+  const deleteModule = async (moduleId: number) => {
+    if (!confirm("Delete this module and all its content?")) return;
+    try {
+      await courseManagementApi.removeModule(moduleId);
+      setModules((s) => s.filter((m) => m.id !== moduleId));
+      if (selectedItem?.moduleId === moduleId) {
+        setSelectedItem(null);
+      }
+    } catch (err) {
+      console.error("Error deleting module:", err);
+    }
+  };
+
+  const updateModule = (m: Module) => {
+    setModules((s) => s.map((x) => (x.id === m.id ? m : x)));
+    if (selectedItem?.moduleId === m.id) {
+      if (selectedItem.type === "exam" && !m.exams.find(e => e.id === selectedItem.id)) {
+        setSelectedItem(null);
+      }
+    }
+  };
+
+  const getSelectedModule = () => modules.find(m => m.id === selectedItem?.moduleId);
+  const getSelectedLesson = () => {
+    const mod = getSelectedModule();
+    if (selectedItem?.type === "lesson" && mod) {
+      return mod.lessons.find(l => l.id === selectedItem.id);
+    }
+    return undefined;
+  };
+  const getSelectedExam = () => {
+    const mod = getSelectedModule();
+    if (selectedItem?.type === "exam" && mod) {
+      return mod.exams.find(e => e.id === selectedItem.id);
+    }
+    return undefined;
+  };
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -164,39 +202,33 @@ export default function CourseManagePage() {
             <h1 className="text-2xl md:text-3xl font-bold">Manage Course Content #{courseId || 1001}</h1>
             <p className="text-slate-600 mt-1">Create modules/lessons, upload resources; add exams & questions.</p>
           </div>
-          <Link to="/courses" className="text-indigo-600 hover:underline">← Back to Courses</Link>
+          <Link to="/manage/courses" className="text-indigo-600 hover:underline">← Back to Courses</Link>
         </div>
 
         <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Modules & Lessons */}
-          <Card title="Modules & Lessons" action={<Btn variant="primary" size="sm" onClick={addModule}>+ Module</Btn>}>
+          <Card title="Modules & Items" action={<Btn variant="primary" size="sm" onClick={addModule}>+ Module</Btn>}>
             {modules.length === 0 && <div className="text-sm text-slate-500">No modules yet. Click <b>+ Module</b> to create.</div>}
             {modules.slice().sort((a,b)=>a.order-b.order).map((m) => (
-              <ModuleCard key={m.id} module={m} onChange={updateModule} />
+              <ModuleCard key={m.id} module={m} onChange={updateModule} onDelete={deleteModule} selectedItem={selectedItem} onSelectItem={setSelectedItem} />
             ))}
           </Card>
 
           {/* RIGHT COLUMN */}
           <div className="grid gap-6">
-            {/* Exams panel */}
-            <Card title="Exams">
-              {modules.filter(x=>x.exam).length === 0 ? (
-                <div className="text-sm text-slate-500">No exams yet.</div>
-              ) : (
-                <div className="space-y-3">
-                  {modules.filter(x=>x.exam).sort((a,b)=> (a.exam!.order - b.exam!.order)).map((m) => (
-                    <div key={m.id} className="rounded-2xl border p-3">
-                      <div className="font-medium text-slate-900">
-                        {m.exam!.title} <span className="text-slate-500">• Module: {m.title}</span>
-                      </div>
-                      <div className="text-xs text-slate-500">
-                        Number of questions: {m.exam!.questions.length}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Card>
+            {selectedItem ? (
+              <DetailCard
+                lesson={getSelectedLesson()}
+                exam={getSelectedExam()}
+                module={getSelectedModule()}
+                onModuleChange={updateModule}
+                onDeselect={() => setSelectedItem(null)}
+              />
+            ) : (
+              <Card title="Details">
+                <div className="text-sm text-slate-500">Select a lesson or exam to view details.</div>
+              </Card>
+            )}
           </div>
         </div>
       </main>
@@ -204,37 +236,48 @@ export default function CourseManagePage() {
   );
 }
 
-function ModuleCard({ module, onChange }: { module: Module; onChange: (m: Module) => void }) {
+function ModuleCard({
+  module,
+  onChange,
+  onDelete,
+  selectedItem,
+  onSelectItem,
+}: {
+  module: Module;
+  onChange: (m: Module) => void;
+  onDelete: (moduleId: number) => void;
+  selectedItem: { moduleId: number; type: "lesson" | "exam"; id: number } | null;
+  onSelectItem: (item: { moduleId: number; type: "lesson" | "exam"; id: number }) => void;
+}) {
   const [openAddLesson, setOpenAddLesson] = useState(false);
   const [openCreateExam, setOpenCreateExam] = useState(false);
-  const [openAddQ, setOpenAddQ] = useState(false);
 
-  // Tính order kế tiếp trong module (gộp cả lesson + exam)
   const nextItemOrder = () => {
     const maxLesson = module.lessons.reduce((mx, l) => Math.max(mx, l.order), 0);
-    const maxExam = module.exam ? module.exam.order : 0;
-    return Math.max(maxLesson, maxExam) + 10; // bước 10 để chèn giữa sau này
+    const maxExam = module.exams.reduce((mx, e) => Math.max(mx, e.order), 0);
+    return Math.max(maxLesson, maxExam) + 10;
   };
 
-  // lessons
   const addLesson = (newLesson: Lesson) => {
     onChange({ ...module, lessons: [...module.lessons, newLesson] });
     setOpenAddLesson(false);
   };
 
-  // exam
   const createExam = async (title: string) => {
     try {
       const created = await courseManagementApi.createExam(module.id, title.trim());
       const ex = mapExamDtoToLocal(created);
-      onChange({ ...module, exam: ex });
+      onChange({ ...module, exams: [...module.exams, ex] });
       setOpenCreateExam(false);
     } catch (err) {
       console.error("Error:", err);
     }
   };
 
-  const onExamChange = (exam: Exam) => onChange({ ...module, exam });
+  const mergedItems = [
+    ...module.lessons.map((l) => ({ type: "lesson" as const, item: l, order: l.order })),
+    ...module.exams.map((e) => ({ type: "exam" as const, item: e, order: e.order })),
+  ].sort((a, b) => a.order - b.order);
 
   return (
     <div className="rounded-2xl border border-slate-200 overflow-hidden mb-4">
@@ -242,49 +285,50 @@ function ModuleCard({ module, onChange }: { module: Module; onChange: (m: Module
         <div className="font-medium text-slate-900">Module {module.order}: {module.title}</div>
         <div className="flex items-center gap-2">
           <Btn size="sm" onClick={() => setOpenAddLesson(true)}>+ Lesson</Btn>
-          {!module.exam ? (
-            <Btn size="sm" onClick={() => setOpenCreateExam(true)}>+ Exam</Btn>
-          ) : (
-            <Btn size="sm" onClick={() => setOpenAddQ(true)}>+ Exam question</Btn>
-          )}
+          <Btn size="sm" onClick={() => setOpenCreateExam(true)}>+ Exam</Btn>
+          <Btn size="sm" variant="outline" onClick={() => onDelete(module.id)} className="text-red-600 border-red-200">Delete</Btn>
         </div>
       </div>
 
       <div className="p-4">
-        {/* Lessons */}
-        <div className="text-slate-600 text-sm">Lessons</div>
-        <div className="space-y-3 mt-2">
-          {module.lessons.length === 0 && <div className="text-sm text-slate-500">No lessons yet.</div>}
-          {module.lessons.slice().sort((a,b)=>a.order-b.order).map((l) => (
-            <div key={l.id} className="rounded-2xl border p-3">
-              <div className="font-medium">{l.title} <span className="text-xs text-slate-500">(order: {l.order})</span></div>
-              {l.description && <div className="text-sm text-slate-600">{l.description}</div>}
-              {l.resources.length > 0 && (
-                <div className="mt-2 text-sm">
-                  <b>Resources:</b>
-                  <ul className="list-disc ml-5">
-                    {l.resources.map((r) => (
-                      <li key={r.id}>
-                        <a className="text-indigo-600 hover:underline" href={r.url} target="_blank" rel="noreferrer">
-                          {r.name}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+        <div className="text-slate-600 text-sm mb-2">Items</div>
+        <div className="space-y-2">
+          {mergedItems.length === 0 && <div className="text-sm text-slate-500">No items yet.</div>}
+          {mergedItems.map((entry) => {
+            const isSelected =
+              selectedItem?.moduleId === module.id &&
+              selectedItem?.type === entry.type &&
+              selectedItem?.id === entry.item.id;
 
-        {/* Exam */}
-        <div className="mt-4">
-          <div className="text-slate-600 text-sm">Exam</div>
-          {!module.exam ? (
-            <div className="text-sm text-slate-500 mt-1">No exams yet.</div>
-          ) : (
-            <ExamBox exam={module.exam} />
-          )}
+            return (
+              <div
+                key={`${entry.type}-${entry.item.id}`}
+                onClick={() =>
+                  onSelectItem({
+                    moduleId: module.id,
+                    type: entry.type,
+                    id: entry.item.id,
+                  })
+                }
+                className={`rounded-2xl border p-3 cursor-pointer transition ${
+                  isSelected
+                    ? "border-indigo-400 bg-indigo-50"
+                    : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="font-medium">
+                      {entry.type === "lesson" ? "📖" : "📝"} {entry.item.title}
+                    </div>
+                    <div className="text-xs text-slate-500 mt-1">
+                      {entry.type === "lesson" ? "Lesson" : "Exam"} • Order: {entry.order}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -317,12 +361,6 @@ function ModuleCard({ module, onChange }: { module: Module; onChange: (m: Module
           <CreateExamForm onSubmit={createExam} />
         </Modal>
       )}
-
-      {openAddQ && module.exam && (
-        <Modal title="Add Exam Question" onClose={() => setOpenAddQ(false)}>
-          <AddQuestion exam={module.exam} onExamChange={onExamChange} />
-        </Modal>
-      )}
     </div>
   );
 }
@@ -350,24 +388,137 @@ function CreateExamForm({ onSubmit }: { onSubmit: (title: string) => Promise<voi
   );
 }
 
-function ExamBox({ exam }: { exam: Exam }) {
-  return (
-    <div className="mt-2">
-      <div><b>{exam.title}</b> <span className="text-xs text-slate-500">(order: {exam.order})</span></div>
-      {exam.questions.length === 0 ? (
-        <div className="text-sm text-slate-500 mt-1">No questions yet.</div>
-      ) : (
-        <ul className="mt-2 space-y-2">
-          {exam.questions.map((q, i) => (
-            <li key={i} className="rounded-2xl border p-3">
-              <div><b>Q{i + 1}:</b> {q.question?.text ?? `Question #${q.questionId}`}</div>
-              <div className="text-xs text-slate-500">Points: {q.points}</div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
+function DetailCard({
+  lesson,
+  exam,
+  module,
+  onModuleChange,
+  onDeselect,
+}: {
+  lesson?: Lesson;
+  exam?: Exam;
+  module?: Module;
+  onModuleChange: (m: Module) => void;
+  onDeselect: () => void;
+}) {
+  const [openAddQ, setOpenAddQ] = useState(false);
+
+  if (!lesson && !exam) {
+    return (
+      <Card title="Details">
+        <div className="text-sm text-slate-500">No item selected.</div>
+      </Card>
+    );
+  }
+
+  if (lesson) {
+    return (
+      <Card
+        title={`📖 ${lesson.title}`}
+        action={<Btn size="sm" onClick={onDeselect}>Clear</Btn>}
+      >
+        <div className="space-y-3">
+          {lesson.description && (
+            <div>
+              <div className="text-sm font-semibold text-slate-700">Description</div>
+              <div className="text-sm text-slate-600 mt-1">{lesson.description}</div>
+            </div>
+          )}
+          {lesson.resources.length > 0 && (
+            <div>
+              <div className="text-sm font-semibold text-slate-700">Resources</div>
+              <ul className="mt-2 space-y-2">
+                {lesson.resources.map((r) => (
+                  <li key={r.id} className="rounded-xl border p-2">
+                    <a className="text-indigo-600 hover:underline text-sm" href={r.url} target="_blank" rel="noreferrer">
+                      {r.name}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <div className="text-xs text-slate-500">Order: {lesson.order}</div>
+        </div>
+      </Card>
+    );
+  }
+
+  if (exam && module) {
+    const onExamChange = (updated: Exam) => {
+      onModuleChange({ ...module, exams: module.exams.map(e => e.id === updated.id ? updated : e) });
+    };
+
+    const deleteExam = async () => {
+      if (!confirm("Delete this exam?")) return;
+      try {
+        await courseManagementApi.deleteExam(exam.id);
+        onModuleChange({ ...module, exams: module.exams.filter(e => e.id !== exam.id) });
+        onDeselect();
+      } catch (err) {
+        console.error("Error deleting exam:", err);
+      }
+    };
+
+    return (
+      <Card
+        title={`📝 ${exam.title}`}
+        action={<Btn size="sm" variant="ghost" onClick={onDeselect}>Clear</Btn>}
+      >
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-slate-600">Questions: {exam.questions.length}</div>
+            <div className="flex gap-2">
+              <Btn size="sm" variant="primary" onClick={() => setOpenAddQ(true)}>+ Question</Btn>
+              <Btn size="sm" variant="outline" onClick={deleteExam} className="text-red-600 border-red-200">Delete</Btn>
+            </div>
+          </div>
+
+          {exam.questions.length === 0 ? (
+            <div className="text-sm text-slate-500 py-4">No questions yet. Click + Question to add.</div>
+          ) : (
+            <ul className="space-y-2">
+              {exam.questions.map((q, i) => (
+                <li key={i} className="rounded-2xl border p-3 bg-slate-50">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1">
+                      <div className="font-medium text-sm">Q{i + 1}: {q.question?.text ?? `Question #${q.questionId}`}</div>
+                      <div className="text-xs text-slate-500 mt-1">Points: {q.points}</div>
+                    </div>
+                    <Btn
+                      size="sm"
+                      variant="ghost"
+                      className="text-red-600"
+                      onClick={async () => {
+                        try {
+                          await courseManagementApi.removeExamQuestion(q.examQuestionId);
+                          onExamChange({ ...exam, questions: exam.questions.filter((_, idx) => idx !== i) });
+                        } catch (err) {
+                          console.error("Error removing question:", err);
+                        }
+                      }}
+                    >
+                      Remove
+                    </Btn>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="text-xs text-slate-500">Order: {exam.order}</div>
+        </div>
+
+        {openAddQ && exam && (
+          <Modal title="Add Exam Question" onClose={() => setOpenAddQ(false)}>
+            <AddQuestion exam={exam} onExamChange={onExamChange} />
+          </Modal>
+        )}
+      </Card>
+    );
+  }
+
+  return null;
 }
 
 function AddQuestion({ exam, onExamChange }: { exam: Exam; onExamChange: (ex: Exam) => void }) {
@@ -444,6 +595,8 @@ function NewQuestion({ exam, onExamChange }: { exam: Exam; onExamChange: (ex: Ex
   const [text, setText] = useState("");
   const [options, setOptions] = useState<string[]>(["", "", "", ""]);
   const [correct, setCorrect] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const onTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const v = e.target.value === "text" ? "text" : "mcq";
@@ -451,20 +604,41 @@ function NewQuestion({ exam, onExamChange }: { exam: Exam; onExamChange: (ex: Ex
   };
 
   const create = async () => {
-    if (!text.trim()) return;
+    console.log("Create button clicked");
+    setError("");
+    if (!text.trim()) {
+      console.log("Validation failed: no text");
+      setError("Question text is required");
+      return;
+    }
+    if (type === "mcq" && options.filter((o) => o.trim()).length < 2) {
+      console.log("Validation failed: MCQ needs 2+ options");
+      setError("MCQ needs at least 2 options");
+      return;
+    }
+    console.log("Validation passed, calling API...");
+    setLoading(true);
     try {
-      const response = await courseManagementApi.createQuestionAndAttach(exam.id, {
-        type: type === "mcq" ? "MCQ" : "Essay",
+      const payload = {
+        type: (type === "mcq" ? "MCQ" : "Essay") as "MCQ" | "Essay",
         text: text.trim(),
-        options: type === "mcq" ? options : undefined,
+        options: type === "mcq" ? options.filter((o) => o.trim()) : undefined,
         correctIndex: type === "mcq" ? correct : undefined,
-      });
+      };
+      console.log("API payload:", { examId: exam.id, ...payload });
+      const response = await courseManagementApi.createQuestionAndAttach(exam.id, payload);
+      console.log("API response:", response);
       onExamChange(mapExamDtoToLocal(response.exam));
       setText("");
       setOptions(["", "", "", ""]);
       setCorrect(0);
+      console.log("Question created successfully");
     } catch (err) {
-      console.error("Error:", err);
+      const msg = err instanceof Error ? err.message : "Failed to create question";
+      setError(msg);
+      console.error("Error creating question:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -488,7 +662,8 @@ function NewQuestion({ exam, onExamChange }: { exam: Exam; onExamChange: (ex: Ex
           </label>
         </div>
       ))}
-      <Btn variant="primary" onClick={create}>Create & Attach</Btn>
+      {error && <div className="px-3 py-2 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700">{error}</div>}
+      <Btn variant="primary" onClick={create} disabled={loading}>{loading ? "Creating..." : "Create & Attach"}</Btn>
     </div>
   );
 }

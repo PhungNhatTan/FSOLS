@@ -1,4 +1,5 @@
 import examQuestionModel from "../../models/examQuestion/index.js";
+import examModel from "../../models/exam/index.js";
 import serviceUtils from "../../services/index.js";
 
 export default async function createExam(req, res) {
@@ -6,15 +7,17 @@ export default async function createExam(req, res) {
 
     if (mode === "useQB"){
         const {questionId } = data;
-        const examQuestion = await examQuestionModel.create(examId, questionId);
-        return res.status(201).json({ "Question added successfully": examQuestion });
+        await examQuestionModel.create(examId, questionId);
+        const updatedExam = await examModel.getForExam(examId);
+        return res.status(201).json(updatedExam);
     };
 
     if (mode === "createQB") {
         try {
             const questionData = await serviceUtils.createQuestionBankEntry(data);
-            const examQuestion = await examQuestionModel.create(examId, questionData.id);
-            return res.status(201).json({ "Question created and added successfully": examQuestion });
+            await examQuestionModel.create(examId, questionData.Id);
+            const updatedExam = await examModel.getForExam(examId);
+            return res.status(201).json(updatedExam);
         } catch (error) {
             console.error("Error creating question bank entry:", error);
             return res.status(500).json({ error: "Failed to create exam question entry" });

@@ -6,7 +6,8 @@ export default async function getForExam(examId) {
         select: {
             Id: true,
             Title: true,
-            Duration: true,
+            DurationPreset: true,
+            DurationCustom: true,
             ExamQuestion: {
                 where: { DeletedAt: null },
                 select: {
