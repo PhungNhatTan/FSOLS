@@ -11,7 +11,7 @@ export default async function create(data) {
         QuestionText: questionText,
         Type: normalizedType,
         Answer: normalizedType === "Essay" ? (answer ?? "") : null,
-        courseId: courseId ?? null,
+        courseId: courseId,
         LessonId: lessonId ?? null,
       },
     });

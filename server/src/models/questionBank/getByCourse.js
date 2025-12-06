@@ -1,8 +1,12 @@
 import prisma from "../../prismaClient.js";
 
 export default async function getByCourse(courseId) {
+  const numericCourseId = Number(courseId);
+  if (Number.isNaN(numericCourseId)) {
+    return [];
+  }
   return prisma.questionBank.findMany({
-    where: { courseId },
+    where: { courseId: numericCourseId },
     select: {
       Id: true,
       QuestionText: true,

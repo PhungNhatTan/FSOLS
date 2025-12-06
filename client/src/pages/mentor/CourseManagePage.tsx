@@ -218,6 +218,7 @@ export default function CourseManagePage() {
           <div className="grid gap-6">
             {selectedItem ? (
               <DetailCard
+                courseId={courseId}
                 lesson={getSelectedLesson()}
                 exam={getSelectedExam()}
                 module={getSelectedModule()}
@@ -389,12 +390,14 @@ function CreateExamForm({ onSubmit }: { onSubmit: (title: string) => Promise<voi
 }
 
 function DetailCard({
+  courseId,
   lesson,
   exam,
   module,
   onModuleChange,
   onDeselect,
 }: {
+  courseId: number;
   lesson?: Lesson;
   exam?: Exam;
   module?: Module;
@@ -479,29 +482,14 @@ function DetailCard({
           ) : (
             <ul className="space-y-2">
               {exam.questions.map((q, i) => (
-                <li key={i} className="rounded-2xl border p-3 bg-slate-50">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1">
-                      <div className="font-medium text-sm">Q{i + 1}: {q.question?.text ?? `Question #${q.questionId}`}</div>
-                      <div className="text-xs text-slate-500 mt-1">Points: {q.points}</div>
-                    </div>
-                    <Btn
-                      size="sm"
-                      variant="ghost"
-                      className="text-red-600"
-                      onClick={async () => {
-                        try {
-                          await courseManagementApi.removeExamQuestion(q.examQuestionId);
-                          onExamChange({ ...exam, questions: exam.questions.filter((_, idx) => idx !== i) });
-                        } catch (err) {
-                          console.error("Error removing question:", err);
-                        }
-                      }}
-                    >
-                      Remove
-                    </Btn>
-                  </div>
-                </li>
+                <ExamQuestionItem
+                  key={i}
+                  courseId={courseId}
+                  question={q}
+                  index={i}
+                  exam={exam}
+                  onExamChange={onExamChange}
+                />
               ))}
             </ul>
           )}
@@ -511,7 +499,7 @@ function DetailCard({
 
         {openAddQ && exam && (
           <Modal title="Add Exam Question" onClose={() => setOpenAddQ(false)}>
-            <AddQuestion exam={exam} onExamChange={onExamChange} />
+            <AddQuestion courseId={courseId} exam={exam} onExamChange={onExamChange} onClose={() => setOpenAddQ(false)} />
           </Modal>
         )}
       </Card>
@@ -521,7 +509,74 @@ function DetailCard({
   return null;
 }
 
-function AddQuestion({ exam, onExamChange }: { exam: Exam; onExamChange: (ex: Exam) => void }) {
+function ExamQuestionItem({
+  courseId,
+  question,
+  index,
+  exam,
+  onExamChange,
+}: {
+  courseId: number;
+  question: Exam["questions"][number];
+  index: number;
+  exam: Exam;
+  onExamChange: (ex: Exam) => void;
+}) {
+  const [openEdit, setOpenEdit] = useState(false);
+
+  const handleRemove = async () => {
+    try {
+      await courseManagementApi.removeExamQuestion(question.examQuestionId);
+      onExamChange({ ...exam, questions: exam.questions.filter((_, idx) => idx !== index) });
+    } catch (err) {
+      console.error("Error removing question:", err);
+    }
+  };
+
+  return (
+    <>
+      <li className="rounded-2xl border p-3 bg-slate-50">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1">
+            <div className="font-medium text-sm">Q{index + 1}: {question.question?.text ?? `Question #${question.questionId}`}</div>
+            <div className="text-xs text-slate-500 mt-1">Points: {question.points}</div>
+          </div>
+          <div className="flex gap-2">
+            <Btn
+              size="sm"
+              variant="ghost"
+              onClick={() => setOpenEdit(true)}
+            >
+              Edit
+            </Btn>
+            <Btn
+              size="sm"
+              variant="ghost"
+              className="text-red-600"
+              onClick={handleRemove}
+            >
+              Remove
+            </Btn>
+          </div>
+        </div>
+      </li>
+      {openEdit && (
+        <Modal title="Edit Question" onClose={() => setOpenEdit(false)}>
+          <EditQuestion
+            courseId={courseId}
+            question={question}
+            index={index}
+            exam={exam}
+            onExamChange={onExamChange}
+            onClose={() => setOpenEdit(false)}
+          />
+        </Modal>
+      )}
+    </>
+  );
+}
+
+function AddQuestion({ courseId, exam, onExamChange, onClose }: { courseId: number; exam: Exam; onExamChange: (ex: Exam) => void; onClose: () => void }) {
   const [tab, setTab] = useState<"bank" | "new">("bank");
   return (
     <div className="space-y-3">
@@ -529,42 +584,44 @@ function AddQuestion({ exam, onExamChange }: { exam: Exam; onExamChange: (ex: Ex
         <button className={`px-3 py-1.5 rounded-full border ${tab==="bank" ? "bg-indigo-50 border-indigo-200" : ""}`} onClick={()=>setTab("bank")}>From QuestionBank</button>
         <button className={`px-3 py-1.5 rounded-full border ${tab==="new" ? "bg-indigo-50 border-indigo-200" : ""}`} onClick={()=>setTab("new")}>Create new</button>
       </div>
-      {tab === "bank" ? <BankPicker exam={exam} onExamChange={onExamChange} /> : <NewQuestion exam={exam} onExamChange={onExamChange} />}
+      {tab === "bank" ? <BankPicker courseId={courseId} exam={exam} onExamChange={onExamChange} onClose={onClose} /> : <NewQuestion courseId={courseId} exam={exam} onExamChange={onExamChange} onClose={onClose} />}
     </div>
   );
 }
 
-function BankPicker({ exam, onExamChange }: { exam: Exam; onExamChange: (ex: Exam) => void }) {
+function BankPicker({ courseId, exam, onExamChange, onClose }: { courseId: number; exam: Exam; onExamChange: (ex: Exam) => void; onClose: () => void }) {
   const [q, setQ] = useState("");
-  const [rows, setRows] = useState<UiQuestionSearchItem[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [allQuestions, setAllQuestions] = useState<UiQuestionSearchItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const searchQuestions = async () => {
-      if (!q.trim()) {
-        setRows([]);
-        return;
-      }
+    const loadCourseQuestions = async () => {
       setLoading(true);
       try {
-        const result = await courseManagementApi.searchQuestions(q);
-        setRows(result.items);
+        const result = await courseManagementApi.getQuestionsByCourse(courseId);
+        setAllQuestions(result.items);
       } catch (err) {
-        console.error("Error searching questions:", err);
-        setRows([]);
+        console.error("Error loading course questions:", err);
+        setAllQuestions([]);
       } finally {
         setLoading(false);
       }
     };
 
-    const debounceTimer = setTimeout(searchQuestions, 300);
-    return () => clearTimeout(debounceTimer);
-  }, [q]);
+    loadCourseQuestions();
+  }, [courseId]);
+
+  const addedQuestionIds = new Set(exam.questions.map(eq => String(eq.questionId)));
+  const filteredQuestions = allQuestions.filter(question => !addedQuestionIds.has(String(question.id)));
+  const displayedQuestions = q.trim()
+    ? filteredQuestions.filter(question => question.text.toLowerCase().includes(q.trim().toLowerCase()))
+    : filteredQuestions;
 
   const add = async (id: string) => {
     try {
-      const updated = await courseManagementApi.addExistingQuestion(exam.id, id, 1);
+      const updated = await courseManagementApi.addExistingQuestion(exam.id, id);
       onExamChange(mapExamDtoToLocal(updated));
+      onClose();
     } catch (err) {
       console.error("Error:", err);
     }
@@ -573,24 +630,34 @@ function BankPicker({ exam, onExamChange }: { exam: Exam; onExamChange: (ex: Exa
   return (
     <div className="space-y-3">
       <div className="flex gap-2">
-        <input className="flex-1 px-3 py-2 rounded-xl border" placeholder="Tìm câu hỏi…" value={q} onChange={(e)=>setQ(e.target.value)} />
-        <Btn disabled={loading}>{loading ? "Searching…" : "Search"}</Btn>
+        <input
+          className="flex-1 px-3 py-2 rounded-xl border"
+          placeholder="Search questions…"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          disabled={loading}
+        />
       </div>
       <div className="space-y-2 max-h-[50vh] overflow-auto">
-        {rows.map((r) => (
+        {loading && <div className="text-sm text-slate-500">Loading questions…</div>}
+        {!loading && displayedQuestions.length === 0 && (
+          <div className="text-sm text-slate-500">
+            {q.trim() ? "No matching questions found." : "All available questions have been added."}
+          </div>
+        )}
+        {!loading && displayedQuestions.map((r) => (
           <div key={r.id} className="rounded-2xl border p-3">
-            <div>{r.text}</div>
-            <Btn variant="primary" className="mt-2" onClick={() => add(r.id)}>Add to Exam</Btn>
+            <div className="text-sm">{r.text}</div>
+            <div className="text-xs text-slate-500 mt-1">Type: {r.type}</div>
+            <Btn variant="primary" size="sm" className="mt-2" onClick={() => add(r.id)}>Add to Exam</Btn>
           </div>
         ))}
-        {rows.length === 0 && !loading && <div className="text-sm text-slate-500">Không có câu hỏi.</div>}
-        {loading && <div className="text-sm text-slate-500">Đang tìm kiếm…</div>}
       </div>
     </div>
   );
 }
 
-function NewQuestion({ exam, onExamChange }: { exam: Exam; onExamChange: (ex: Exam) => void }) {
+function NewQuestion({ courseId, exam, onExamChange, onClose }: { courseId: number; exam: Exam; onExamChange: (ex: Exam) => void; onClose: () => void }) {
   const [type, setType] = useState<"mcq" | "text">("mcq");
   const [text, setText] = useState("");
   const [options, setOptions] = useState<string[]>(["", "", "", ""]);
@@ -625,14 +692,15 @@ function NewQuestion({ exam, onExamChange }: { exam: Exam; onExamChange: (ex: Ex
         options: type === "mcq" ? options.filter((o) => o.trim()) : undefined,
         correctIndex: type === "mcq" ? correct : undefined,
       };
-      console.log("API payload:", { examId: exam.id, ...payload });
-      const response = await courseManagementApi.createQuestionAndAttach(exam.id, payload);
+      console.log("API payload:", { examId: exam.id, courseId, ...payload });
+      const response = await courseManagementApi.createQuestionAndAttach(exam.id, courseId, payload);
       console.log("API response:", response);
       onExamChange(mapExamDtoToLocal(response.exam));
       setText("");
       setOptions(["", "", "", ""]);
       setCorrect(0);
       console.log("Question created successfully");
+      onClose();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to create question";
       setError(msg);
@@ -664,6 +732,103 @@ function NewQuestion({ exam, onExamChange }: { exam: Exam; onExamChange: (ex: Ex
       ))}
       {error && <div className="px-3 py-2 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700">{error}</div>}
       <Btn variant="primary" onClick={create} disabled={loading}>{loading ? "Creating..." : "Create & Attach"}</Btn>
+    </div>
+  );
+}
+
+function EditQuestion({
+  courseId,
+  question,
+  exam,
+  onExamChange,
+  onClose,
+}: {
+  courseId: number;
+  question: Exam["questions"][number];
+  index: number;
+  exam: Exam;
+  onExamChange: (ex: Exam) => void;
+  onClose: () => void;
+}) {
+  const [type, setType] = useState<"mcq" | "text">(question.question?.type === "mcq" ? "mcq" : "text");
+  const [text, setText] = useState(question.question?.text || "");
+  const [options, setOptions] = useState<string[]>(
+    question.question?.options && question.question.options.length > 0
+      ? question.question.options
+      : ["", "", "", ""]
+  );
+  const [correct, setCorrect] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const onTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const v = e.target.value === "text" ? "text" : "mcq";
+    setType(v);
+  };
+
+  const handleSave = async () => {
+    setError("");
+    if (!text.trim()) {
+      setError("Question text is required");
+      return;
+    }
+    if (type === "mcq" && options.filter((o) => o.trim()).length < 2) {
+      setError("MCQ needs at least 2 options");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await courseManagementApi.removeExamQuestion(question.examQuestionId);
+
+      const payload = {
+        type: (type === "mcq" ? "MCQ" : "Essay") as "MCQ" | "Essay",
+        text: text.trim(),
+        options: type === "mcq" ? options.filter((o) => o.trim()) : undefined,
+        correctIndex: type === "mcq" ? correct : undefined,
+      };
+
+      const response = await courseManagementApi.createQuestionAndAttach(exam.id, courseId, payload);
+      onExamChange(mapExamDtoToLocal(response.exam));
+      onClose();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to update question";
+      setError(msg);
+      console.error("Error updating question:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <select className="w-full px-3 py-2 rounded-xl border" value={type} onChange={onTypeChange}>
+        <option value="mcq">Multiple Choice</option>
+        <option value="text">Text</option>
+      </select>
+      <textarea className="w-full px-3 py-2 rounded-xl border min-h-[90px]" placeholder="Question text" value={text} onChange={(e) => setText(e.target.value)} />
+      {type === "mcq" && options.map((op, i) => (
+        <div key={i} className="flex gap-2 items-center">
+          <input
+            className="flex-1 px-3 py-2 rounded-xl border"
+            placeholder={`Option ${i + 1}`}
+            value={op}
+            onChange={(e) => setOptions(options.map((x, idx) => (idx === i ? e.target.value : x)))}
+          />
+          <label className="text-sm text-slate-600">
+            <input type="radio" name="correct" checked={i === correct} onChange={() => setCorrect(i)} /> Correct
+          </label>
+        </div>
+      ))}
+      {error && <div className="px-3 py-2 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700">{error}</div>}
+      <div className="flex gap-2">
+        <Btn variant="primary" onClick={handleSave} disabled={loading} className="flex-1">
+          {loading ? "Saving..." : "Save Changes"}
+        </Btn>
+        <Btn onClick={onClose} disabled={loading}>
+          Cancel
+        </Btn>
+      </div>
     </div>
   );
 }

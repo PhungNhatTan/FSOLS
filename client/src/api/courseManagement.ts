@@ -1,19 +1,27 @@
 import client from "../service/client";
 import type {
-  ManageModule,
-  ManageLesson,
-  ResourceFile,
-  QuestionBankSearchItem,
-  UiCourseStructure,
-  UiModule,
-  UiLesson,
-  UiResource,
-  UiExam,
-  UiQuestionSearchItem,
   CourseData,
+  ModuleItem,
+  ManageLesson,
+  ManageModule,
+  QuestionBankSearchItem,
+  ResourceFile,
+  UiCourseStructure,
+  UiExam,
+  UiLesson,
+  UiModule,
+  UiQuestionSearchItem,
+  UiResource,
 } from "../types/manage";
-import type { ExamData, ExamQuestion } from "../types/exam";
+import type { ExamAnswer, ExamData, ExamQuestion } from "../types/exam";
 import type { Course } from "../types/course";
+
+type TakingExamResponse = {
+  ExamId: number;
+  Title: string;
+  Duration: number;
+  Questions: ExamQuestion[];
+};
 
 /* -------------------------
    Helpers: normalize Raw → UI
@@ -42,18 +50,46 @@ function toUiExam(e: ExamData): UiExam {
   };
 }
 
-function normalizeExamResponse(data: any): ExamData {
+type ManageExamQuestion = {
+  ExamQuestionId?: string;
+  Id?: string;
+  QuestionBankId?: string;
+  QuestionText: string;
+  Type: ExamQuestion["Type"];
+  Answers?: ExamAnswer[];
+};
+
+type ManageExamQuestionResponse = {
+  ExamId?: number;
+  Id?: number;
+  Title: string;
+  Duration: number;
+  Questions?: ManageExamQuestion[];
+};
+
+function normalizeExamResponse(data: ManageExamQuestionResponse): ExamData {
+  const examId = data.ExamId ?? data.Id;
+  if (examId === undefined) throw new Error("Exam id missing");
+
   return {
-    Id: data.ExamId ?? data.Id,
+    Id: examId,
     Title: data.Title,
     Duration: data.Duration,
-    Questions: (data.Questions ?? []).map((q: any) => ({
-      ExamQuestionId: q.ExamQuestionId ?? q.Id,
-      QuestionBankId: q.QuestionBankId ?? q.Id,
-      QuestionText: q.QuestionText,
-      Type: q.Type,
-      Answers: q.Answers ?? [],
-    })),
+    Questions: (data.Questions ?? []).map((q: ManageExamQuestion) => {
+      const examQuestionId = q.ExamQuestionId ?? q.Id;
+      if (examQuestionId === undefined) throw new Error("Exam question id missing");
+
+      const questionBankId = q.QuestionBankId ?? q.Id;
+      if (questionBankId === undefined) throw new Error("Question bank id missing");
+
+      return {
+        ExamQuestionId: examQuestionId,
+        QuestionBankId: questionBankId,
+        QuestionText: q.QuestionText,
+        Type: q.Type,
+        Answers: q.Answers ?? [],
+      };
+    }),
   };
 }
 
@@ -79,7 +115,7 @@ export const courseManagementApi = {
       Name: res.data.Name,
       Description: res.data.Description,
     };
-    
+
     const modules = (res.data.CourseModule ?? []).map((m) => toUiModule({
       Id: m.Id,
       Title: "Untitled Module",
@@ -90,12 +126,12 @@ export const courseManagementApi = {
     // Fetch full exam data with questions for each exam
     for (const module of modules) {
       const rawModule = (res.data.CourseModule ?? []).find((m) => m.Id === module.id);
-      const examIds = rawModule?.ModuleItems?.flatMap((mi: any) => mi.Exam?.map((e: any) => e.Id) ?? []) ?? [];
-      
-      const exams: any[] = [];
+      const examIds: number[] =
+        rawModule?.ModuleItems?.flatMap((mi: ModuleItem) => mi.Exam?.map((e) => e.Id) ?? []) ?? [];
+      const exams: UiExam[] = [];
       for (const examId of examIds) {
         try {
-          const examData = await client.get<any>(`/exam/takingExam/${examId}`);
+          const examData = await client.get<TakingExamResponse>(`/exam/takingExam/${examId}`);
           const exam = toUiExam({
             Id: examData.data.ExamId,
             Title: examData.data.Title,
@@ -210,10 +246,9 @@ export const courseManagementApi = {
   /** Thêm câu hỏi đã có từ QuestionBank vào exam */
   async addExistingQuestion(
     examId: number,
-    questionBankId: string,
-    points: number
+    questionBankId: string
   ): Promise<UiExam> {
-    const res = await client.post<any>(`/manage/examQuestion`, {
+    const res = await client.post<ManageExamQuestionResponse>(`/manage/examQuestion`, {
       examId,
       mode: "useQB",
       data: {
@@ -227,6 +262,7 @@ export const courseManagementApi = {
   /** Tạo mới 1 câu hỏi (MCQ/Text…) rồi attach vào exam */
   async createQuestionAndAttach(
     examId: number,
+    courseId: number,
     payload: {
       type: "MCQ" | "Fill" | "Essay" | "TF";
       text: string;
@@ -234,10 +270,11 @@ export const courseManagementApi = {
       correctIndex?: number;
     }
   ): Promise<{ exam: UiExam }> {
-    console.log("[API] createQuestionAndAttach called with:", { examId, payload });
+    console.log("[API] createQuestionAndAttach called with:", { examId, courseId, payload });
     try {
-      const res = await client.post<any>(`/manage/examQuestion`, {
+      const res = await client.post<ManageExamQuestionResponse>(`/manage/examQuestion`, {
         examId,
+        courseId,
         mode: "createQB",
         data: {
           questionText: payload.text,
@@ -268,6 +305,20 @@ export const courseManagementApi = {
       id: it.Id,
       text: it.QuestionText,
       type: it.Type,
+    }));
+    return { items };
+  },
+
+  /** Get questions linked to a course */
+  async getQuestionsByCourse(courseId: number): Promise<{ items: UiQuestionSearchItem[] }> {
+    const res = await client.get<QuestionBankSearchItem[]>(
+      `/questionBank/course/${courseId}`
+    );
+    const questions = Array.isArray(res.data) ? res.data : [];
+    const items: UiQuestionSearchItem[] = questions.map((q) => ({
+      id: q.Id,
+      text: q.QuestionText,
+      type: q.Type,
     }));
     return { items };
   },

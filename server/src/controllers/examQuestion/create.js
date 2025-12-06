@@ -3,7 +3,7 @@ import examModel from "../../models/exam/index.js";
 import serviceUtils from "../../services/index.js";
 
 export default async function createExam(req, res) {
-    const { mode, data, examId } = req.body;
+    const { mode, data, examId, courseId } = req.body;
 
     if (mode === "useQB"){
         const {questionId } = data;
@@ -14,7 +14,10 @@ export default async function createExam(req, res) {
 
     if (mode === "createQB") {
         try {
-            const questionData = await serviceUtils.createQuestionBankEntry(data);
+            const questionData = await serviceUtils.createQuestionBankEntry({
+                ...data,
+                courseId
+            });
             await examQuestionModel.create(examId, questionData.Id);
             const updatedExam = await examModel.getForExam(examId);
             return res.status(201).json(updatedExam);
