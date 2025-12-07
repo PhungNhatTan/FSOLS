@@ -6,11 +6,13 @@ import remove from './delete.js';
 import getByCreator from './getByCreator.js';
 import verifyCourse from './verifyCourse.js';
 import getFeatured from './getFeatured.js';
+import getEnrolled from './getEnrolled.js';
 
 export default {
   create,
   get,
   getAll,
+  getEnrolled,
   getByCreator,
   update,
   remove,

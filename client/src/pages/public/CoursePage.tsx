@@ -12,7 +12,7 @@ export default function CoursePage() {
     setLoading(true);
     setError("");
     try {
-      const data = await courseApi.getAll();
+      const data = await courseApi.getEnrolled();
       setCourses(data || []);
     } catch (err) {
       setError(`Failed to load courses: ${err instanceof Error ? err.message : "Unknown error"}`);

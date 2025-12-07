@@ -7,5 +7,6 @@ const router = Router();
 router.get('/featured', course.getFeatured);
 router.get('/:id(\\d+)', course.get);
 router.get('/', course.getAll);
+router.get('/enrolled', course.getEnrolled);
 
 export default router;
