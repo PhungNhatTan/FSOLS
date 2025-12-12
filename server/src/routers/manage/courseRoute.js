@@ -8,6 +8,7 @@ const router = Router();
 router.get('/', authenticate, authorize(["Admin", "Mentor", "Moderator"]), course.getByCreator);
 router.post('/', authenticate, authorize(["Admin", "Mentor"]), course.create);
 router.put('/:id(\\d+)', authenticate, authorize(["Admin", "Mentor"]), course.update);
+router.post('/:id(\\d+)/draft', authenticate, authorize(["Admin", "Mentor"]), course.saveDraft);
 router.delete('/:id(\\d+)', authenticate, authorize(["Admin", "Mentor"]), course.remove);
 
 export default router;

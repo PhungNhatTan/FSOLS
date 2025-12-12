@@ -233,12 +233,14 @@ export const courseManagementApi = {
   },
 
   /* ---------- Exam ---------- */
-  async createExam(moduleId: number, title: string): Promise<UiExam> {
+  async createExam(moduleId: number, title: string, durationPreset?: string, durationCustom?: number): Promise<UiExam> {
     const res = await client.post<ExamData>(`/manage/exam`, {
       CourseModuleId: moduleId,
       Title: title,
       Description: "",
       OrderNo: 10,
+      DurationPreset: durationPreset,
+      DurationCustom: durationCustom,
     });
     return toUiExam(res.data);
   },
@@ -331,6 +333,16 @@ export const courseManagementApi = {
   /** Remove question from exam */
   async removeExamQuestion(examQuestionId: string): Promise<void> {
     await client.delete(`/manage/examQuestion/${examQuestionId}`);
+  },
+
+  /** Save draft to database */
+  async saveDraft(courseId: number, modules: unknown): Promise<void> {
+    await client.post(`/manage/course/${courseId}/draft`, { modules });
+  },
+
+  /** Publish entire course structure to database */
+  async publishCourse(courseId: number, modules: unknown): Promise<void> {
+    await client.post(`/manage/course/${courseId}/publish`, { modules });
   },
 };
 

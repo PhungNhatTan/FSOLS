@@ -137,6 +137,9 @@ model Course {
   PublishedAt DateTime?
   IsVerified  Boolean   @default(false)
 
+  // Temp
+  Draft Json? // jsonb?
+
   // Active check
   CreatedAt     DateTime       @default(now())
   DeletedAt     DateTime?

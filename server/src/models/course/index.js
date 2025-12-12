@@ -7,6 +7,7 @@ import getByCreator from './getByCreator.js';
 import verifyCourse from './verifyCourse.js';
 import getFeatured from './getFeatured.js';
 import getEnrolled from './getEnrolled.js';
+import saveDraft from './saveDraft.js';
 
 export default {
   create,
@@ -18,4 +19,5 @@ export default {
   remove,
   verifyCourse,
   getFeatured,
+  saveDraft,
 };

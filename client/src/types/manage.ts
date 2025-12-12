@@ -95,6 +95,8 @@ export type UiExam = {
   id: number;
   title: string;
   duration?: number;
+  durationPreset?: string;
+  durationCustom?: number;
   order?: number;
   questions: ExamQuestion[];
 };
@@ -139,6 +141,8 @@ export type ExamLocal = {
   id: number;
   title: string;
   order: number;
+  durationPreset?: string;
+  durationCustom?: number;
   questions: ExamQuestionLocal[];
 };
 

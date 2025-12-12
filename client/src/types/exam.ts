@@ -20,6 +20,8 @@ export interface Exam {
 
 export interface ExamData extends Exam {
   Duration: number;
+  DurationPreset?: string;
+  DurationCustom?: number;
   OrderNo?: number;
   ModuleItem?: {
     Id: string;

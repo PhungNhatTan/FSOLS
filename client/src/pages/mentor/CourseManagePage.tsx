@@ -53,6 +53,8 @@ const mapExamDtoToLocal = (exam: ExamDto): Exam => ({
   id: exam.id,
   title: exam.title,
   order: exam.order ?? 0,
+  durationPreset: exam.durationPreset,
+  durationCustom: exam.durationCustom,
   questions: (exam.questions ?? []).map(mapExamQuestionDtoToLocal),
 });
 
@@ -113,10 +115,16 @@ export default function CourseManagePage() {
 
   const [modules, setModules] = useState<Module[]>([]);
   const [selectedItem, setSelectedItem] = useState<{ moduleId: number; type: "lesson" | "exam"; id: number } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [lastSaved, setLastSaved] = useState<string>("Never");
 
   useEffect(() => {
     loadCourseData();
+    loadDraftIfExists();
   }, [courseId]);
+
+  const DRAFT_KEY = `course_draft_${courseId}`;
 
   const loadCourseData = async () => {
     if (courseId <= 0) return;
@@ -128,28 +136,63 @@ export default function CourseManagePage() {
     }
   };
 
-  const addModule = async () => {
-    const title = prompt("Module title:");
-    if (!title) return;
-    try {
-      const created = await courseManagementApi.createModule(courseId, title.trim());
-      const module = mapModuleDtoToLocal(created);
-      setModules((s) => [...s, module]);
-    } catch (err) {
-      console.error("Error:", err);
+  const loadDraftIfExists = () => {
+    const draft = localStorage.getItem(DRAFT_KEY);
+    if (draft) {
+      try {
+        const parsed = JSON.parse(draft);
+        setModules(parsed);
+      } catch (err) {
+        console.error("Failed to load draft:", err);
+      }
     }
   };
 
-  const deleteModule = async (moduleId: number) => {
-    if (!confirm("Delete this module and all its content?")) return;
+  const saveDraft = async () => {
+    setSaving(true);
     try {
-      await courseManagementApi.removeModule(moduleId);
-      setModules((s) => s.filter((m) => m.id !== moduleId));
-      if (selectedItem?.moduleId === moduleId) {
-        setSelectedItem(null);
-      }
+      await courseManagementApi.saveDraft(courseId, modules);
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(modules));
+      setLastSaved(new Date().toLocaleTimeString());
+      setTimeout(() => setSaving(false), 500);
     } catch (err) {
-      console.error("Error deleting module:", err);
+      console.error("Error saving draft:", err);
+      setSaving(false);
+    }
+  };
+
+  const publish = async () => {
+    setPublishing(true);
+    try {
+      await courseManagementApi.publishCourse(courseId, modules);
+      localStorage.removeItem(DRAFT_KEY);
+      setLastSaved("Published");
+      await loadCourseData();
+    } catch (err) {
+      console.error("Error publishing:", err);
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const addModule = () => {
+    const title = prompt("Module title:");
+    if (!title) return;
+    const newModule: Module = {
+      id: Date.now(),
+      title: title.trim(),
+      order: Math.max(0, ...modules.map(m => m.order), 0) + 10,
+      lessons: [],
+      exams: [],
+    };
+    setModules((s) => [...s, newModule]);
+  };
+
+  const deleteModule = (moduleId: number) => {
+    if (!confirm("Delete this module and all its content?")) return;
+    setModules((s) => s.filter((m) => m.id !== moduleId));
+    if (selectedItem?.moduleId === moduleId) {
+      setSelectedItem(null);
     }
   };
 
@@ -185,10 +228,17 @@ export default function CourseManagePage() {
         <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 opacity-95" />
         <header className="relative z-10 max-w-7xl mx-auto px-4 py-4 text-white">
           <div className="flex items-center justify-between">
-            <div className="font-bold tracking-wide">FSOLS • Course Management</div>
-              <div className="flex items-center gap-2">
-              <Btn variant="ghost" size="sm" className="text-white/90">Save Draft</Btn>
-              <Btn variant="primary" size="sm">Publish</Btn>
+            <div>
+              <div className="font-bold tracking-wide">FSOLS • Course Management</div>
+              <div className="text-xs text-white/70 mt-1">Last saved: {lastSaved}</div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Btn variant="ghost" size="sm" className="text-white/90" onClick={saveDraft} disabled={saving}>
+                {saving ? "Saving..." : "Save Draft"}
+              </Btn>
+              <Btn variant="primary" size="sm" onClick={publish} disabled={publishing}>
+                {publishing ? "Publishing..." : "Publish"}
+              </Btn>
             </div>
           </div>
           <p className="mt-1 text-white/90 text-sm">Manage modules, lessons, resources, exams & questions.</p>
@@ -264,15 +314,17 @@ function ModuleCard({
     setOpenAddLesson(false);
   };
 
-  const createExam = async (title: string) => {
-    try {
-      const created = await courseManagementApi.createExam(module.id, title.trim());
-      const ex = mapExamDtoToLocal(created);
-      onChange({ ...module, exams: [...module.exams, ex] });
-      setOpenCreateExam(false);
-    } catch (err) {
-      console.error("Error:", err);
-    }
+  const createExam = (title: string, durationPreset?: string, durationCustom?: number) => {
+    const newExam: Exam = {
+      id: Date.now(),
+      title: title.trim(),
+      order: nextItemOrder(),
+      durationPreset,
+      durationCustom,
+      questions: [],
+    };
+    onChange({ ...module, exams: [...module.exams, newExam] });
+    setOpenCreateExam(false);
   };
 
   const mergedItems = [
@@ -366,23 +418,67 @@ function ModuleCard({
   );
 }
 
-function CreateExamForm({ onSubmit }: { onSubmit: (title: string) => Promise<void> | void }) {
+function CreateExamForm({ onSubmit }: { onSubmit: (title: string, durationPreset?: string, durationCustom?: number) => Promise<void> | void }) {
   const [title, setTitle] = useState("Midterm");
+  const [durationType, setDurationType] = useState<"preset" | "custom" | "none">("none");
+  const [durationPreset, setDurationPreset] = useState<string>("P_30");
+  const [durationCustom, setDurationCustom] = useState<number>(30);
   const [loading, setLoading] = useState(false);
+
+  const presetOptions = [
+    { value: "P_15", label: "15 minutes" },
+    { value: "P_30", label: "30 minutes" },
+    { value: "P_60", label: "60 minutes" },
+    { value: "P_90", label: "90 minutes" },
+    { value: "P_120", label: "120 minutes" },
+  ];
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
     setLoading(true);
     try {
-      await onSubmit(title);
+      const preset = durationType === "preset" ? durationPreset : undefined;
+      const custom = durationType === "custom" ? durationCustom : undefined;
+      await onSubmit(title, preset, custom);
     } finally {
       setLoading(false);
     }
   };
+
   return (
     <form onSubmit={handleSubmit}>
       <div className="space-y-3">
         <input className="w-full px-3 py-2 rounded-xl border" placeholder="Exam title" value={title} onChange={(e)=>setTitle(e.target.value)} />
+        
+        <div>
+          <label className="block text-sm font-medium mb-2">Duration</label>
+          <div className="space-y-2">
+            <label className="flex items-center gap-2">
+              <input type="radio" name="durationType" value="none" checked={durationType === "none"} onChange={(e) => setDurationType(e.target.value as "preset" | "custom" | "none")} />
+              <span className="text-sm">No limit</span>
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="radio" name="durationType" value="preset" checked={durationType === "preset"} onChange={(e) => setDurationType(e.target.value as "preset" | "custom" | "none")} />
+              <span className="text-sm">Preset</span>
+            </label>
+            {durationType === "preset" && (
+              <select className="w-full px-3 py-2 rounded-xl border ml-6" value={durationPreset} onChange={(e) => setDurationPreset(e.target.value)}>
+                {presetOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            )}
+            <label className="flex items-center gap-2">
+              <input type="radio" name="durationType" value="custom" checked={durationType === "custom"} onChange={(e) => setDurationType(e.target.value as "preset" | "custom" | "none")} />
+              <span className="text-sm">Custom</span>
+            </label>
+            {durationType === "custom" && (
+              <input type="number" className="w-full px-3 py-2 rounded-xl border ml-6" placeholder="Minutes" min="1" value={durationCustom} onChange={(e) => setDurationCustom(Number(e.target.value))} />
+            )}
+          </div>
+        </div>
+
         <Btn variant="primary" type="submit" disabled={loading}>{loading ? "Creating..." : "Create"}</Btn>
       </div>
     </form>
@@ -452,15 +548,10 @@ function DetailCard({
       onModuleChange({ ...module, exams: module.exams.map(e => e.id === updated.id ? updated : e) });
     };
 
-    const deleteExam = async () => {
+    const deleteExam = () => {
       if (!confirm("Delete this exam?")) return;
-      try {
-        await courseManagementApi.deleteExam(exam.id);
-        onModuleChange({ ...module, exams: module.exams.filter(e => e.id !== exam.id) });
-        onDeselect();
-      } catch (err) {
-        console.error("Error deleting exam:", err);
-      }
+      onModuleChange({ ...module, exams: module.exams.filter(e => e.id !== exam.id) });
+      onDeselect();
     };
 
     return (
@@ -524,13 +615,9 @@ function ExamQuestionItem({
 }) {
   const [openEdit, setOpenEdit] = useState(false);
 
-  const handleRemove = async () => {
-    try {
-      await courseManagementApi.removeExamQuestion(question.examQuestionId);
-      onExamChange({ ...exam, questions: exam.questions.filter((_, idx) => idx !== index) });
-    } catch (err) {
-      console.error("Error removing question:", err);
-    }
+  const handleRemove = () => {
+    if (!confirm("Remove this question?")) return;
+    onExamChange({ ...exam, questions: exam.questions.filter((_, idx) => idx !== index) });
   };
 
   return (
@@ -617,14 +704,22 @@ function BankPicker({ courseId, exam, onExamChange, onClose }: { courseId: numbe
     ? filteredQuestions.filter(question => question.text.toLowerCase().includes(q.trim().toLowerCase()))
     : filteredQuestions;
 
-  const add = async (id: string) => {
-    try {
-      const updated = await courseManagementApi.addExistingQuestion(exam.id, id);
-      onExamChange(mapExamDtoToLocal(updated));
-      onClose();
-    } catch (err) {
-      console.error("Error:", err);
-    }
+  const add = (id: string) => {
+    const question = allQuestions.find(q => q.id === id);
+    if (!question) return;
+    const newQuestion: Exam["questions"][number] = {
+      examQuestionId: `local_${Date.now()}`,
+      questionId: Number(id),
+      points: 1,
+      question: {
+        id: Number(id),
+        type: question.type === "MCQ" ? "mcq" : "text",
+        text: question.text,
+        options: [],
+      },
+    };
+    onExamChange({ ...exam, questions: [...exam.questions, newQuestion] });
+    onClose();
   };
 
   return (
@@ -657,12 +752,11 @@ function BankPicker({ courseId, exam, onExamChange, onClose }: { courseId: numbe
   );
 }
 
-function NewQuestion({ courseId, exam, onExamChange, onClose }: { courseId: number; exam: Exam; onExamChange: (ex: Exam) => void; onClose: () => void }) {
+function NewQuestion({ exam, onExamChange, onClose }: { courseId: number; exam: Exam; onExamChange: (ex: Exam) => void; onClose: () => void }) {
   const [type, setType] = useState<"mcq" | "text">("mcq");
   const [text, setText] = useState("");
   const [options, setOptions] = useState<string[]>(["", "", "", ""]);
   const [correct, setCorrect] = useState(0);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const onTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -670,44 +764,36 @@ function NewQuestion({ courseId, exam, onExamChange, onClose }: { courseId: numb
     setType(v);
   };
 
-  const create = async () => {
-    console.log("Create button clicked");
+  const create = () => {
     setError("");
     if (!text.trim()) {
-      console.log("Validation failed: no text");
       setError("Question text is required");
       return;
     }
     if (type === "mcq" && options.filter((o) => o.trim()).length < 2) {
-      console.log("Validation failed: MCQ needs 2+ options");
       setError("MCQ needs at least 2 options");
       return;
     }
-    console.log("Validation passed, calling API...");
-    setLoading(true);
-    try {
-      const payload = {
-        type: (type === "mcq" ? "MCQ" : "Essay") as "MCQ" | "Essay",
+
+    const filteredOptions = type === "mcq" ? options.filter((o) => o.trim()) : [];
+    const newQuestion: Exam["questions"][number] = {
+      examQuestionId: `local_${Date.now()}`,
+      questionId: Date.now(),
+      points: 1,
+      question: {
+        id: Date.now(),
+        type: type as "mcq" | "text",
         text: text.trim(),
-        options: type === "mcq" ? options.filter((o) => o.trim()) : undefined,
+        options: type === "mcq" ? filteredOptions : undefined,
         correctIndex: type === "mcq" ? correct : undefined,
-      };
-      console.log("API payload:", { examId: exam.id, courseId, ...payload });
-      const response = await courseManagementApi.createQuestionAndAttach(exam.id, courseId, payload);
-      console.log("API response:", response);
-      onExamChange(mapExamDtoToLocal(response.exam));
-      setText("");
-      setOptions(["", "", "", ""]);
-      setCorrect(0);
-      console.log("Question created successfully");
-      onClose();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to create question";
-      setError(msg);
-      console.error("Error creating question:", err);
-    } finally {
-      setLoading(false);
-    }
+      },
+    };
+
+    onExamChange({ ...exam, questions: [...exam.questions, newQuestion] });
+    setText("");
+    setOptions(["", "", "", ""]);
+    setCorrect(0);
+    onClose();
   };
 
   return (
@@ -731,14 +817,14 @@ function NewQuestion({ courseId, exam, onExamChange, onClose }: { courseId: numb
         </div>
       ))}
       {error && <div className="px-3 py-2 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700">{error}</div>}
-      <Btn variant="primary" onClick={create} disabled={loading}>{loading ? "Creating..." : "Create & Attach"}</Btn>
+      <Btn variant="primary" onClick={create}>Create & Attach</Btn>
     </div>
   );
 }
 
 function EditQuestion({
-  courseId,
   question,
+  index,
   exam,
   onExamChange,
   onClose,
@@ -758,7 +844,6 @@ function EditQuestion({
       : ["", "", "", ""]
   );
   const [correct, setCorrect] = useState(0);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const onTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -766,7 +851,7 @@ function EditQuestion({
     setType(v);
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     setError("");
     if (!text.trim()) {
       setError("Question text is required");
@@ -777,27 +862,22 @@ function EditQuestion({
       return;
     }
 
-    setLoading(true);
-    try {
-      await courseManagementApi.removeExamQuestion(question.examQuestionId);
-
-      const payload = {
-        type: (type === "mcq" ? "MCQ" : "Essay") as "MCQ" | "Essay",
+    const filteredOptions = type === "mcq" ? options.filter((o) => o.trim()) : [];
+    const updatedQuestion: Exam["questions"][number] = {
+      ...question,
+      question: {
+        ...(question.question || {}),
+        id: question.question?.id ?? Date.now(),
+        type: type as "mcq" | "text",
         text: text.trim(),
-        options: type === "mcq" ? options.filter((o) => o.trim()) : undefined,
+        options: type === "mcq" ? filteredOptions : undefined,
         correctIndex: type === "mcq" ? correct : undefined,
-      };
+      },
+    };
 
-      const response = await courseManagementApi.createQuestionAndAttach(exam.id, courseId, payload);
-      onExamChange(mapExamDtoToLocal(response.exam));
-      onClose();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to update question";
-      setError(msg);
-      console.error("Error updating question:", err);
-    } finally {
-      setLoading(false);
-    }
+    const updatedQuestions = exam.questions.map((q, i) => i === index ? updatedQuestion : q);
+    onExamChange({ ...exam, questions: updatedQuestions });
+    onClose();
   };
 
   return (
@@ -822,10 +902,10 @@ function EditQuestion({
       ))}
       {error && <div className="px-3 py-2 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700">{error}</div>}
       <div className="flex gap-2">
-        <Btn variant="primary" onClick={handleSave} disabled={loading} className="flex-1">
-          {loading ? "Saving..." : "Save Changes"}
+        <Btn variant="primary" onClick={handleSave} className="flex-1">
+          Save Changes
         </Btn>
-        <Btn onClick={onClose} disabled={loading}>
+        <Btn onClick={onClose}>
           Cancel
         </Btn>
       </div>
