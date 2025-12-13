@@ -8,6 +8,8 @@ import verifyCourse from './verifyCourse.js';
 import getFeatured from './getFeatured.js';
 import getEnrolled from './getEnrolled.js';
 import saveDraft from './saveDraft.js';
+import requestVerification from './requestVerification.js';
+import getVerificationStatus from './getVerificationStatus.js';
 
 export default {
   create,
@@ -20,4 +22,6 @@ export default {
   verifyCourse,
   getFeatured,
   saveDraft,
+  requestVerification,
+  getVerificationStatus,
 };

@@ -344,6 +344,18 @@ export const courseManagementApi = {
   async publishCourse(courseId: number, modules: unknown): Promise<void> {
     await client.post(`/manage/course/${courseId}/publish`, { modules });
   },
+
+  /** Send course for verification */
+  async requestVerification(courseId: number): Promise<{ Id: string; ApprovalStatus: string; RequestType: string; CreatedAt: string }> {
+    const res = await client.post<{ Id: string; ApprovalStatus: string; RequestType: string; CreatedAt: string }>(`/manage/course/${courseId}/verification-request`, {});
+    return res.data;
+  },
+
+  /** Get verification status for a course */
+  async getVerificationStatus(courseId: number): Promise<{ Id: string; ApprovalStatus: string; RequestType: string; CreatedAt: string; ReviewedAt?: string } | null> {
+    const res = await client.get<{ Id: string; ApprovalStatus: string; RequestType: string; CreatedAt: string; ReviewedAt?: string } | null>(`/manage/course/${courseId}/verification-status`);
+    return res.data;
+  },
 };
 
 export type {

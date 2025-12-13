@@ -32,14 +32,15 @@ model Account {
   AccountIdentifier AccountIdentifier[]
 
   // Active check
-  CreatedAt          DateTime            @default(now())
-  DeletedAt          DateTime?
-  lessonProgresses   LessonProgress[]
-  sentMessages       Message[]           @relation("sentMessages")
-  receivedMessages   Message[]           @relation("receivedMessages")
-  courseReviews      CourseReview[]
-  reports            Report[]
-  accountSuspensions AccountSuspension[]
+  CreatedAt            DateTime              @default(now())
+  DeletedAt            DateTime?
+  lessonProgresses     LessonProgress[]
+  sentMessages         Message[]             @relation("sentMessages")
+  receivedMessages     Message[]             @relation("receivedMessages")
+  courseReviews        CourseReview[]
+  reports              Report[]
+  accountSuspensions   AccountSuspension[]
+  verificationRequests VerificationRequest[]
 }
 
 model AccountIdentifier {
@@ -135,16 +136,17 @@ model Course {
 
   // Verified check
   PublishedAt DateTime?
-  IsVerified  Boolean   @default(false)
+  LastUpdated DateTime?
 
   // Temp
   Draft Json? // jsonb?
 
   // Active check
-  CreatedAt     DateTime       @default(now())
-  DeletedAt     DateTime?
-  courseSkills  CourseSkill[]
-  courseReviews CourseReview[]
+  CreatedAt            DateTime              @default(now())
+  DeletedAt            DateTime?
+  courseSkills         CourseSkill[]
+  courseReviews        CourseReview[]
+  verificationRequests VerificationRequest[]
 }
 
 model Specialization {
@@ -165,11 +167,29 @@ model Specialization {
 
   // Verified check
   PublishedAt DateTime?
-  IsVerified  Boolean   @default(false)
+  LastUpdated DateTime?
 
   // Active check
-  CreatedAt DateTime  @default(now())
-  DeletedAt DateTime?
+  CreatedAt            DateTime              @default(now())
+  DeletedAt            DateTime?
+  verificationRequests VerificationRequest[]
+}
+
+model VerificationRequest {
+  Id String @id @default(cuid())
+
+  CourseId Int?
+  Course   Course? @relation(fields: [CourseId], references: [Id])
+
+  SpecializationId Int?
+  Specialization   Specialization? @relation(fields: [SpecializationId], references: [Id])
+
+  ReviewedById   String?
+  ReviewedBy     Account?           @relation(fields: [ReviewedById], references: [Id])
+  ApprovalStatus VerificationStatus @default(Pending)
+  RequestType    RequestType        @default(New)
+  ReviewedAt     DateTime?
+  CreatedAt      DateTime           @default(now())
 }
 
 model SpecializationCourse {
@@ -628,6 +648,17 @@ enum Status {
   Enrolled
   InProgress
   Completed
+}
+
+enum VerificationStatus {
+  Pending
+  Approved
+  Rejected
+}
+
+enum RequestType {
+  New
+  Update
 }
 
 // #endregion

@@ -118,10 +118,12 @@ export default function CourseManagePage() {
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [lastSaved, setLastSaved] = useState<string>("Never");
+  const [verificationStatus, setVerificationStatus] = useState<{ ApprovalStatus: string; RequestType: string; CreatedAt: string; ReviewedAt?: string } | null>(null);
 
   useEffect(() => {
     loadCourseData();
     loadDraftIfExists();
+    loadVerificationStatus();
   }, [courseId]);
 
   const DRAFT_KEY = `course_draft_${courseId}`;
@@ -148,6 +150,16 @@ export default function CourseManagePage() {
     }
   };
 
+  const loadVerificationStatus = async () => {
+    if (courseId <= 0) return;
+    try {
+      const status = await courseManagementApi.getVerificationStatus(courseId);
+      setVerificationStatus(status);
+    } catch (err) {
+      console.error("Error loading verification status:", err);
+    }
+  };
+
   const saveDraft = async () => {
     setSaving(true);
     try {
@@ -164,12 +176,13 @@ export default function CourseManagePage() {
   const publish = async () => {
     setPublishing(true);
     try {
-      await courseManagementApi.publishCourse(courseId, modules);
+      await courseManagementApi.saveDraft(courseId, modules);
+      await courseManagementApi.requestVerification(courseId);
       localStorage.removeItem(DRAFT_KEY);
-      setLastSaved("Published");
-      await loadCourseData();
+      setLastSaved("Verification requested");
+      await loadVerificationStatus();
     } catch (err) {
-      console.error("Error publishing:", err);
+      console.error("Error requesting verification:", err);
     } finally {
       setPublishing(false);
     }
@@ -236,8 +249,8 @@ export default function CourseManagePage() {
               <Btn variant="ghost" size="sm" className="text-white/90" onClick={saveDraft} disabled={saving}>
                 {saving ? "Saving..." : "Save Draft"}
               </Btn>
-              <Btn variant="primary" size="sm" onClick={publish} disabled={publishing}>
-                {publishing ? "Publishing..." : "Publish"}
+              <Btn variant="primary" size="sm" onClick={publish} disabled={publishing || verificationStatus?.ApprovalStatus === "Pending"}>
+                {publishing ? "Requesting..." : verificationStatus?.ApprovalStatus === "Pending" ? "Pending Review" : "Send for Verification"}
               </Btn>
             </div>
           </div>
@@ -266,6 +279,30 @@ export default function CourseManagePage() {
 
           {/* RIGHT COLUMN */}
           <div className="grid gap-6">
+            {verificationStatus && (
+              <Card title="Verification Status">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-600">Status:</span>
+                    <span className={`text-sm font-medium px-2.5 py-1 rounded-full ${
+                      verificationStatus.ApprovalStatus === "Pending" ? "bg-yellow-50 text-yellow-700 border border-yellow-200" :
+                      verificationStatus.ApprovalStatus === "Approved" ? "bg-green-50 text-green-700 border border-green-200" :
+                      "bg-red-50 text-red-700 border border-red-200"
+                    }`}>
+                      {verificationStatus.ApprovalStatus}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-sm text-slate-600">Type:</span>
+                    <div className="text-sm font-medium mt-1">{verificationStatus.RequestType}</div>
+                  </div>
+                  <div>
+                    <span className="text-sm text-slate-600">Requested:</span>
+                    <div className="text-sm mt-1">{new Date(verificationStatus.CreatedAt).toLocaleDateString()}</div>
+                  </div>
+                </div>
+              </Card>
+            )}
             {selectedItem ? (
               <DetailCard
                 courseId={courseId}

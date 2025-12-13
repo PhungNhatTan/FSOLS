@@ -1,0 +1,22 @@
+import prisma from '../../prismaClient.js';
+
+export default async function createVerificationRequest(courseId) {
+    const course = await prisma.course.findUnique({
+        where: { id: courseId },
+        select: { IsVerified: true }
+    });
+
+    if (!course) {
+        throw new Error('Course not found');
+    }
+
+    const requestType = course.IsVerified ? 'Update' : 'New';
+
+    return await prisma.verificationRequest.create({
+        data: {
+            CourseId: courseId,
+            RequestType: requestType,
+            ApprovalStatus: 'Pending',
+        }
+    });
+}
