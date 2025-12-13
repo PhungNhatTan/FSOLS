@@ -89,4 +89,3 @@ export const getFileUrl = (filename, type) => {
 };
 
 export { uploadsDir };
-

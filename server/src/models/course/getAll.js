@@ -1,22 +1,24 @@
-import prisma from '../../prismaClient.js';
+import prisma from "../../prismaClient.js"
 
-const getAll = async (accountId) => {
+const getAll = async () => {
   return prisma.course.findMany({
     where: {
-      CourseEnroll: {
-        some: {
-          AccountId: accountId,
-        },
-      },
+      IsVerified: true,
+      DeletedAt: null,
     },
     include: {
-      CourseEnroll: {
-        include: {
-          Account: true, 
+      Category: true,
+      CreatedBy: {
+        select: {
+          AccountId: true,
+          Name: true,
         },
       },
     },
-  });
-};
+    orderBy: {
+      CreatedAt: "desc",
+    },
+  })
+}
 
-export default getAll;
+export default getAll

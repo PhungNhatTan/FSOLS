@@ -26,6 +26,14 @@ export interface Course {
   IsVerified?: boolean
   IsRejected?: boolean
   RejectionReason?: string | null
+  Category?: {
+    Id: number
+    Name: string
+  } | null
+  CreatedBy?: {
+    Id: string
+    Name: string
+  } | null
 }
 
 export interface CourseDetail extends Course {

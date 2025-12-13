@@ -2,6 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
+/* --- Global reset: diệt khoảng trắng 8px & tràn ngang --- */
 *,
 *::before,
 *::after { box-sizing: border-box; }
@@ -10,10 +11,10 @@ html, body, #root {
   width: 100%;
   max-width: 100%;
   height: 100%;
-  margin: 0;            
+  margin: 0;              /* <- xoá margin mặc định 8px của body */
   padding: 0;
-  overflow-x: hidden;     
-  background: #f8fafc;    
+  overflow-x: hidden;     /* <- chặn mọi phần tử con gây tràn ngang */
+  background: #f8fafc;    /* tương đương slate-50 */
 }
 
 img, video { display: block; max-width: 100%; height: auto; }

@@ -11,4 +11,3 @@ router.put('/:id(\\d+)', authenticate, authorize(["Admin", "Mentor"]), course.up
 router.delete('/:id(\\d+)', authenticate, authorize(["Admin", "Mentor"]), course.remove);
 
 export default router;
-
