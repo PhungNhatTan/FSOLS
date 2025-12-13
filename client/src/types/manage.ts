@@ -39,14 +39,12 @@ export interface ExamQuestionPayload {
   examId: number;
 }
 
-/** Resource file đính kèm lesson */
 export interface ResourceFile {
   Id: number;
   Name: string;
   Url: string;
 }
 
-/** Lesson quản trị (chi tiết + tài nguyên) – BE có thể trả về đúng shape này */
 export interface ManageLesson {
   Id: number;
   Title: string;
@@ -54,33 +52,25 @@ export interface ManageLesson {
   Resources: ResourceFile[];
 }
 
-/** Module quản trị gồm danh sách lesson + exam (nếu có) */
 export interface ManageModule {
   Id: number;
   Title: string;
   OrderNo: number;
   Lessons: ManageLesson[];
-  /** Exam có thể trả theo ExamData hiện có (Questions…) */
   Exam?: ExamData;
 }
 
-/** Cấu trúc tổng thể 1 khoá để page quản trị render */
 export interface CourseStructureRaw {
   course: Course;
   modules: ManageModule[];
 }
 
-/** Item tìm kiếm trong QuestionBank */
 export interface QuestionBankSearchItem {
   Id: string;                // QuestionBank.Id (string)
   QuestionText: string;
   Type?: QuestionType;
 }
 
-/* -----------------------
-   Các type normalize cho UI
-   (camelCase để dùng trực tiếp trên page)
------------------------- */
 export type UiResource = { id: number; name: string; url: string };
 
 export type UiLesson = {
@@ -97,7 +87,7 @@ export type UiExam = {
   duration?: number;
   durationPreset?: string;
   durationCustom?: number;
-  order?: number;
+  order: number;
   questions: ExamQuestion[];
 };
 
