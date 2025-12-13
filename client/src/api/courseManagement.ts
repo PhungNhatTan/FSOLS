@@ -107,7 +107,7 @@ function toUiModule(m: ManageModule): UiModule {
    Public API cho CourseManagementPage
 -------------------------- */
 export const courseManagementApi = {
-  /** Lấy toàn bộ cấu trúc course (course + modules + lessons + exam) */
+
   async getStructure(courseId: number): Promise<UiCourseStructure> {
     const res = await client.get<CourseData>(`/course/${courseId}`);
     const course: Course = {
@@ -222,7 +222,6 @@ export const courseManagementApi = {
     return toUiResource(res.data);
   },
 
-  /** Gắn danh sách resourceId vào lesson → trả về lesson đã cập nhật */
   async attachResources(lessonId: number, resources: UiResource[]): Promise<UiLesson> {
     const resourceIds = resources.map((r) => r.id);
     const res = await client.post<ManageLesson>(`/manage/lesson`, {
@@ -245,7 +244,6 @@ export const courseManagementApi = {
     return toUiExam(res.data);
   },
 
-  /** Thêm câu hỏi đã có từ QuestionBank vào exam */
   async addExistingQuestion(
     examId: number,
     questionBankId: string
