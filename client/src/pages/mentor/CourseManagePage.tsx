@@ -5,111 +5,95 @@ import type {
   UiLessonLocal as Lesson,
   UiModuleLocal as Module,
   ExamLocal as Exam,
-  UiLesson as LessonDto,
-  UiModule as ModuleDto,
-  UiExam as ExamDto,
-  UiResource as ResourceDto,
 } from "../../types/manage";
-import type { ExamQuestion as ExamQuestionDto } from "../../types/exam";
-
+import type { Course, DraftJson } from "../../types/course";
 import { Btn } from "../../components/manage/ui/Btn";
 import { Card } from "../../components/manage/ui/Card";
 import { ModuleCard } from "../../components/manage/module/ModuleCard";
 import { LessonDetail } from "../../components/manage/lesson/LessonDetail";
 import { ExamDetail } from "../../components/manage/exam/ExamDetail";
-
-let qid = 5000;
-
-const mapResourceDtoToLocal = (resource: ResourceDto): Lesson["resources"][number] => ({
-  id: resource.id,
-  name: resource.name,
-  url: resource.url,
-});
-
-const mapLessonDtoToLocal = (lesson: LessonDto): Lesson => ({
-  id: lesson.id,
-  title: lesson.title,
-  description: lesson.description,
-  order: lesson.order ?? 0,
-  resources: (lesson.resources ?? []).map(mapResourceDtoToLocal),
-});
-
-const mapExamQuestionDtoToLocal = (question: ExamQuestionDto): Exam["questions"][number] => {
-  const qbId = Number(question.QuestionBankId);
-  const mappedId = Number.isNaN(qbId) ? ++qid : qbId;
-  return {
-    examQuestionId: question.ExamQuestionId,
-    questionId: mappedId,
-    points: 1,
-    question: {
-      id: mappedId,
-      type: question.Type?.toLowerCase() === "mcq" ? "mcq" : "text",
-      text: question.QuestionText,
-      options: question.Answers?.map((answer) => answer.AnswerText),
-    },
-  };
-};
-
-const mapExamDtoToLocal = (exam: ExamDto): Exam => ({
-  id: exam.id,
-  title: exam.title,
-  order: exam.order ?? 0,
-  durationPreset: exam.durationPreset,
-  durationCustom: exam.durationCustom,
-  questions: (exam.questions ?? []).map(mapExamQuestionDtoToLocal),
-});
-
-const mapModuleDtoToLocal = (module: ModuleDto): Module => ({
-  id: module.id,
-  title: module.title,
-  order: module.order,
-  lessons: (module.lessons ?? []).map(mapLessonDtoToLocal),
-  exams: (module.exams ?? []).map(mapExamDtoToLocal),
-});
+import {
+  mapModuleDtoToLocal,
+  mapLocalToDraft,
+  mapDraftToLocal,
+  validateDraft,
+  getDraftStats,
+  generateNegativeId,
+} from "../../service/CourseManagementService";
 
 export default function CourseManagePage() {
   const { id } = useParams<{ id: string }>();
   const courseId = Number(id ?? 0);
 
+  // State
+  const [course, setCourse] = useState<Course | null>(null);
   const [modules, setModules] = useState<Module[]>([]);
+  const [skills, setSkills] = useState<{ id: number; skillName: string }[]>([]);
   const [selectedItem, setSelectedItem] = useState<{ moduleId: number; type: "lesson" | "exam"; id: number } | null>(null);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [lastSaved, setLastSaved] = useState<string>("Never");
-  const [verificationStatus, setVerificationStatus] = useState<{ ApprovalStatus: string; RequestType: string; CreatedAt: string; ReviewedAt?: string } | null>(null);
+  const [verificationStatus, setVerificationStatus] = useState<{
+    ApprovalStatus: string;
+    RequestType: string;
+    CreatedAt: string;
+    ReviewedAt?: string
+  } | null>(null);
 
   const onDeselect = () => setSelectedItem(null);
 
-
+  // Load initial data
   useEffect(() => {
     loadCourseData();
-    loadDraftIfExists();
     loadVerificationStatus();
   }, [courseId]);
 
-  const DRAFT_KEY = `course_draft_${courseId}`;
-
   const loadCourseData = async () => {
     if (courseId <= 0) return;
+
     try {
+      // Always load base course metadata
       const structure = await courseManagementApi.getStructure(courseId);
-      setModules(structure.modules ? structure.modules.map(mapModuleDtoToLocal) : []);
+      setCourse(structure.course);
+
+      let draftLoaded = false;
+
+      try {
+        const draftResponse = await courseManagementApi.getDraft(courseId);
+
+        if (draftResponse?.draft) {
+          const draft: DraftJson =
+            typeof draftResponse.draft === "string"
+              ? JSON.parse(draftResponse.draft)
+              : draftResponse.draft;
+
+          if (Array.isArray(draft.modules)) {
+            const { modules, skills } = mapDraftToLocal(draft);
+            setModules(modules);
+            setSkills(skills);
+            setLastSaved(
+              `Draft loaded (${new Date(draft.lastModified).toLocaleString()})`
+            );
+            draftLoaded = true;
+          }
+        }
+      } catch {
+        // no draft, fall back
+      }
+
+      if (!draftLoaded) {
+        const mappedModules = structure.modules
+          ? structure.modules.map(mapModuleDtoToLocal)
+          : [];
+        setModules(mappedModules);
+        setSkills([]);
+        setLastSaved("No draft");
+      }
     } catch (err) {
       console.error("Error loading course:", err);
     }
   };
 
-  const loadDraftIfExists = () => {
-    const draft = localStorage.getItem(DRAFT_KEY);
-    if (draft) {
-      try {
-        const parsed = JSON.parse(draft);
-        setModules(parsed);
-      } catch (err) {
-        console.error("Failed to load draft:", err);
-      }
-    }
-  };
 
   const loadVerificationStatus = async () => {
     if (courseId <= 0) return;
@@ -122,28 +106,61 @@ export default function CourseManagePage() {
   };
 
   const saveDraft = async () => {
+    if (!course) return;
+
     setSaving(true);
     try {
-      await courseManagementApi.saveDraft(courseId, modules);
-      localStorage.setItem(DRAFT_KEY, JSON.stringify(modules));
+      const draft = mapLocalToDraft(course, modules, skills, null); // Add createdById if available
+      const validation = validateDraft(draft);
+
+      if (!validation.valid) {
+        console.warn("Draft has validation errors:", validation.errors);
+        // Still save the draft, just warn
+      }
+
+      await courseManagementApi.saveDraft(courseId, draft);
       setLastSaved(new Date().toLocaleTimeString());
       setTimeout(() => setSaving(false), 500);
     } catch (err) {
       console.error("Error saving draft:", err);
       setSaving(false);
+      alert("Failed to save draft. Please try again.");
     }
   };
 
   const publish = async () => {
+    if (!course) return;
+
+    const draft = mapLocalToDraft(course, modules, skills, null);
+    const validation = validateDraft(draft);
+
+    if (!validation.valid) {
+      alert(`Cannot publish. Please fix these issues:\n\n${validation.errors.join("\n")}`);
+      return;
+    }
+
+    if (validation.warnings.length > 0) {
+      const proceed = confirm(
+        `There are some warnings:\n\n${validation.warnings.join("\n")}\n\nDo you want to proceed?`
+      );
+      if (!proceed) return;
+    }
+
     setPublishing(true);
     try {
-      await courseManagementApi.saveDraft(courseId, modules);
+      // Save draft first
+      await courseManagementApi.saveDraft(courseId, draft);
+
+      // Request verification
       await courseManagementApi.requestVerification(courseId);
-      localStorage.removeItem(DRAFT_KEY);
+
       setLastSaved("Verification requested");
       await loadVerificationStatus();
+
+      alert("Your course has been submitted for verification!");
     } catch (err) {
       console.error("Error requesting verification:", err);
+      alert("Failed to submit for verification. Please try again.");
     } finally {
       setPublishing(false);
     }
@@ -152,8 +169,9 @@ export default function CourseManagePage() {
   const addModule = () => {
     const title = prompt("Module title:");
     if (!title) return;
+
     const newModule: Module = {
-      id: Date.now(),
+      id: generateNegativeId(),
       title: title.trim(),
       order: Math.max(0, ...modules.map(m => m.order), 0) + 10,
       lessons: [],
@@ -179,20 +197,24 @@ export default function CourseManagePage() {
     }
   };
 
+  const updateCourse = (updates: Partial<Course>) => {
+    if (!course) return;
+    setCourse({ ...course, ...updates });
+  };
+
   const module = selectedItem
     ? modules.find(m => m.id === selectedItem.moduleId)
     : undefined;
-
   const lesson =
     selectedItem?.type === "lesson"
       ? module?.lessons.find(l => l.id === selectedItem.id)
       : undefined;
-
   const exam =
     selectedItem?.type === "exam"
       ? module?.exams?.find(e => e.id === selectedItem.id)
       : undefined;
 
+  const stats = course ? getDraftStats(mapLocalToDraft(course, modules, skills, null)) : null;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -206,15 +228,28 @@ export default function CourseManagePage() {
               <div className="text-xs text-white/70 mt-1">Last saved: {lastSaved}</div>
             </div>
             <div className="flex items-center gap-2">
-              <Btn variant="ghost" size="sm" className="text-white/90" onClick={saveDraft} disabled={saving}>
+              <Btn
+                variant="ghost"
+                size="sm"
+                className="text-white/90"
+                onClick={saveDraft}
+                disabled={saving || !course}
+              >
                 {saving ? "Saving..." : "Save Draft"}
               </Btn>
-              <Btn variant="primary" size="sm" onClick={publish} disabled={publishing || verificationStatus?.ApprovalStatus === "Pending"}>
+              <Btn
+                variant="primary"
+                size="sm"
+                onClick={publish}
+                disabled={publishing || verificationStatus?.ApprovalStatus === "Pending" || !course}
+              >
                 {publishing ? "Requesting..." : verificationStatus?.ApprovalStatus === "Pending" ? "Pending Review" : "Send for Verification"}
               </Btn>
             </div>
           </div>
-          <p className="mt-1 text-white/90 text-sm">Manage modules, lessons, resources, exams & questions.</p>
+          <p className="mt-1 text-white/90 text-sm">
+            Manage modules, lessons, resources, exams & questions.
+          </p>
         </header>
       </div>
 
@@ -222,19 +257,102 @@ export default function CourseManagePage() {
       <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold">Manage Course Content #{courseId || 1001}</h1>
-            <p className="text-slate-600 mt-1">Create modules/lessons, upload resources; add exams & questions.</p>
+            <h1 className="text-2xl md:text-3xl font-bold">
+              {course?.Name || `Manage Course Content #${courseId}`}
+            </h1>
+            <p className="text-slate-600 mt-1">
+              {course?.Description || "Create modules/lessons, upload resources; add exams & questions."}
+            </p>
           </div>
-          <Link to="/manage/courses" className="text-indigo-600 hover:underline">← Back to Courses</Link>
+          <Link to="/manage/courses" className="text-indigo-600 hover:underline">
+            ← Back to Courses
+          </Link>
         </div>
+
+        {/* Course Info Section */}
+        {course && (
+          <Card title="Course Information" className="mt-6">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Course Name
+                </label>
+                <input
+                  type="text"
+                  value={course.Name}
+                  onChange={(e) => updateCourse({ Name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Description
+                </label>
+                <textarea
+                  value={course.Description}
+                  onChange={(e) => updateCourse({ Description: e.target.value })}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Stats */}
+        {stats && (
+          <div className="mt-6 grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="bg-white rounded-lg p-4 border border-gray-200">
+              <div className="text-2xl font-bold text-indigo-600">{stats.totalModules}</div>
+              <div className="text-sm text-gray-600">Modules</div>
+            </div>
+            <div className="bg-white rounded-lg p-4 border border-gray-200">
+              <div className="text-2xl font-bold text-green-600">{stats.totalLessons}</div>
+              <div className="text-sm text-gray-600">Lessons</div>
+            </div>
+            <div className="bg-white rounded-lg p-4 border border-gray-200">
+              <div className="text-2xl font-bold text-blue-600">{stats.totalExams}</div>
+              <div className="text-sm text-gray-600">Exams</div>
+            </div>
+            <div className="bg-white rounded-lg p-4 border border-gray-200">
+              <div className="text-2xl font-bold text-purple-600">{stats.totalQuestions}</div>
+              <div className="text-sm text-gray-600">Questions</div>
+            </div>
+            <div className="bg-white rounded-lg p-4 border border-gray-200">
+              <div className="text-2xl font-bold text-orange-600">{stats.totalResources}</div>
+              <div className="text-sm text-gray-600">Resources</div>
+            </div>
+          </div>
+        )}
 
         <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Modules & Lessons */}
-          <Card title="Modules & Items" action={<Btn variant="primary" size="sm" onClick={addModule}>+ Module</Btn>}>
-            {modules.length === 0 && <div className="text-sm text-slate-500">No modules yet. Click <b>+ Module</b> to create.</div>}
-            {modules.slice().sort((a, b) => a.order - b.order).map((m) => (
-              <ModuleCard key={m.id} module={m} onChange={updateModule} onDelete={deleteModule} selectedItem={selectedItem} onSelectItem={setSelectedItem} />
-            ))}
+          <Card
+            title="Modules & Items"
+            action={
+              <Btn variant="primary" size="sm" onClick={addModule}>
+                + Module
+              </Btn>
+            }
+          >
+            {modules.length === 0 && (
+              <div className="text-sm text-slate-500">
+                No modules yet. Click <b>+ Module</b> to create.
+              </div>
+            )}
+            {modules
+              .slice()
+              .sort((a, b) => a.order - b.order)
+              .map((m) => (
+                <ModuleCard
+                  key={`module-${m.id}`}
+                  module={m}
+                  onChange={updateModule}
+                  onDelete={deleteModule}
+                  selectedItem={selectedItem}
+                  onSelectItem={setSelectedItem}
+                />
+              ))}
           </Card>
 
           {/* RIGHT COLUMN */}
@@ -244,24 +362,33 @@ export default function CourseManagePage() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-slate-600">Status:</span>
-                    <span className={`text-sm font-medium px-2.5 py-1 rounded-full ${verificationStatus.ApprovalStatus === "Pending" ? "bg-yellow-50 text-yellow-700 border border-yellow-200" :
-                      verificationStatus.ApprovalStatus === "Approved" ? "bg-green-50 text-green-700 border border-green-200" :
-                        "bg-red-50 text-red-700 border border-red-200"
-                      }`}>
+                    <span
+                      className={`text-sm font-medium px-2.5 py-1 rounded-full ${verificationStatus.ApprovalStatus === "Pending"
+                        ? "bg-yellow-50 text-yellow-700 border border-yellow-200"
+                        : verificationStatus.ApprovalStatus === "Approved"
+                          ? "bg-green-50 text-green-700 border border-green-200"
+                          : "bg-red-50 text-red-700 border border-red-200"
+                        }`}
+                    >
                       {verificationStatus.ApprovalStatus}
                     </span>
                   </div>
                   <div>
                     <span className="text-sm text-slate-600">Type:</span>
-                    <div className="text-sm font-medium mt-1">{verificationStatus.RequestType}</div>
+                    <div className="text-sm font-medium mt-1">
+                      {verificationStatus.RequestType}
+                    </div>
                   </div>
                   <div>
                     <span className="text-sm text-slate-600">Requested:</span>
-                    <div className="text-sm mt-1">{new Date(verificationStatus.CreatedAt).toLocaleDateString()}</div>
+                    <div className="text-sm mt-1">
+                      {new Date(verificationStatus.CreatedAt).toLocaleDateString()}
+                    </div>
                   </div>
                 </div>
               </Card>
             )}
+
             <DetailCard
               selectedItem={selectedItem}
               lesson={lesson}
@@ -307,13 +434,7 @@ function DetailCard({
 
   return (
     <>
-      {lesson && (
-        <LessonDetail
-          lesson={lesson}
-          onClear={onClear}
-        />
-      )}
-
+      {lesson && <LessonDetail lesson={lesson} onClear={onClear} />}
       {exam && module && (
         <ExamDetail
           courseId={courseId}

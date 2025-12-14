@@ -57,3 +57,77 @@ export interface RawCourseDetail {
   Lessons?: LessonSummary[] // flattened by backend
   Exams?: Exam[] // flattened by backend
 }
+
+export type DraftJson = {
+  version: string;
+  lastModified: string;
+  course: {
+    id: number;
+    name: string;
+    description: string;
+    categoryId: number | null;
+    createdById: string | null;
+    publishedAt: string | null;
+    skills: {
+      id: number;
+      skillName: string;
+      deleted: boolean;
+    }[];
+  };
+  modules: {
+    id: number;
+    title: string;
+    orderNo: number;
+    deleted: boolean;
+    items: {
+      id: string;
+      orderNo: number;
+      deleted: boolean;
+      type: "lesson" | "exam";
+      lesson?: {
+        id: string;
+        title: string;
+        lessonType: "Video" | "Document";
+        videoUrl: string | null;
+        docUrl: string | null;
+        createdById: string | null;
+        deleted: boolean;
+        resources: {
+          id: number;
+          name: string;
+          url: string;
+          deleted: boolean;
+        }[];
+      };
+      exam?: {
+        id: number;
+        title: string;
+        description: string;
+        durationPreset: "P_15" | "P_30" | "P_60" | "P_90" | "P_120" | null;
+        durationCustom: number | null;
+        createdById: string | null;
+        deleted: boolean;
+        questions: {
+          id: string;
+          questionBankId: number;
+          deleted: boolean;
+          questionBank: {
+            id: number;
+            questionText: string;
+            type: "MCQ" | "Fill" | "Essay" | "TF";
+            answer: string | null;
+            lessonId: string | null;
+            courseId: number | null;
+            deleted: boolean;
+            answers: {
+              id: string;
+              answerText: string;
+              isCorrect: boolean;
+              deleted: boolean;
+            }[];
+          };
+        }[];
+      };
+    }[];
+  }[];
+};

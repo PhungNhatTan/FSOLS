@@ -225,6 +225,7 @@ model Category {
 
 model CourseModule {
   Id Int @id @default(autoincrement())
+  Title String @default("Module Title")
 
   CourseId Int
   Course   Course @relation(fields: [CourseId], references: [Id])
@@ -277,6 +278,19 @@ model CourseLesson {
   CreatedAt        DateTime         @default(now())
   DeletedAt        DateTime?
   lessonProgresses LessonProgress[]
+  lessonResources  LessonResource[]
+}
+
+model LessonResource {
+  Id       Int          @id @default(autoincrement())
+  LessonId String
+  Lesson   CourseLesson @relation(fields: [LessonId], references: [Id])
+  Name     String
+  Url      String
+  OrderNo  Int?
+
+  CreatedAt DateTime  @default(now())
+  DeletedAt DateTime?
 }
 
 model CourseSkill {

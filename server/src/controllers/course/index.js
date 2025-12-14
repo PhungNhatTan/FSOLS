@@ -10,6 +10,7 @@ import getEnrolled from './getEnrolled.js';
 import saveDraft from './saveDraft.js';
 import requestVerification from './requestVerification.js';
 import getVerificationStatus from './getVerificationStatus.js';
+import getDraft from './getDraft.js';
 
 export default {
   create,
@@ -17,6 +18,7 @@ export default {
   getAll,
   getByCreator,
   getEnrolled,
+  getDraft,
   update,
   remove,
   verifyCourse,

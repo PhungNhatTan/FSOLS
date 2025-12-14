@@ -14,7 +14,7 @@ import type {
   UiResource,
 } from "../types/manage";
 import type { ExamAnswer, ExamData, ExamQuestion } from "../types/exam";
-import type { Course } from "../types/course";
+import type { Course, DraftJson } from "../types/course";
 
 type TakingExamResponse = {
   ExamId: number;
@@ -334,8 +334,15 @@ export const courseManagementApi = {
   },
 
   /** Save draft to database */
-  async saveDraft(courseId: number, modules: unknown): Promise<void> {
-    await client.post(`/manage/course/${courseId}/draft`, { modules });
+  getDraft: async (courseId: number) => {
+    const response = await client.get(`/manage/course/${courseId}/draft`);
+    console.log("Draft data received:", response.data);
+    return response.data;
+  },
+
+  saveDraft: async (courseId: number, draft: DraftJson) => {
+    const response = await client.put(`/manage/course/${courseId}/draft`, { draft });
+    return response.data;
   },
 
   /** Publish entire course structure to database */
