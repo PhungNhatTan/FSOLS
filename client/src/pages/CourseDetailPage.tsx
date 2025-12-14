@@ -204,23 +204,23 @@ export default function CourseDetailPage() {
             {/* Legacy Lessons Display (for backward compatibility) */}
             {!isEditing && course.Lessons && course.Lessons.length > 0 && (
               <div className="mb-6">
-                <h2 className="text-lg font-semibold mb-2">Lessons</h2>
-                <ul className="list-disc list-inside space-y-1">
+            <h2 className="text-lg font-semibold mb-2">Lessons</h2>
+            <ul className="list-disc list-inside space-y-1">
                   {course.Lessons.map((lesson) => (
                     <li key={lesson.Id}>{lesson.Title}</li>
-                  ))}
-                </ul>
+              ))}
+            </ul>
               </div>
             )}
 
             {/* Back Button */}
             <div className="mt-6 pt-4 border-t">
-              <Link
-                to="/courses"
+            <Link
+              to="/courses"
                 className="text-blue-600 hover:underline font-medium"
-              >
-                ← Back to courses
-              </Link>
+            >
+              ← Back to courses
+            </Link>
             </div>
           </div>
         )}
