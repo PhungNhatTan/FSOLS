@@ -15,4 +15,3 @@ router.get('/:id(\\d+)/verification-status', authenticate, authorize(["Admin", "
 router.delete('/:id(\\d+)', authenticate, authorize(["Admin", "Mentor"]), course.remove);
 
 export default router;
-

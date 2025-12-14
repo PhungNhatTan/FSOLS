@@ -1,12 +1,24 @@
-import prisma from '../../prismaClient.js';
+import prisma from "../../prismaClient.js"
 
 const getAll = async () => {
   return prisma.course.findMany({
     where: {
-      DeletedAt: null,
       IsVerified: true,
+      DeletedAt: null,
     },
-  });
-};
+    include: {
+      Category: true,
+      CreatedBy: {
+        select: {
+          AccountId: true,
+          Name: true,
+        },
+      },
+    },
+    orderBy: {
+      CreatedAt: "desc",
+    },
+  })
+}
 
-export default getAll;
+export default getAll
