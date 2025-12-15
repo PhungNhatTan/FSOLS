@@ -10,6 +10,7 @@ import getEnrolled from './getEnrolled.js';
 import saveDraft from './saveDraft.js';
 import requestVerification from './requestVerification.js';
 import getVerificationStatus from './getVerificationStatus.js';
+import getAllVerificationRequests from './getAllVerificationRequests.js';
 import getDraft from './getDraft.js';
 
 export default {
@@ -26,4 +27,5 @@ export default {
   saveDraft,
   requestVerification,
   getVerificationStatus,
+  getAllVerificationRequests,
 };

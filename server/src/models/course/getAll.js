@@ -3,7 +3,7 @@ import prisma from "../../prismaClient.js"
 const getAll = async () => {
   return prisma.course.findMany({
     where: {
-      IsVerified: true,
+      PublishedAt: { not: null },
       DeletedAt: null,
     },
     include: {

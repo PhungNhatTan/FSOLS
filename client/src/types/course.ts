@@ -18,6 +18,19 @@ export interface CourseNavData {
   CourseModule: CourseModule[]
 }
 
+export interface VerificationRequest {
+  Id: string
+  CourseId: number | null
+  Course?: Course
+  SpecializationId: number | null
+  ReviewedById: string | null
+  ApprovalStatus: "Pending" | "Approved" | "Rejected"
+  Reason: string | null
+  RequestType: "New" | "Update" | "Delete"
+  ReviewedAt: string | null
+  CreatedAt: string
+}
+
 export interface Course {
   Id: number
   Name: string

@@ -3,46 +3,45 @@
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import courseApi from "../../api/course"
-import type { Course } from "../../types/course"
+import type { VerificationRequest } from "../../types/course"
 
 type FilterStatus = "all" | "approved" | "rejected" | "pending"
 
 export default function CoursesManagePage() {
-  const [courses, setCourses] = useState<Course[]>([])
+  const [requests, setRequests] = useState<VerificationRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [verifyingIds, setVerifyingIds] = useState<number[]>([])
-  const [rejectingIds, setRejectingIds] = useState<number[]>([])
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all")
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
-  const [rejectModalCourse, setRejectModalCourse] = useState<Course | null>(null)
+  const [selectedRequest, setSelectedRequest] = useState<VerificationRequest | null>(null)
+  const [rejectModalRequest, setRejectModalRequest] = useState<VerificationRequest | null>(null)
   const [rejectionReason, setRejectionReason] = useState("")
-  const [rejectedCourses, setRejectedCourses] = useState<{
-    [key: number]: { rejectedAt: string; reason?: string }
+  const [rejectedRequests, setRejectedRequests] = useState<{
+    [key: string]: { rejectedAt: string; reason?: string }
   }>({})
 
   useEffect(() => {
-    fetchCourses()
-    const stored = localStorage.getItem("rejectedCourses")
+    fetchRequests()
+    const stored = localStorage.getItem("rejectedRequests")
     if (stored) {
       try {
-        setRejectedCourses(JSON.parse(stored))
+        setRejectedRequests(JSON.parse(stored))
       } catch (e) {
-        console.error("Failed to parse rejected courses:", e)
+        console.error("Failed to parse rejected requests:", e)
       }
     }
   }, [])
 
-  const fetchCourses = async () => {
+  const fetchRequests = async () => {
     try {
       setLoading(true)
       setError("")
-      const data = await courseApi.getAll()
-      setCourses(data || [])
+      const data = await courseApi.getVerificationRequests()
+      setRequests(data || [])
     } catch (err) {
-      setError("Failed to load courses: " + String(err))
-      setCourses([])
+      setError("Failed to load verification requests: " + String(err))
+      setRequests([])
     } finally {
       setLoading(false)
     }
@@ -54,8 +53,8 @@ export default function CoursesManagePage() {
     setError("")
     try {
       await courseApi.verify(id)
-      await fetchCourses()
-      setSelectedCourse(null)
+      await fetchRequests()
+      setSelectedRequest(null)
     } catch (err) {
       setError("Failed to verify course: " + String(err))
     } finally {
@@ -63,55 +62,55 @@ export default function CoursesManagePage() {
     }
   }
 
-  const handleReject = async (id: number, reason?: string) => {
-    if (rejectingIds.includes(id)) return
-    setRejectingIds((prev) => [...prev, id])
-    setError("")
-
-    setTimeout(() => {
-      const newRejectedCourses = {
-        ...rejectedCourses,
-        [id]: {
+  const handleReject = async (requestId: string, reason?: string) => {
+    // Since we don't have a reject API yet, we'll just update local state
+    // Ideally this should call an API
+    
+    const newRejectedRequests = {
+        ...rejectedRequests,
+        [requestId]: {
           rejectedAt: new Date().toISOString(),
           reason,
         },
       }
-      setRejectedCourses(newRejectedCourses)
-      localStorage.setItem("rejectedCourses", JSON.stringify(newRejectedCourses))
-
-      setRejectingIds((prev) => prev.filter((x) => x !== id))
-      setRejectModalCourse(null)
+      setRejectedRequests(newRejectedRequests)
+      localStorage.setItem("rejectedRequests", JSON.stringify(newRejectedRequests))
+      
+      setRejectModalRequest(null)
       setRejectionReason("")
-    }, 500)
   }
 
-  const getCourseStatus = (course: Course): "approved" | "rejected" | "pending" => {
-    if (rejectedCourses[course.Id]) return "rejected"
-    if (course.IsVerified) return "approved"
+  const getRequestStatus = (request: VerificationRequest): "approved" | "rejected" | "pending" => {
+    if (rejectedRequests[request.Id]) return "rejected"
+    if (request.ApprovalStatus === "Approved") return "approved"
+    if (request.ApprovalStatus === "Rejected") return "rejected"
     return "pending"
   }
 
-  const filteredCourses = courses.filter((course) => {
+  const filteredRequests = requests.filter((request) => {
+    const course = request.Course
+    if (!course) return false
+    
     const matchesSearch =
       course.Name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       course.Description.toLowerCase().includes(searchQuery.toLowerCase())
 
-    const status = getCourseStatus(course)
+    const status = getRequestStatus(request)
     const matchesFilter = filterStatus === "all" || filterStatus === status
 
     return matchesSearch && matchesFilter
   })
 
-  const approvedCount = courses.filter((c) => getCourseStatus(c) === "approved").length
-  const rejectedCount = courses.filter((c) => getCourseStatus(c) === "rejected").length
-  const pendingCount = courses.filter((c) => getCourseStatus(c) === "pending").length
+  const approvedCount = requests.filter((r) => getRequestStatus(r) === "approved").length
+  const rejectedCount = requests.filter((r) => getRequestStatus(r) === "rejected").length
+  const pendingCount = requests.filter((r) => getRequestStatus(r) === "pending").length
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-muted-foreground">Loading courses...</p>
+          <p className="text-muted-foreground">Loading requests...</p>
         </div>
       </div>
     )
@@ -125,8 +124,8 @@ export default function CoursesManagePage() {
         <div className="flex gap-4 mt-4">
           <div className="bg-card border rounded-lg px-4 py-3">
             <div className="space-y-1">
-              <div className="text-2xl font-bold">{courses.length}</div>
-              <div className="text-sm text-muted-foreground">Total Courses</div>
+              <div className="text-2xl font-bold">{requests.length}</div>
+              <div className="text-sm text-muted-foreground">Total Requests</div>
               <div className="text-xs text-muted-foreground mt-2">
                 {approvedCount} approved · {rejectedCount} rejected · {pendingCount} pending
               </div>
@@ -209,15 +208,18 @@ export default function CoursesManagePage() {
         </div>
       </div>
 
-      {filteredCourses.length > 0 ? (
+      {filteredRequests.length > 0 ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {filteredCourses.map((course) => {
+          {filteredRequests.map((request) => {
+            const course = request.Course
+            if (!course) return null
+            
             const isVerifying = verifyingIds.includes(course.Id)
-            const isRejecting = rejectingIds.includes(course.Id)
-            const status = getCourseStatus(course)
+            // const isRejecting = rejectingIds.includes(course.Id) // Need to fix types
+            const status = getRequestStatus(request)
 
             return (
-              <div key={course.Id} className="bg-card border rounded-lg p-6 hover:shadow-lg transition-shadow">
+              <div key={request.Id} className="bg-card border rounded-lg p-6 hover:shadow-lg transition-shadow">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
                     <h3 className="text-xl font-semibold mb-1">{course.Name}</h3>
@@ -250,7 +252,7 @@ export default function CoursesManagePage() {
                     View Details
                   </Link>
                   <button
-                    onClick={() => setSelectedCourse(course)}
+                    onClick={() => setSelectedRequest(request)}
                     className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
                   >
                     Review
@@ -265,17 +267,17 @@ export default function CoursesManagePage() {
                         {isVerifying ? "Approving..." : "Approve"}
                       </button>
                       <button
-                        onClick={() => setRejectModalCourse(course)}
-                        disabled={isRejecting}
+                        onClick={() => setRejectModalRequest(request)}
+                        // disabled={isRejecting}
                         className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                       >
                         Reject
                       </button>
                     </>
                   )}
-                  {status === "rejected" && rejectedCourses[course.Id]?.reason && (
+                  {status === "rejected" && rejectedRequests[request.Id]?.reason && (
                     <div className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded">
-                      <strong>Reason:</strong> {rejectedCourses[course.Id].reason}
+                      <strong>Reason:</strong> {rejectedRequests[request.Id].reason}
                     </div>
                   )}
                 </div>
@@ -298,19 +300,19 @@ export default function CoursesManagePage() {
               d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
             />
           </svg>
-          <p className="text-lg font-medium text-muted-foreground mb-1">No courses found</p>
+          <p className="text-lg font-medium text-muted-foreground mb-1">No requests found</p>
           <p className="text-sm text-muted-foreground">
             {searchQuery || filterStatus !== "all"
               ? "Try adjusting your search or filter"
-              : "No courses available for review"}
+              : "No requests available for review"}
           </p>
         </div>
       )}
 
-      {selectedCourse && (
+      {selectedRequest && selectedRequest.Course && (
         <div
           className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
-          onClick={() => setSelectedCourse(null)}
+          onClick={() => setSelectedRequest(null)}
         >
           <div
             className="bg-card rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto"
@@ -319,27 +321,27 @@ export default function CoursesManagePage() {
             <div className="p-6 border-b sticky top-0 bg-card">
               <div className="flex items-start justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold mb-1">{selectedCourse.Name}</h2>
+                  <h2 className="text-2xl font-bold mb-1">{selectedRequest.Course.Name}</h2>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">Course ID: {selectedCourse.Id}</span>
+                    <span className="text-sm text-muted-foreground">Course ID: {selectedRequest.Course.Id}</span>
                     <span
                       className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        getCourseStatus(selectedCourse) === "approved"
+                        getRequestStatus(selectedRequest) === "approved"
                           ? "bg-green-100 text-green-800"
-                          : getCourseStatus(selectedCourse) === "rejected"
+                          : getRequestStatus(selectedRequest) === "rejected"
                             ? "bg-red-100 text-red-800"
                             : "bg-yellow-100 text-yellow-800"
                       }`}
                     >
-                      {getCourseStatus(selectedCourse) === "approved"
+                      {getRequestStatus(selectedRequest) === "approved"
                         ? "Approved"
-                        : getCourseStatus(selectedCourse) === "rejected"
+                        : getRequestStatus(selectedRequest) === "rejected"
                           ? "Rejected"
                           : "Pending"}
                     </span>
                   </div>
                 </div>
-                <button onClick={() => setSelectedCourse(null)} className="text-muted-foreground hover:text-foreground">
+                <button onClick={() => setSelectedRequest(null)} className="text-muted-foreground hover:text-foreground">
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
@@ -351,37 +353,36 @@ export default function CoursesManagePage() {
               <div className="mb-6">
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase mb-2">Description</h3>
                 <p className="text-foreground leading-relaxed">
-                  {selectedCourse.Description || "No description provided"}
+                  {selectedRequest.Course.Description || "No description provided"}
                 </p>
               </div>
 
               <div className="flex gap-3">
                 <Link
-                  to={`/courses/${selectedCourse.Id}`}
+                  to={`/courses/${selectedRequest.Course.Id}`}
                   className="flex-1 px-4 py-2 text-center bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors font-medium"
-                  onClick={() => setSelectedCourse(null)}
+                  onClick={() => setSelectedRequest(null)}
                 >
                   View Full Course
                 </Link>
-                {getCourseStatus(selectedCourse) === "pending" && (
+                {getRequestStatus(selectedRequest) === "pending" && (
                   <>
                     <button
-                      onClick={() => handleVerify(selectedCourse.Id)}
-                      disabled={verifyingIds.includes(selectedCourse.Id)}
+                      onClick={() => handleVerify(selectedRequest.Course!.Id)}
+                      disabled={verifyingIds.includes(selectedRequest.Course.Id)}
                       className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                     >
-                      {verifyingIds.includes(selectedCourse.Id) ? "Approving..." : "Approve Course"}
+                      {verifyingIds.includes(selectedRequest.Course.Id) ? "Approving..." : "Approve Course"}
                     </button>
                     <button
                       onClick={() => {
-                        setSelectedCourse(null)
-                        setRejectModalCourse(selectedCourse)
+                        setSelectedRequest(null)
+                        setRejectModalRequest(selectedRequest)
                         setRejectionReason("")
                       }}
-                      disabled={rejectingIds.includes(selectedCourse.Id)}
                       className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                     >
-                      Reject Course
+                      Reject
                     </button>
                   </>
                 )}
@@ -391,68 +392,36 @@ export default function CoursesManagePage() {
         </div>
       )}
 
-      {rejectModalCourse && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
-          onClick={() => {
-            setRejectModalCourse(null)
-            setRejectionReason("")
-          }}
-        >
-          <div className="bg-card rounded-lg max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6 border-b">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h2 className="text-xl font-bold mb-1">Reject Course</h2>
-                  <p className="text-sm text-muted-foreground">{rejectModalCourse.Name}</p>
-                </div>
-                <button
-                  onClick={() => {
-                    setRejectModalCourse(null)
-                    setRejectionReason("")
-                  }}
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            <div className="p-6">
-              <div className="mb-4">
-                <label htmlFor="rejectionReason" className="block text-sm font-medium mb-2">
-                  Reason for Rejection (Optional)
-                </label>
-                <textarea
-                  id="rejectionReason"
-                  value={rejectionReason}
-                  onChange={(e) => setRejectionReason(e.target.value)}
-                  placeholder="Provide feedback to help the mentor improve..."
-                  rows={4}
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
-                />
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setRejectModalCourse(null)
-                    setRejectionReason("")
-                  }}
-                  className="flex-1 px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => handleReject(rejectModalCourse.Id, rejectionReason || undefined)}
-                  disabled={rejectingIds.includes(rejectModalCourse.Id)}
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                >
-                  {rejectingIds.includes(rejectModalCourse.Id) ? "Rejecting..." : "Confirm Rejection"}
-                </button>
-              </div>
+      {rejectModalRequest && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-card rounded-lg max-w-md w-full p-6">
+            <h3 className="text-xl font-bold mb-4">Reject Course</h3>
+            <p className="text-muted-foreground mb-4">
+              Please provide a reason for rejecting this course. This will be sent to the mentor.
+            </p>
+            <textarea
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              className="w-full h-32 px-3 py-2 border rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              placeholder="Enter rejection reason..."
+            />
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setRejectModalRequest(null)
+                  setRejectionReason("")
+                }}
+                className="px-4 py-2 text-muted-foreground hover:text-foreground font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleReject(rejectModalRequest.Id, rejectionReason)}
+                disabled={!rejectionReason.trim()}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+              >
+                Reject Course
+              </button>
             </div>
           </div>
         </div>

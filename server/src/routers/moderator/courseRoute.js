@@ -5,6 +5,7 @@ import { authorize } from '../../middleware/role.js';
 
 const router = Router();
 
+router.get('/', authenticate, authorize(["Moderator", "Admin"]), course.getAllVerificationRequests);
 router.put('/:id(\\d+)/verify', authenticate, authorize(["Moderator", "Admin"]), course.verifyCourse);
 
 export default router;

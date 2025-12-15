@@ -1,6 +1,6 @@
 // src/api/course.ts
 import client from "../service/client";
-import type { Course, CourseDetail, RawCourseDetail, RawCourseModule } from "../types/course";
+import type { Course, CourseDetail, RawCourseDetail, RawCourseModule, VerificationRequest } from "../types/course";
 import type { LessonSummary } from "../types/lesson";
 import type { Exam } from "../types/exam";
 
@@ -118,5 +118,10 @@ const verify = async (id: number): Promise<void> => {
   await client.put(`/moderator/course/${id}/verify`);
 };
 
-const course = { getAll, getEnrolled, getFeatured, getById, getRawById, getByCreator, create, update, remove, verify };
+const getVerificationRequests = async (): Promise<VerificationRequest[]> => {
+  const res = await client.get<VerificationRequest[]>("/moderator/course");
+  return res.data;
+};
+
+const course = { getAll, getEnrolled, getFeatured, getById, getRawById, getByCreator, create, update, remove, verify, getVerificationRequests };
 export default course;
