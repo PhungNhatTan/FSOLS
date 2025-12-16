@@ -24,12 +24,12 @@ import examQuestionRouteManage from "./manage/examQuestionRoute.js"
 import lessonRouteManage from "./manage/lessonRoute.js"
 import examRouteManage from "./manage/examRouteManage.js"
 import moduleRouteManage from "./manage/moduleRoute.js"
-import draftResourceRoute from "./manage/draftResourceRoute.js"
 
 // moderator route import
 import courseRouteModerator from "./moderator/courseRoute.js"
 
 // file upload route import
+import draftResourceRoute from "./draftResourceRoute.js"
 import uploadRoute from "./uploadRoute.js"
 
 const router = Router()
