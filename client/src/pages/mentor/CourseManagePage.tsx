@@ -40,6 +40,37 @@ export default function CourseManagePage() {
     ReviewedAt?: string
   } | null>(null);
 
+  const moveModuleUp = (moduleId: number) => {
+    const index = modules.findIndex(m => m.id === moduleId);
+    if (index <= 0) return; // Already first
+
+    const reordered = [...modules];
+    [reordered[index - 1], reordered[index]] = [reordered[index], reordered[index - 1]];
+
+    // Reassign order values
+    reordered.forEach((m, idx) => {
+      m.order = (idx + 1);
+    });
+
+    setModules(reordered);
+  };
+
+  // Move module down in order
+  const moveModuleDown = (moduleId: number) => {
+    const index = modules.findIndex(m => m.id === moduleId);
+    if (index < 0 || index >= modules.length - 1) return; // Already last
+
+    const reordered = [...modules];
+    [reordered[index], reordered[index + 1]] = [reordered[index + 1], reordered[index]];
+
+    // Reassign order values
+    reordered.forEach((m, idx) => {
+      m.order = (idx + 1);
+    });
+
+    setModules(reordered);
+  };
+
   const onDeselect = () => setSelectedItem(null);
 
   // Load initial data
@@ -94,7 +125,6 @@ export default function CourseManagePage() {
     }
   };
 
-
   const loadVerificationStatus = async () => {
     if (courseId <= 0) return;
     try {
@@ -110,12 +140,11 @@ export default function CourseManagePage() {
 
     setSaving(true);
     try {
-      const draft = mapLocalToDraft(course, modules, skills, null); // Add createdById if available
+      const draft = mapLocalToDraft(course, modules, skills, null);
       const validation = validateDraft(draft);
 
       if (!validation.valid) {
         console.warn("Draft has validation errors:", validation.errors);
-        // Still save the draft, just warn
       }
 
       await courseManagementApi.saveDraft(courseId, draft);
@@ -200,6 +229,18 @@ export default function CourseManagePage() {
   const updateCourse = (updates: Partial<Course>) => {
     if (!course) return;
     setCourse({ ...course, ...updates });
+  };
+
+  // Update lesson with new data
+  const updateLesson = (moduleId: number, lessonId: number, updates: Partial<Lesson>) => {
+    const module = modules.find(m => m.id === moduleId);
+    if (!module) return;
+
+    const updatedLessons = module.lessons.map(l =>
+      l.id === lessonId ? { ...l, ...updates } : l
+    );
+
+    updateModule({ ...module, lessons: updatedLessons });
   };
 
   const module = selectedItem
@@ -343,7 +384,7 @@ export default function CourseManagePage() {
             {modules
               .slice()
               .sort((a, b) => a.order - b.order)
-              .map((m) => (
+              .map((m, index) => (
                 <ModuleCard
                   key={`module-${m.id}`}
                   module={m}
@@ -351,6 +392,10 @@ export default function CourseManagePage() {
                   onDelete={deleteModule}
                   selectedItem={selectedItem}
                   onSelectItem={setSelectedItem}
+                  onMoveUp={() => moveModuleUp(m.id)}
+                  onMoveDown={() => moveModuleDown(m.id)}
+                  isFirst={index === 0}
+                  isLast={index === modules.length - 1}
                 />
               ))}
           </Card>
@@ -396,6 +441,11 @@ export default function CourseManagePage() {
               module={module}
               courseId={courseId}
               onModuleChange={updateModule}
+              onLessonUpdate={(updates) => {
+                if (selectedItem && selectedItem.type === "lesson") {
+                  updateLesson(selectedItem.moduleId, selectedItem.id, updates);
+                }
+              }}
               onClear={onDeselect}
             />
           </div>
@@ -412,6 +462,7 @@ function DetailCard({
   exam,
   module,
   onModuleChange,
+  onLessonUpdate,
   onClear,
 }: {
   selectedItem: { moduleId: number; type: "lesson" | "exam"; id: number } | null;
@@ -420,6 +471,7 @@ function DetailCard({
   exam?: Exam;
   module?: Module;
   onModuleChange: (m: Module) => void;
+  onLessonUpdate: (updates: Partial<Lesson>) => void;
   onClear: () => void;
 }) {
   if (!selectedItem) {
@@ -434,7 +486,14 @@ function DetailCard({
 
   return (
     <>
-      {lesson && <LessonDetail lesson={lesson} onClear={onClear} />}
+      {lesson && (
+        <LessonDetail
+          lesson={lesson}
+          courseId={courseId}
+          onUpdate={onLessonUpdate}
+          onClear={onClear}
+        />
+      )}
       {exam && module && (
         <ExamDetail
           courseId={courseId}

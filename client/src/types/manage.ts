@@ -45,6 +45,15 @@ export interface ResourceFile {
   Url: string;
 }
 
+export interface DraftResource {
+  id: string;           // Temporary ID like "draft_123456789"
+  name: string;
+  url: string;          // Draft URL: /uploads/draft/course-X/file.mp4
+  size: number;         // File size in bytes
+  type: string;         // MIME type
+  uploadedAt: string;   // ISO timestamp
+}
+
 export interface ManageLesson {
   Id: number;
   Title: string;
@@ -110,14 +119,19 @@ export type UiQuestionSearchItem = {
   type?: QuestionType;
 };
 
-export type Resource = { id: number; name: string; size?: number; url?: string };
+export type Resource = {
+  id: number;
+  name: string;
+  url?: string;
+  size?: number;        // Optional: file size in bytes
+};
 
 export type UiLessonLocal = {
   id: number;
   title: string;
   description?: string;
   order: number;
-  resources: Resource[];
+  resources: Resource[];  // Always an array, never undefined
 };
 
 export type ExamQuestionLocal = {
@@ -151,3 +165,36 @@ export type UiModuleLocal = {
   lessons: UiLessonLocal[];
   exams: ExamLocal[];
 };
+
+export interface DraftResource {
+  id: string;
+  name: string;
+  url: string;
+  size: number;
+  type: string;
+  uploadedAt: string;
+}
+
+/**
+ * Convert a DraftResource (from API) to Resource (for UI)
+ */
+export function draftResourceToResource(draftResource: DraftResource): Resource {
+  return {
+    id: Date.now(), // Generate temporary ID for local state
+    name: draftResource.name,
+    url: draftResource.url,
+    size: draftResource.size,
+  };
+}
+
+/**
+ * Convert ResourceFile (from backend) to Resource (for UI)
+ */
+export function resourceFileToResource(resourceFile: ResourceFile): Resource {
+  return {
+    id: resourceFile.Id,
+    name: resourceFile.Name,
+    url: resourceFile.Url,
+    size: undefined, // Backend doesn't provide size
+  };
+}

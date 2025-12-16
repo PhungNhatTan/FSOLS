@@ -1,9 +1,3 @@
-// ============================================================================
-// Course Management Service Layer
-// Handles business logic, data transformations, and validation
-// Place this in: src/services/courseManagementService.ts
-// ============================================================================
-
 import type {
     UiLessonLocal,
     UiModuleLocal,
@@ -12,13 +6,291 @@ import type {
     ExamQuestionLocal,
 } from "../types/manage";
 
-import type { Course, DraftJson } from "../types/course";
 import type { LessonSummary } from "../types/lesson";
 import type { Exam, ExamQuestion, ExamData } from "../types/exam";
+import type { UiModuleLocal as Module, UiLessonLocal as Lesson } from "../types/manage";
+import type { Course, DraftJson } from "../types/course";
 
-// ============================================================================
-// ID Generation Helpers
-// ============================================================================
+function mapLessonToDraft(lesson: Lesson) {
+    return {
+        id: String(lesson.id),
+        title: lesson.title,
+        description: lesson.description || "",
+        lessonType: "Video" as const, // or determine from lesson data
+        videoUrl: null,
+        docUrl: null,
+        createdById: null,
+        deleted: false,
+        resources: (lesson.resources || []).map(r => ({
+            id: r.id,
+            name: r.name,
+            url: r.url || "",
+            size: r.size,
+            type: undefined, // mime type if available
+            deleted: false,
+        })),
+    };
+}
+
+function mapDraftLessonToLocal(draftLesson: DraftJson["modules"][0]["items"][0]["lesson"]): Lesson {
+    if (!draftLesson) throw new Error("Draft lesson is undefined");
+
+    return {
+        id: Number(draftLesson.id) || -1,
+        title: draftLesson.title,
+        description: draftLesson.description,
+        order: 0, // Will be set from parent item
+        resources: draftLesson.resources
+            .filter(r => !r.deleted)
+            .map(r => ({
+                id: r.id,
+                name: r.name,
+                url: r.url,
+                size: r.size,
+            })),
+    };
+}
+
+export function mapLocalToDraft(
+    course: Course,
+    modules: Module[],
+    skills: { id: number; skillName: string }[],
+    createdById: string | null
+): DraftJson {
+    return {
+        version: "1.0",
+        lastModified: new Date().toISOString(),
+        course: {
+            id: course.Id,
+            name: course.Name,
+            description: course.Description,
+            categoryId: null,
+            createdById,
+            publishedAt: null,
+            skills: skills.map(s => ({
+                id: s.id,
+                skillName: s.skillName,
+                deleted: false,
+            })),
+        },
+        modules: modules.map((module) => ({
+            id: module.id,
+            title: module.title,
+            orderNo: module.order,
+            deleted: false,
+            items: [
+                ...module.lessons.map((lesson, lessonIndex) => ({
+                    id: `item-lesson-${module.id}-${lesson.id}`,
+                    orderNo: lessonIndex * 10,
+                    deleted: false,
+                    type: "lesson" as const,
+                    lesson: mapLessonToDraft(lesson),
+                })),
+                ...(module.exams || []).map((exam, examIndex) => ({
+                    id: `item-exam-${module.id}-${exam.id}`,
+                    orderNo: (module.lessons.length + examIndex) * 10,
+                    deleted: false,
+                    type: "exam" as const,
+                    exam: {
+                        id: exam.id,
+                        title: exam.title,
+                        description: "",
+                        durationPreset: (exam.durationPreset as "P_15" | "P_30" | "P_60" | "P_90" | "P_120" | null) || null,
+                        durationCustom: exam.durationCustom || null,
+                        createdById: null,
+                        deleted: false,
+                        questions: (exam.questions || []).map(q => ({
+                            id: q.examQuestionId,
+                            questionBankId: q.questionId,
+                            deleted: false,
+                            questionBank: {
+                                id: q.questionId,
+                                questionText: q.question?.text || "",
+                                type: (q.question?.type?.toUpperCase() || "MCQ") as "MCQ" | "Fill" | "Essay" | "TF",
+                                answer: null,
+                                lessonId: null,
+                                courseId: null,
+                                deleted: false,
+                                answers: (q.question?.options || []).map((opt, idx) => ({
+                                    id: `answer-${q.questionId}-${idx}`,
+                                    answerText: opt,
+                                    isCorrect: idx === q.question?.correctIndex,
+                                    deleted: false,
+                                })),
+                            },
+                        })),
+                    },
+                })),
+            ],
+        })),
+    };
+}
+
+export function mapDraftToLocal(draft: DraftJson): {
+    modules: Module[];
+    skills: { id: number; skillName: string }[];
+} {
+    const modules: Module[] = draft.modules
+        .filter(m => !m.deleted)
+        .map(draftModule => {
+            const lessons: Lesson[] = [];
+            const exams: ExamLocal[] = []; 
+
+            for (const item of draftModule.items) {
+                if (item.deleted) continue;
+
+                if (item.type === "lesson" && item.lesson) {
+                    const lesson = mapDraftLessonToLocal(item.lesson);
+                    lesson.order = item.orderNo;
+                    lessons.push(lesson);
+                } else if (item.type === "exam" && item.exam) {
+                    exams.push({
+                        id: item.exam.id,
+                        title: item.exam.title,
+                        order: item.orderNo,
+                        durationPreset: item.exam.durationPreset ?? undefined,
+                        durationCustom: item.exam.durationCustom ?? undefined,
+                        questions: item.exam.questions
+                            .filter(q => !q.deleted)
+                            .map(q => ({
+                                examQuestionId: q.id,
+                                questionId: q.questionBankId,
+                                points: 1,
+                                question: {
+                                    id: q.questionBank.id,
+                                    type: q.questionBank.type.toLowerCase() as "mcq" | "text",
+                                    text: q.questionBank.questionText,
+                                    options: q.questionBank.answers.map(a => a.answerText),
+                                    correctIndex: q.questionBank.answers.findIndex(a => a.isCorrect),
+                                },
+                            })),
+                    });
+                }
+            }
+
+            return {
+                id: draftModule.id,
+                title: draftModule.title,
+                order: draftModule.orderNo,
+                lessons,
+                exams,
+            };
+        });
+
+    const skills = draft.course.skills
+        .filter(s => !s.deleted)
+        .map(s => ({
+            id: s.id,
+            skillName: s.skillName,
+        }));
+
+    return { modules, skills };
+}
+
+export function validateDraft(draft: DraftJson): {
+    valid: boolean;
+    errors: string[];
+    warnings: string[];
+} {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    // Course validation
+    if (!draft.course.name?.trim()) {
+        errors.push("Course name is required");
+    }
+    if (!draft.course.description?.trim()) {
+        warnings.push("Course description is empty");
+    }
+
+    // Module validation
+    const activeModules = draft.modules.filter(m => !m.deleted);
+    if (activeModules.length === 0) {
+        errors.push("Course must have at least one module");
+    }
+
+    activeModules.forEach((module, idx) => {
+        if (!module.title?.trim()) {
+            errors.push(`Module ${idx + 1} has no title`);
+        }
+
+        const activeItems = module.items.filter(i => !i.deleted);
+        if (activeItems.length === 0) {
+            warnings.push(`Module "${module.title}" has no lessons or exams`);
+        }
+
+        // Validate lessons and their resources
+        activeItems.forEach((item, itemIdx) => {
+            if (item.type === "lesson" && item.lesson) {
+                if (!item.lesson.title?.trim()) {
+                    errors.push(`Lesson ${itemIdx + 1} in module "${module.title}" has no title`);
+                }
+
+                const activeResources = item.lesson.resources.filter(r => !r.deleted);
+                if (activeResources.length === 0) {
+                    warnings.push(`Lesson "${item.lesson.title}" has no resources`);
+                }
+
+                // Check for draft URLs that need to be migrated
+                activeResources.forEach(resource => {
+                    if (resource.url?.includes('/draft/')) {
+                        // This is expected - resources will be moved on approval
+                    }
+                });
+            } else if (item.type === "exam" && item.exam) {
+                if (!item.exam.title?.trim()) {
+                    errors.push(`Exam ${itemIdx + 1} in module "${module.title}" has no title`);
+                }
+
+                const activeQuestions = item.exam.questions.filter(q => !q.deleted);
+                if (activeQuestions.length === 0) {
+                    warnings.push(`Exam "${item.exam.title}" has no questions`);
+                }
+            }
+        });
+    });
+
+    return {
+        valid: errors.length === 0,
+        errors,
+        warnings,
+    };
+}
+
+export function getDraftStats(draft: DraftJson) {
+    let totalModules = 0;
+    let totalLessons = 0;
+    let totalExams = 0;
+    let totalQuestions = 0;
+    let totalResources = 0;
+
+    draft.modules.forEach(module => {
+        if (module.deleted) return;
+        totalModules++;
+
+        module.items.forEach(item => {
+            if (item.deleted) return;
+
+            if (item.type === "lesson" && item.lesson) {
+                totalLessons++;
+                const activeResources = item.lesson.resources.filter(r => !r.deleted);
+                totalResources += activeResources.length;
+            } else if (item.type === "exam" && item.exam) {
+                totalExams++;
+                const activeQuestions = item.exam.questions.filter(q => !q.deleted);
+                totalQuestions += activeQuestions.length;
+            }
+        });
+    });
+
+    return {
+        totalModules,
+        totalLessons,
+        totalExams,
+        totalQuestions,
+        totalResources,
+    };
+}
 
 let tempIdCounter = 1;
 
@@ -36,11 +308,6 @@ export const isTempId = (id: string | number): boolean => {
     }
     return id < 0;
 };
-
-// ============================================================================
-// DTO to UI Local Mappings
-// Transform API responses into UI-friendly format
-// ============================================================================
 
 export const mapResourceDtoToLocal = (resource: { Id?: number; id?: number; Name?: string; name?: string; Url?: string; url?: string; Size?: number; size?: number }): Resource => ({
     id: resource.Id || resource.id || 0,
@@ -134,223 +401,6 @@ export const mapModuleDtoToLocal = (module: { Id?: number; id?: number; Title?: 
         exams,
     };
 };
-
-// ============================================================================
-// UI Local to Draft JSON Mappings
-// Transform UI state into draft format for persistence
-// ============================================================================
-
-export const mapLocalToDraft = (
-    course: Course,
-    modules: UiModuleLocal[],
-    skills: { id: number; skillName: string }[] = [],
-    createdById: string | null = null
-): DraftJson => {
-    return {
-        version: "1.0",
-        lastModified: new Date().toISOString(),
-        course: {
-            id: course.Id,
-            name: course.Name,
-            description: course.Description,
-            categoryId: null, // Add if you have category in Course type
-            createdById: createdById,
-            publishedAt: null, // Add if you track this
-            skills: skills.map((s) => ({
-                id: s.id,
-                skillName: s.skillName,
-                deleted: false,
-            })),
-        },
-        modules: modules.map((module) => {
-            const items: DraftJson["modules"][number]["items"] = [];
-            let orderCounter = 10;
-
-            // Convert lessons to items
-            module.lessons.forEach((lesson) => {
-                items.push({
-                    id: isTempId(lesson.id) ? `temp_lesson_${lesson.id}` : `lesson_${lesson.id}`,
-                    orderNo: lesson.order || orderCounter,
-                    deleted: false,
-                    type: "lesson",
-                    lesson: {
-                        id: lesson.id.toString(),
-                        title: lesson.title,
-                        lessonType: "Video", // Default, update if you track this
-                        videoUrl: null, // Add if you have this data
-                        docUrl: null, // Add if you have this data
-                        createdById: createdById,
-                        deleted: false,
-                        resources: lesson.resources.map((r) => ({
-                            id: r.id,
-                            name: r.name,
-                            url: r.url || "",
-                            deleted: false,
-                        })),
-                    },
-                });
-                orderCounter += 10;
-            });
-
-            // Convert exams to items
-            module.exams.forEach((exam) => {
-                items.push({
-                    id: isTempId(exam.id) ? `temp_exam_${exam.id}` : `exam_${exam.id}`,
-                    orderNo: exam.order || orderCounter,
-                    deleted: false,
-                    type: "exam",
-                    exam: {
-                        id: exam.id,
-                        title: exam.title,
-                        description: "", // Add if you have this
-                        durationPreset: (exam.durationPreset as "P_15" | "P_30" | "P_60" | "P_90" | "P_120") || null,
-                        durationCustom: exam.durationCustom || null,
-                        createdById: createdById,
-                        deleted: false,
-                        questions: exam.questions.map((q) => {
-                            const answers = (q.question?.options || []).map((opt, idx) => ({
-                                id: `temp_ans_${q.questionId}_${idx}`,
-                                answerText: opt,
-                                isCorrect: idx === q.question?.correctIndex,
-                                deleted: false,
-                            }));
-
-                            return {
-                                id: q.examQuestionId,
-                                questionBankId: q.questionId,
-                                deleted: false,
-                                questionBank: {
-                                    id: q.questionId,
-                                    questionText: q.question?.text || "",
-                                    type: q.question?.type === "mcq" ? "MCQ" : "Fill",
-                                    answer: null,
-                                    lessonId: null,
-                                    courseId: course.Id,
-                                    deleted: false,
-                                    answers: answers,
-                                },
-                            };
-                        }),
-                    },
-                });
-                orderCounter += 10;
-            });
-
-            return {
-                id: module.id,
-                title: module.title,
-                orderNo: module.order,
-                deleted: false,
-                items: items,
-            };
-        }),
-    };
-};
-
-// ============================================================================
-// Draft JSON to UI Local Mappings
-// Load draft back into UI state
-// ============================================================================
-
-export const mapDraftToLocal = (draft: DraftJson): {
-    course: Course;
-    modules: UiModuleLocal[];
-    skills: { id: number; skillName: string }[];
-} => {
-    if (!draft.course) {
-        return {
-            course: {
-                Id: 0,
-                Name: "Untitled Course",
-                Description: "",
-                DeletedAt: null,
-            },
-            modules: [],
-            skills: [],
-        };
-    }
-
-    const course: Course = {
-        Id: draft.course.id,
-        Name: draft.course.name,
-        Description: draft.course.description,
-        DeletedAt: null,
-    };
-
-    const skills = draft.course.skills
-        .filter((s) => !s.deleted)
-        .map((s) => ({
-            id: s.id,
-            skillName: s.skillName,
-        }));
-
-    const modules: UiModuleLocal[] = draft.modules
-        .filter((m) => !m.deleted)
-        .map((module) => {
-            const lessons: UiLessonLocal[] = [];
-            const exams: ExamLocal[] = [];
-
-            module.items
-                .filter((item) => !item.deleted)
-                .forEach((item) => {
-                    if (item.type === "lesson" && item.lesson && !item.lesson.deleted) {
-                        lessons.push({
-                            id: item.lesson.id.startsWith("temp_")
-                                ? generateNegativeId()
-                                : Number(item.lesson.id.replace(/\D/g, "")),
-                            title: item.lesson.title,
-                            order: item.orderNo,
-                            resources: item.lesson.resources
-                                .filter((r) => !r.deleted)
-                                .map((r) => ({
-                                    id: r.id,
-                                    name: r.name,
-                                    url: r.url,
-                                })),
-                        });
-                    } else if (item.type === "exam" && item.exam && !item.exam.deleted) {
-                        exams.push({
-                            id: item.exam.id,
-                            title: item.exam.title,
-                            order: item.orderNo,
-                            durationPreset: item.exam.durationPreset || undefined,
-                            durationCustom: item.exam.durationCustom || undefined,
-                            questions: item.exam.questions
-                                .filter((q) => !q.deleted)
-                                .map((q) => ({
-                                    examQuestionId: q.id,
-                                    questionId: q.questionBankId,
-                                    points: 1,
-                                    question: {
-                                        id: q.questionBankId,
-                                        type: q.questionBank.type === "MCQ" ? "mcq" : "text",
-                                        text: q.questionBank.questionText,
-                                        options: q.questionBank.answers
-                                            .filter((a) => !a.deleted)
-                                            .map((a) => a.answerText),
-                                        correctIndex: q.questionBank.answers.findIndex((a) => !a.deleted && a.isCorrect),
-                                    },
-                                })),
-                        });
-                    }
-                });
-
-            return {
-                id: module.id,
-                title: module.title,
-                order: module.orderNo,
-                lessons: lessons,
-                exams: exams,
-            };
-        });
-
-    return { course, modules, skills };
-};
-
-// ============================================================================
-// Draft Mutation Helpers (Soft Deletes)
-// Immutable operations that return new draft objects
-// ============================================================================
 
 export const markModuleDeleted = (draft: DraftJson, moduleId: number): DraftJson => {
     return {
@@ -480,94 +530,11 @@ export const markResourceDeleted = (
     };
 };
 
-// ============================================================================
-// Validation
-// Business rules for draft completeness
-// ============================================================================
-
 export interface ValidationResult {
     valid: boolean;
     errors: string[];
     warnings: string[];
 }
-
-export const validateDraft = (draft: DraftJson): ValidationResult => {
-    const errors: string[] = [];
-    const warnings: string[] = [];
-
-    // Course validation
-    if (!draft.course.name.trim()) {
-        errors.push("Course name is required");
-    }
-
-    if (!draft.course.description.trim()) {
-        errors.push("Course description is required");
-    }
-
-    // Module validation
-    const activeModules = draft.modules.filter((m) => !m.deleted);
-    if (activeModules.length === 0) {
-        errors.push("At least one module is required");
-    }
-
-    activeModules.forEach((module, idx) => {
-        if (!module.title.trim()) {
-            errors.push(`Module at position ${idx + 1} is missing a title`);
-        }
-
-        const activeItems = module.items.filter((i) => !i.deleted);
-        if (activeItems.length === 0) {
-            errors.push(`Module "${module.title}" (position ${idx + 1}) has no content`);
-        }
-
-        // Item validation
-        activeItems.forEach((item) => {
-            if (item.type === "lesson" && item.lesson && !item.lesson.deleted) {
-                if (!item.lesson.title.trim()) {
-                    errors.push(`Lesson in module "${module.title}" is missing a title`);
-                }
-                if (item.lesson.resources.filter((r) => !r.deleted).length === 0) {
-                    warnings.push(`Lesson "${item.lesson.title}" has no resources`);
-                }
-            } else if (item.type === "exam" && item.exam && !item.exam.deleted) {
-                if (!item.exam.title.trim()) {
-                    errors.push(`Exam in module "${module.title}" is missing a title`);
-                }
-                const activeQuestions = item.exam.questions.filter((q) => !q.deleted);
-                if (activeQuestions.length === 0) {
-                    errors.push(`Exam "${item.exam.title}" has no questions`);
-                }
-
-                // Question validation
-                activeQuestions.forEach((q, qIdx) => {
-                    if (!q.questionBank.questionText.trim()) {
-                        errors.push(`Question ${qIdx + 1} in exam "${item.exam!.title}" has no text`);
-                    }
-                    if (q.questionBank.type === "MCQ") {
-                        const activeAnswers = q.questionBank.answers.filter((a) => !a.deleted);
-                        if (activeAnswers.length < 2) {
-                            errors.push(`Question ${qIdx + 1} in exam "${item.exam!.title}" needs at least 2 answer options`);
-                        }
-                        if (!activeAnswers.some((a) => a.isCorrect)) {
-                            errors.push(`Question ${qIdx + 1} in exam "${item.exam!.title}" has no correct answer marked`);
-                        }
-                    }
-                });
-            }
-        });
-    });
-
-    return {
-        valid: errors.length === 0,
-        errors,
-        warnings,
-    };
-};
-
-// ============================================================================
-// Draft Statistics
-// Useful for displaying course overview
-// ============================================================================
 
 export interface DraftStats {
     totalModules: number;
@@ -577,38 +544,3 @@ export interface DraftStats {
     totalResources: number;
     completionPercentage: number;
 }
-
-export const getDraftStats = (draft: DraftJson): DraftStats => {
-    let totalLessons = 0;
-    let totalExams = 0;
-    let totalQuestions = 0;
-    let totalResources = 0;
-
-    const activeModules = draft.modules.filter((m) => !m.deleted);
-
-    activeModules.forEach((module) => {
-        module.items.filter((i) => !i.deleted).forEach((item) => {
-            if (item.type === "lesson" && item.lesson && !item.lesson.deleted) {
-                totalLessons++;
-                totalResources += item.lesson.resources.filter((r) => !r.deleted).length;
-            } else if (item.type === "exam" && item.exam && !item.exam.deleted) {
-                totalExams++;
-                totalQuestions += item.exam.questions.filter((q) => !q.deleted).length;
-            }
-        });
-    });
-
-    // Simple completion calculation: has name, description, at least 1 module with content
-    const hasBasicInfo = draft.course.name.trim() && draft.course.description.trim();
-    const hasContent = totalLessons > 0 || totalExams > 0;
-    const completionPercentage = (hasBasicInfo ? 50 : 0) + (hasContent ? 50 : 0);
-
-    return {
-        totalModules: activeModules.length,
-        totalLessons,
-        totalExams,
-        totalQuestions,
-        totalResources,
-        completionPercentage,
-    };
-};

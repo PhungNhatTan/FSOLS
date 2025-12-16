@@ -3,7 +3,7 @@ import prisma from '../../prismaClient.js';
 export default async function getFeatured() {
   const courses = await prisma.course.findMany({
     where: {
-      IsVerified: true,
+      DeletedAt: null,
       PublishedAt: { not: null },
     },
     include: {

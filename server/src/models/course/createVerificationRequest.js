@@ -2,8 +2,7 @@ import prisma from '../../prismaClient.js';
 
 export default async function createVerificationRequest(courseId) {
     const course = await prisma.course.findUnique({
-        where: { id: courseId },
-        select: { IsVerified: true }
+        where: { Id: courseId },
     });
 
     if (!course) {

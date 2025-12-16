@@ -104,6 +104,11 @@ function toUiModule(m: ManageModule): UiModule {
 }
 
 /* -------------------------
+   Draft Resource Types (re-export from types/manage)
+-------------------------- */
+import type { DraftResource } from "../types/manage";
+
+/* -------------------------
    Public API cho CourseManagementPage
 -------------------------- */
 export const courseManagementApi = {
@@ -211,8 +216,8 @@ export const courseManagementApi = {
     await client.delete(`/manage/lesson/${lessonId}`);
   },
 
-  /* ---------- Resources ---------- */
-  /** Upload 1 file, trả về metadata của resource mới */
+  /* ---------- Resources (Production) ---------- */
+  /** Upload 1 file to production storage, returns resource metadata */
   async uploadResource(file: File): Promise<UiResource> {
     const fd = new FormData();
     fd.append("file", file);
@@ -229,6 +234,37 @@ export const courseManagementApi = {
       Resources: resourceIds,
     });
     return toUiLesson(res.data);
+  },
+
+  /* ---------- Draft Resources ---------- */
+  /** Upload file to draft storage for a specific course */
+  async uploadDraftResource(courseId: number, file: File): Promise<DraftResource> {
+    const fd = new FormData();
+    fd.append("file", file);
+    
+    const res = await client.post<{
+      id: string;
+      name: string;
+      url: string;
+      size: number;
+      type: string;
+      uploadedAt: string;
+    }>(`/manage/course/${courseId}/draft/resource`, fd, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    
+    return res.data;
+  },
+
+  /** List all draft resources for a course */
+  async listDraftResources(courseId: number): Promise<DraftResource[]> {
+    const res = await client.get<DraftResource[]>(`/manage/course/${courseId}/draft/resources`);
+    return res.data;
+  },
+
+  /** Delete a draft resource */
+  async deleteDraftResource(courseId: number, resourceId: string): Promise<void> {
+    await client.delete(`/manage/course/${courseId}/draft/resource/${resourceId}`);
   },
 
   /* ---------- Exam ---------- */
@@ -259,7 +295,7 @@ export const courseManagementApi = {
     return toUiExam(exam);
   },
 
-  /** Tạo mới 1 câu hỏi (MCQ/Text…) rồi attach vào exam */
+  /** Create new question and attach to exam */
   async createQuestionAndAttach(
     examId: number,
     courseId: number,
@@ -370,4 +406,5 @@ export type {
   UiExam as Exam,
   UiResource as Resource,
   UiQuestionSearchItem as Question,
+  DraftResource,
 } from "../types/manage";

@@ -246,7 +246,7 @@ export default function CoursesManagePage() {
 
                 <div className="flex gap-2">
                   <Link
-                    to={`/courses/${course.Id}`}
+                    to={`/moderator/course/${course.Id}/preview`}
                     className="flex-1 px-4 py-2 text-center bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors font-medium"
                   >
                     View Details
@@ -359,7 +359,7 @@ export default function CoursesManagePage() {
 
               <div className="flex gap-3">
                 <Link
-                  to={`/courses/${selectedRequest.Course.Id}`}
+                  to={`/moderator/course/${selectedRequest.Course.Id}/preview`}
                   className="flex-1 px-4 py-2 text-center bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors font-medium"
                   onClick={() => setSelectedRequest(null)}
                 >

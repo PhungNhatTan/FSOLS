@@ -88,6 +88,12 @@ const getById = async (id: number): Promise<CourseDetail> => {
   return mapRawToCourseDetail(raw);
 };
 
+const getDraftById = async (id: number): Promise<CourseDetail> => {
+  const res = await client.get<RawCourseDetail & { CourseModule?: RawCourseModule[] }>(`/manage/course/${id}/draft`);
+  const raw = res.data;
+  return mapRawToCourseDetail(raw);
+};
+
 const getRawById = async (id: number): Promise<RawCourseDetail & { CourseModule?: RawCourseModule[] }> => {
   const res = await client.get<RawCourseDetail & { CourseModule?: RawCourseModule[] }>(`/course/${id}`);
   return res.data;
@@ -123,5 +129,5 @@ const getVerificationRequests = async (): Promise<VerificationRequest[]> => {
   return res.data;
 };
 
-const course = { getAll, getEnrolled, getFeatured, getById, getRawById, getByCreator, create, update, remove, verify, getVerificationRequests };
+const course = { getAll, getEnrolled, getFeatured, getById, getDraftById, getRawById, getByCreator, create, update, remove, verify, getVerificationRequests };
 export default course;

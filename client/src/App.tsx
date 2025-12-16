@@ -23,6 +23,7 @@ import MyCoursesPage from "./pages/public/MyCoursesPage"
 // Moderator Pages
 import DashboardManager from "./pages/moderator/Dashboard"
 import CourseManagePageManager from "./pages/moderator/CoursesManagePage"
+import CourseDraftPreviewPage from "./pages/moderator/CourseDraftPreviewPage"
 
 // Auth
 import ProtectedRoute from "./components/ProtectedRoute"
@@ -82,6 +83,7 @@ export default function App() {
           >
             <Route path="dashboard" element={<DashboardManager />} />
             <Route path="courses" element={<CourseManagePageManager />} />
+            <Route path="course/:id/preview" element={<CourseDraftPreviewPage />} />
           </Route>
 
           {/* 404 */}

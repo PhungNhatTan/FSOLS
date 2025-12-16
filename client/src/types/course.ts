@@ -36,7 +36,6 @@ export interface Course {
   Name: string
   Description: string
   DeletedAt?: string | null
-  IsVerified?: boolean
   IsRejected?: boolean
   RejectionReason?: string | null
   Category?: {
@@ -79,6 +78,8 @@ export interface RawCourseDetail {
   Exams?: Exam[] // flattened by backend
 }
 
+// Add this to your existing types/course.ts
+
 export type DraftJson = {
   version: string;
   lastModified: string;
@@ -108,15 +109,20 @@ export type DraftJson = {
       lesson?: {
         id: string;
         title: string;
+        description?: string;
         lessonType: "Video" | "Document";
         videoUrl: string | null;
         docUrl: string | null;
         createdById: string | null;
         deleted: boolean;
+        // UPDATED: Resources with size and metadata
         resources: {
           id: number;
           name: string;
-          url: string;
+          url: string;          // During draft: /uploads/draft/course-X/file.mp4
+                                // After publish: /uploads/production/course-X/file.mp4
+          size?: number;        // File size in bytes
+          type?: string;        // MIME type
           deleted: boolean;
         }[];
       };
