@@ -124,10 +124,14 @@ const verify = async (id: number): Promise<void> => {
   await client.put(`/moderator/course/${id}/verify`);
 };
 
+const reject = async (id: number, reason: string): Promise<void> => {
+  await client.put(`/moderator/course/${id}/reject`, { reason });
+};
+
 const getVerificationRequests = async (): Promise<VerificationRequest[]> => {
   const res = await client.get<VerificationRequest[]>("/moderator/course");
   return res.data;
 };
 
-const course = { getAll, getEnrolled, getFeatured, getById, getDraftById, getRawById, getByCreator, create, update, remove, verify, getVerificationRequests };
+const course = { getAll, getEnrolled, getFeatured, getById, getDraftById, getRawById, getByCreator, create, update, remove, verify, reject, getVerificationRequests };
 export default course;

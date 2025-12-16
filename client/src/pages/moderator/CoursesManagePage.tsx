@@ -17,20 +17,10 @@ export default function CoursesManagePage() {
   const [selectedRequest, setSelectedRequest] = useState<VerificationRequest | null>(null)
   const [rejectModalRequest, setRejectModalRequest] = useState<VerificationRequest | null>(null)
   const [rejectionReason, setRejectionReason] = useState("")
-  const [rejectedRequests, setRejectedRequests] = useState<{
-    [key: string]: { rejectedAt: string; reason?: string }
-  }>({})
+  const [rejectingIds, setRejectingIds] = useState<number[]>([])
 
   useEffect(() => {
     fetchRequests()
-    const stored = localStorage.getItem("rejectedRequests")
-    if (stored) {
-      try {
-        setRejectedRequests(JSON.parse(stored))
-      } catch (e) {
-        console.error("Failed to parse rejected requests:", e)
-      }
-    }
   }, [])
 
   const fetchRequests = async () => {
@@ -63,25 +53,26 @@ export default function CoursesManagePage() {
   }
 
   const handleReject = async (requestId: string, reason?: string) => {
-    // Since we don't have a reject API yet, we'll just update local state
-    // Ideally this should call an API
+    if (!rejectModalRequest || !rejectModalRequest.Course) return
+    const courseId = rejectModalRequest.Course.Id
     
-    const newRejectedRequests = {
-        ...rejectedRequests,
-        [requestId]: {
-          rejectedAt: new Date().toISOString(),
-          reason,
-        },
-      }
-      setRejectedRequests(newRejectedRequests)
-      localStorage.setItem("rejectedRequests", JSON.stringify(newRejectedRequests))
-      
+    if (rejectingIds.includes(courseId)) return
+    setRejectingIds((prev) => [...prev, courseId])
+    setError("")
+
+    try {
+      await courseApi.reject(courseId, reason || "")
+      await fetchRequests()
       setRejectModalRequest(null)
       setRejectionReason("")
+    } catch (err) {
+      setError("Failed to reject course: " + String(err))
+    } finally {
+      setRejectingIds((prev) => prev.filter((x) => x !== courseId))
+    }
   }
 
   const getRequestStatus = (request: VerificationRequest): "approved" | "rejected" | "pending" => {
-    if (rejectedRequests[request.Id]) return "rejected"
     if (request.ApprovalStatus === "Approved") return "approved"
     if (request.ApprovalStatus === "Rejected") return "rejected"
     return "pending"
@@ -215,7 +206,7 @@ export default function CoursesManagePage() {
             if (!course) return null
             
             const isVerifying = verifyingIds.includes(course.Id)
-            // const isRejecting = rejectingIds.includes(course.Id) // Need to fix types
+            const isRejecting = rejectingIds.includes(course.Id)
             const status = getRequestStatus(request)
 
             return (
@@ -268,16 +259,16 @@ export default function CoursesManagePage() {
                       </button>
                       <button
                         onClick={() => setRejectModalRequest(request)}
-                        // disabled={isRejecting}
+                        disabled={isRejecting}
                         className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                       >
-                        Reject
+                        {isRejecting ? "Rejecting..." : "Reject"}
                       </button>
                     </>
                   )}
-                  {status === "rejected" && rejectedRequests[request.Id]?.reason && (
+                  {status === "rejected" && request.Reason && (
                     <div className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded">
-                      <strong>Reason:</strong> {rejectedRequests[request.Id].reason}
+                      <strong>Reason:</strong> {request.Reason}
                     </div>
                   )}
                 </div>
