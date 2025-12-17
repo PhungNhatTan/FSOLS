@@ -1,12 +1,23 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useParams, Link } from "react-router-dom"
 import courseApi from "../../api/course"
-import type { CourseDetail, CourseModule, RawModuleItem } from "../../types/course"
+import type { CourseDetail, CourseModule } from "../../types/course"
 
 import CourseSidebar from "../../components/public/courseSidebar/CourseSidebar"
 import EnrollButton from "../../components/public/course/EnrollButton"
+
+type SimpleLesson = { id: string | number; title: string; to: string }
+type SimpleExam = { id: number; title: string; to: string }
+
+type DerivedModule = {
+  key: string
+  orderNo: number
+  lessons: SimpleLesson[]
+  quiz: SimpleExam | null
+  exams: SimpleExam[] // all exams in module
+}
 
 export default function CourseDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -16,6 +27,7 @@ export default function CourseDetailPage() {
   useEffect(() => {
     if (!id) return
     loadCourse()
+ 
   }, [id])
 
   const loadCourse = async () => {
@@ -24,10 +36,110 @@ export default function CourseDetailPage() {
       setCourse(courseData)
       setError("")
     } catch (err) {
-      setError("Failed to load course")
+      setError("Failed to load course.")
       console.error(err)
     }
   }
+
+  // FE-only timeline derivation:
+  // - Show lesson count per module
+  // - Each module has a "Quiz" (first exam in that module)
+  // - Course ends with a "Final Exam" (last exam in the whole timeline) for certificate
+  const derived = useMemo(() => {
+    if (!course) {
+      return {
+        modules: [] as DerivedModule[],
+        finalExam: null as SimpleExam | null,
+        totals: { lessons: 0, quizzes: 0, modules: 0 },
+      }
+    }
+
+    let modules: DerivedModule[] = []
+
+    // 1) Prefer CourseModule (best ordering and accurate timeline)
+    if (Array.isArray(course.CourseModule) && course.CourseModule.length > 0) {
+      const cms = [...course.CourseModule].sort((a, b) => a.OrderNo - b.OrderNo)
+
+      modules = cms.map((m: CourseModule) => {
+        const orderedItems = [...(m.ModuleItems ?? [])].sort((a, b) => a.OrderNo - b.OrderNo)
+
+        const lessons: SimpleLesson[] = orderedItems
+          .filter((it) => it.CourseLesson)
+          .map((it) => ({
+            id: it.CourseLesson!.Id,
+            title: it.CourseLesson!.Title,
+            to: `/lesson/${it.CourseLesson!.Id}`,
+          }))
+
+        const exams: SimpleExam[] = orderedItems
+          .filter((it) => it.Exam)
+          .map((it) => ({
+            id: it.Exam!.Id,
+            title: it.Exam!.Title ?? "Untitled",
+            to: `/course/${course.Id}/takingExam/${it.Exam!.Id}`,
+          }))
+
+        const quiz = exams.length > 0 ? exams[0] : null
+
+        return {
+          key: `module-${m.Id}`,
+          orderNo: m.OrderNo,
+          lessons,
+          quiz,
+          exams,
+        }
+      })
+    } else {
+      // 2) Fallback: build from Lessons[][] and Exams[][]
+      const lessonGroups = Array.isArray(course.Lessons) ? course.Lessons : []
+      const examGroups = Array.isArray(course.Exams) ? course.Exams : []
+      const n = Math.max(lessonGroups.length, examGroups.length)
+
+      modules = Array.from({ length: n }, (_, i) => {
+        const lessons: SimpleLesson[] = (Array.isArray(lessonGroups[i]) ? lessonGroups[i] : []).map((l) => ({
+          id: l.Id,
+          title: l.Title,
+          to: `/lesson/${l.Id}`,
+        }))
+
+        const exams: SimpleExam[] = (Array.isArray(examGroups[i]) ? examGroups[i] : [])
+          .filter((e) => !!e?.Id)
+          .map((e) => ({
+            id: e!.Id,
+            title: e!.Title ?? "Untitled",
+            to: `/course/${course.Id}/takingExam/${e!.Id}`,
+          }))
+
+        const quiz = exams.length > 0 ? exams[0] : null
+
+        return {
+          key: `module-fallback-${i + 1}`,
+          orderNo: i + 1,
+          lessons,
+          quiz,
+          exams,
+        }
+      })
+    }
+
+    // Final Exam = last exam across all modules (timeline order)
+    const allExams: { moduleOrder: number; idx: number; exam: SimpleExam }[] = []
+    modules.forEach((m) => {
+      m.exams.forEach((e, idx) => allExams.push({ moduleOrder: m.orderNo, idx, exam: e }))
+    })
+    allExams.sort((a, b) => (a.moduleOrder - b.moduleOrder) || (a.idx - b.idx))
+    const finalExam = allExams.length ? allExams[allExams.length - 1].exam : null
+
+    // Totals
+    const totalLessons = modules.reduce((sum, m) => sum + m.lessons.length, 0)
+    const totalQuizzes = modules.reduce((sum, m) => sum + (m.quiz ? 1 : 0), 0)
+
+    return {
+      modules,
+      finalExam,
+      totals: { lessons: totalLessons, quizzes: totalQuizzes, modules: modules.length },
+    }
+  }, [course])
 
   if (!course && !error) {
     return (
@@ -44,13 +156,19 @@ export default function CourseDetailPage() {
     <div className="flex">
       <CourseSidebar />
       <div className="p-6 max-w-4xl mx-auto flex-1">
-        {error && <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">{error}</div>}
+        {error && (
+          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+            {error}
+          </div>
+        )}
 
         {course && (
           <div className="bg-white rounded-lg shadow-md p-6">
             {/* Header */}
             <div className="mb-6">
               <h1 className="text-2xl font-bold mb-3">{course.Name}</h1>
+
+              {/* Enroll is just an action button. Timeline is FE-only and should not depend on enrollment. */}
               <div className="mt-4 max-w-xs">
                 <EnrollButton courseId={course.Id} />
               </div>
@@ -61,47 +179,91 @@ export default function CourseDetailPage() {
               <p className="text-gray-700 whitespace-pre-wrap">{course.Description}</p>
             </div>
 
-            {/* Course Modules and Lessons */}
-            {"CourseModule" in course &&
-              Array.isArray((course as { CourseModule?: CourseModule[] }).CourseModule) &&
-              ((course as { CourseModule?: CourseModule[] }).CourseModule?.length ?? 0) > 0 && (
-                <div className="mb-6">
-                  <h2 className="text-xl font-semibold mb-4">Course Modules</h2>
-                  <div className="space-y-4">
-                    {(course as { CourseModule?: CourseModule[] }).CourseModule?.map((module: CourseModule) => (
-                      <div key={module.Id} className="border border-gray-200 rounded-lg p-4">
-                        <h3 className="font-semibold mb-2">Module {module.OrderNo}</h3>
-                        {module.ModuleItems && module.ModuleItems.length > 0 && (
-                          <ul className="list-disc list-inside space-y-1 ml-4">
-                            {module.ModuleItems.map((item: RawModuleItem) => (
-                              <li key={item.Id}>
-                                {item.CourseLesson && (
-                                  <span className="text-blue-600">📹 Lesson: {item.CourseLesson.Title}</span>
-                                )}
-                                {item.Exam && <span className="text-green-600 ml-2">📝 Exam: {item.Exam.Title}</span>}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+            {/* Review Course Timeline */}
+            <div className="mb-6">
+              <div className="flex items-end justify-between gap-4 mb-3">
+                <h2 className="text-xl font-semibold">Review course timeline</h2>
+                <div className="text-sm text-gray-500">
+                  {derived.totals.modules} modules • {derived.totals.lessons} lessons • {derived.totals.quizzes} quizzes
+                </div>
+              </div>
+
+              {derived.modules.length === 0 ? (
+                <p className="text-gray-600">
+                  No timeline data available.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {derived.modules.map((m, idx) => {
+                    const finalId = derived.finalExam?.id
+                    const quizIsFinal = m.quiz?.id != null && finalId != null && m.quiz.id === finalId
+
+                    return (
+                      <details key={m.key} className="border border-gray-200 rounded-lg p-4" open={idx === 0}>
+                        <summary className="cursor-pointer select-none font-semibold">
+                          Module {m.orderNo}
+                          <span className="ml-2 text-sm text-gray-500">
+                            ({m.lessons.length} lessons • {m.quiz ? 1 : 0} quiz)
+                          </span>
+                        </summary>
+
+                        {/* Summary */}
+                        <div className="mt-3 text-sm text-gray-700 space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-medium">Lessons:</span>
+                            <span>{m.lessons.length}</span>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-medium">{quizIsFinal ? "Final Exam (Certificate):" : "Quiz:"}</span>
+                            {m.quiz ? (
+                              <Link to={m.quiz.to} className="text-blue-600 hover:underline">
+                                {m.quiz.title}
+                              </Link>
+                            ) : (
+                              <span className="text-gray-500">No quiz available</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Lessons list */}
+                        <div className="mt-4">
+                          {m.lessons.length > 0 ? (
+                            <ul className="space-y-2">
+                              {m.lessons.map((l, i) => (
+                                <li key={l.id} className="flex items-start gap-2">
+                                  <span className="mt-0.5 text-gray-500">{i + 1}.</span>
+                                  <Link to={l.to} className="text-gray-800 hover:underline">
+                                    📹 {l.title}
+                                  </Link>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-gray-600">No lessons in this module.</p>
+                          )}
+                        </div>
+                      </details>
+                    )
+                  })}
                 </div>
               )}
 
-            {/* Legacy Lessons Display (for backward compatibility) */}
-            {course.Lessons && course.Lessons.length > 0 && (
-              <div className="mb-6">
-                <h2 className="text-lg font-semibold mb-2">Lessons</h2>
-                <ul className="list-disc list-inside space-y-1">
-                  {course.Lessons.map((lessonGroup, groupIndex) =>
-                    lessonGroup.map((lesson, lessonIndex) => (
-                      <li key={`${groupIndex}-${lessonIndex}`}>{lesson.Title}</li>
-                    )),
-                  )}
-                </ul>
+              {/* Final exam / certificate section */}
+              <div className="mt-5 p-4 rounded-lg border border-gray-200 bg-gray-50">
+                <div className="font-semibold mb-1">Final Exam </div>
+                {derived.finalExam ? (
+                  <div className="text-sm text-gray-700">
+                    Finish all lessons and module quizzes, then take the final exam to receive your certificate:{" "}
+                    <Link to={derived.finalExam.to} className="text-blue-600 hover:underline">
+                      {derived.finalExam.title}
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-600">No final exam found for this course.</div>
+                )}
               </div>
-            )}
+            </div>
 
             {/* Back Button */}
             <div className="mt-6 pt-4 border-t">
@@ -110,31 +272,6 @@ export default function CourseDetailPage() {
               </Link>
             </div>
           </div>
-        )}
-
-        {/* Exams Section */}
-        {course && (
-          <section className="mt-6">
-            <h2 className="text-lg font-semibold mb-2">Exams</h2>
-            {course.Exams &&
-            Array.isArray(course.Exams) &&
-            course.Exams.some((group) => Array.isArray(group) && group.length > 0) ? (
-              <ul className="list-disc list-inside space-y-1">
-                {course.Exams.map((examGroup, groupIndex) =>
-                  (Array.isArray(examGroup) ? examGroup : []).map((e, examIndex) => (
-                    <li key={`${groupIndex}-${examIndex}`} className="flex justify-between">
-                      <span>{e?.Title ?? "Untitled"}</span>
-                      <Link to={e?.Id ? `/exams/${e.Id}` : "#"} className="text-blue-600 hover:underline">
-                        Take Exam
-                      </Link>
-                    </li>
-                  )),
-                )}
-              </ul>
-            ) : (
-              <p>No exams available.</p>
-            )}
-          </section>
         )}
       </div>
     </div>

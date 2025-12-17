@@ -39,6 +39,8 @@ export interface Course {
 export interface CourseDetail extends Course {
   Lessons: LessonSummary[][] // nested arrays grouped by module
   Exams: Exam[][] // nested arrays grouped by module
+  // Optional: returned by some endpoints. Useful for rendering an ordered timeline (module -> items).
+  CourseModule?: CourseModule[]
 }
 
 export interface CourseStudyContext {
