@@ -9,7 +9,7 @@ export default async function createVerificationRequest(courseId) {
         throw new Error('Course not found');
     }
 
-    const requestType = course.IsVerified ? 'Update' : 'New';
+    const requestType = course.PublishedAt ? 'Update' : 'New';
 
     return await prisma.verificationRequest.create({
         data: {

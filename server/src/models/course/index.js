@@ -8,6 +8,7 @@ import verifyCourse from './verifyCourse.js';
 import getFeatured from './getFeatured.js';
 import getEnrolled from './getEnrolled.js';
 import saveDraft from './saveDraft.js';
+import commitDraft from './commitDraft.js';
 import createVerificationRequest from './createVerificationRequest.js';
 import getVerificationRequest from './getVerificationRequest.js';
 import getAllVerificationRequests from './getAllVerificationRequests.js';
@@ -27,6 +28,7 @@ export default {
   rejectCourse,
   getFeatured,
   saveDraft,
+  commitDraft,
   createVerificationRequest,
   getVerificationRequest,
   getAllVerificationRequests,
