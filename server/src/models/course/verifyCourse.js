@@ -1,6 +1,6 @@
 import prisma from '../../prismaClient.js';
 import commitDraft from './commitDraft.js';
-import { moveDraftToProduction } from '../../services/courseResource.js';
+import { moveDraftToProduction, cleanupDraft } from '../../services/courseResource.js';
 
 export default async function verifyCourse(id) {
     const courseId = parseInt(id);
@@ -54,5 +54,10 @@ export default async function verifyCourse(id) {
         }
     });
     
+    // Cleanup draft resources after successful commit
+    if (courseData && courseData.Draft) {
+        cleanupDraft(courseId);
+    }
+
     return { success: true };
 }

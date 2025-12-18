@@ -73,7 +73,7 @@ export function moveDraftToProduction(courseId) {
     });
   }
 
-  fs.rmSync(draftDir, { recursive: true, force: true });
+  // fs.rmSync(draftDir, { recursive: true, force: true }); // Moved to cleanupDraft
   return moved;
 }
 

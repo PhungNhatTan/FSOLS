@@ -39,8 +39,10 @@ export const draftUpload = multer({
       "text/plain",
     ];
 
-    allowed.includes(file.mimetype)
-      ? cb(null, true)
-      : cb(new Error(`Invalid file type: ${file.mimetype}`));
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Invalid file type: ${file.mimetype}`));
+    }
   },
 });

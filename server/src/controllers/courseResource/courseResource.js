@@ -23,13 +23,16 @@ export const deleteDraftResource = (req, res) => {
     req.params.resourceId
   );
 
-  ok
-    ? res.json({ success: true })
-    : res.status(404).json({ error: "Resource not found" });
+  if (ok) {
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: "Resource not found" });
+  }
 };
 
 export const approveVerification = (req, res) => {
   const moved = service.moveDraftToProduction(req.params.courseId);
+  service.cleanupDraft(req.params.courseId);
   res.json({ success: true, movedFiles: moved });
 };
 
