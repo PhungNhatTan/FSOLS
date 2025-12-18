@@ -1,6 +1,6 @@
 // src/api/course.ts
 import client from "../service/client";
-import type { Course, CourseDetail, RawCourseDetail, RawCourseModule, VerificationRequest } from "../types/course";
+import type { Course, CourseDetail, RawCourseDetail, RawCourseModule, CourseModule, VerificationRequest } from "../types/course";
 import type { LessonSummary } from "../types/lesson";
 import type { Exam } from "../types/exam";
 
@@ -25,7 +25,6 @@ const getByCreator = async (): Promise<Course[]> => {
 };
 
 const mapRawToCourseDetail = (raw: RawCourseDetail & { CourseModule?: RawCourseModule[] }): CourseDetail => {
-  // use LessonSummary and Exam types from their respective modules
   // Safe helpers to build grouped lessons/exams
   const buildLessons = (): CourseDetail["Lessons"] => {
     if (Array.isArray(raw.CourseModule) && raw.CourseModule.length) {
@@ -79,6 +78,18 @@ const mapRawToCourseDetail = (raw: RawCourseDetail & { CourseModule?: RawCourseM
     Description: raw.Description,
     Lessons: buildLessons(),
     Exams: buildExams(),
+    CourseModule: Array.isArray(raw.CourseModule)
+      ? (raw.CourseModule.map((m) => ({
+        Id: m.Id,
+        OrderNo: m.OrderNo,
+        ModuleItems: (m.ModuleItems ?? []).map((mi) => ({
+          Id: mi.Id,
+          OrderNo: mi.OrderNo,
+          CourseLesson: mi.CourseLesson ?? null,
+          Exam: mi.Exam ?? null,
+        })),
+      })) as CourseModule[])
+      : undefined,
   } as CourseDetail;
 };
 
