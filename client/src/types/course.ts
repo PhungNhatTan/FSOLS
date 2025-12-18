@@ -66,11 +66,17 @@ export interface RawModuleItem {
   Exam?: Exam | null
 }
 
-export interface RawCourseModule {
-  Id: number
-  OrderNo: number
-  ModuleItems: RawModuleItem[]
-}
+export type RawCourseModule = {
+  Id: number;
+  OrderNo?: number;
+  ModuleItems?: {
+    Id: number;
+    OrderNo?: number;
+    CourseLesson?: LessonSummary | null;
+    Exam?: Exam | null;
+  }[];
+};
+
 
 export interface RawCourseDetail {
   Id: number
@@ -122,7 +128,7 @@ export type DraftJson = {
           id: number;
           name: string;
           url: string;          // During draft: /uploads/draft/course-X/file.mp4
-                                // After publish: /uploads/production/course-X/file.mp4
+          // After publish: /uploads/production/course-X/file.mp4
           size?: number;        // File size in bytes
           type?: string;        // MIME type
           deleted: boolean;
@@ -160,3 +166,7 @@ export type DraftJson = {
     }[];
   }[];
 };
+
+export type DraftModuleItem = DraftJson["modules"][number]["items"][number];
+export type DraftModule = DraftJson["modules"][number];
+

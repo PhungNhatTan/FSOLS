@@ -1,17 +1,91 @@
 import prisma from "../../prismaClient.js";
 
-/**
- * Commits a draft JSON to the database, creating/updating all related records.
- * This is called when a course is approved for publication.
- * @param {number} courseId
- * @param {object} draft
- */
+/* ============================================================================
+* Utilities
+* ========================================================================== */
+
+const isTempId = (id) =>
+  id == null ||
+  (typeof id === "number" && id < 0) ||
+  (typeof id === "string" && id.startsWith("temp_"));
+
+const softDelete = (tx, model, where) =>
+  tx[model].updateMany({
+    where,
+    data: { DeletedAt: new Date() },
+  });
+
+const isValidDbId = (id, expectedType) => {
+  if (expectedType === "string") return typeof id === "string";
+  if (expectedType === "number") return typeof id === "number";
+  return false;
+};
+
+const safeUpsert = async (
+  tx,
+  model,
+  where,
+  createData,
+  updateData,
+  idType = "number"
+) => {
+  const id = where?.Id;
+
+  if (!isValidDbId(id, idType)) {
+    return tx[model].create({ data: createData });
+  }
+
+  const exists = await tx[model].findUnique({ where });
+  if (!exists) {
+    return tx[model].create({ data: createData });
+  }
+
+  return tx[model].update({
+    where,
+    data: updateData,
+  });
+};
+
+const QUESTION_TYPE_MAP = {
+  MCQ: "MCQ",
+  MULTIPLE_CHOICE: "MCQ",
+
+  FILL: "Fill",
+  FILL_BLANK: "Fill",
+
+  ESSAY: "Essay",
+  TEXT: "Essay",
+
+  TF: "TF",
+  TRUE_FALSE: "TF",
+};
+
+function mapQuestionType(rawType) {
+  if (!rawType) {
+    throw new Error("Question type is missing in draft");
+  }
+
+  const normalized = String(rawType).toUpperCase();
+  const mapped = QUESTION_TYPE_MAP[normalized];
+
+  if (!mapped) {
+    throw new Error(`Unsupported question type: ${rawType}`);
+  }
+
+  return mapped; // <-- STRING, matches Prisma enum
+}
+
+/* ============================================================================
+ * Main Commit Function
+ * ========================================================================== */
+
 const commitDraftToDatabase = async (courseId, draft) => {
   try {
     await prisma.$transaction(async (tx) => {
-      // ========================================================================
-      // STEP 1: Update Course-level data
-      // ========================================================================
+      /* ======================================================================
+       * 1. Update course meta
+       * ==================================================================== */
+
       await tx.course.update({
         where: { Id: courseId },
         data: {
@@ -22,347 +96,320 @@ const commitDraftToDatabase = async (courseId, draft) => {
         },
       });
 
-      // ========================================================================
-      // STEP 2: Handle Skills (delete old, insert new)
-      // ========================================================================
-      
-      // Get all existing skills for this course
+      /* ======================================================================
+       * 2. Course skills (soft delete + upsert)
+       * ==================================================================== */
+
       const existingSkills = await tx.courseSkill.findMany({
-        where: { CourseId: courseId },
-        select: { Id: true },
+        where: { CourseId: courseId, DeletedAt: null },
       });
 
-      const existingSkillIds = existingSkills.map(s => s.Id);
-      const skillIdsToKeep = draft.course.skills
-        .filter((s) => !s.deleted && s.id > 0)
-        .map((s) => s.id);
-      
-      // Delete removed skills
-      const skillIdsToDelete = existingSkillIds.filter(id => !skillIdsToKeep.includes(id));
-      if (skillIdsToDelete.length > 0) {
-        await tx.courseSkill.deleteMany({
-          where: {
-            Id: { in: skillIdsToDelete },
-          },
-        });
-      }
+      const keepSkillIds = new Set(
+        draft.course.skills.filter(s => !isTempId(s.id)).map(s => s.id)
+      );
 
-      // Insert new skills
-      const newSkills = draft.course.skills.filter((s) => !s.deleted && s.id < 0);
-      for (const skill of newSkills) {
-        await tx.courseSkill.create({
-          data: {
-            CourseId: courseId,
-            SkillName: skill.skillName,
-          },
-        });
-      }
-
-      // Update existing skills
-      const existingSkillsToUpdate = draft.course.skills.filter((s) => !s.deleted && s.id > 0);
-      for (const skill of existingSkillsToUpdate) {
-        await tx.courseSkill.update({
-          where: { Id: skill.id },
-          data: { SkillName: skill.skillName },
-        });
-      }
-
-      // ========================================================================
-      // STEP 3: Delete flagged items (bottom-up to respect FK constraints)
-      // ========================================================================
-
-      for (const module of draft.modules) {
-        for (const item of module.items) {
-          // Delete exam questions and their related data
-          if (item.type === "exam" && item.exam) {
-            for (const q of item.exam.questions) {
-              // Delete question bank and answers if flagged
-              if (q.questionBank?.deleted) {
-                // Delete answers first
-                const answersToDelete = q.questionBank.answers
-                  .filter(a => a.id && !a.id.startsWith("temp_"))
-                  .map(a => a.id);
-                
-                if (answersToDelete.length > 0) {
-                  await tx.examAnswer.deleteMany({
-                    where: { Id: { in: answersToDelete } },
-                  });
-                }
-                
-                // Delete question bank
-                // Check if it's a real ID (not temp)
-                const isTempQB = q.questionBank.id.toString().startsWith("temp_") || q.questionBank.id < 0;
-                if (q.questionBank.id && !isTempQB) {
-                  await tx.questionBank.delete({
-                    where: { Id: q.questionBank.id.toString() },
-                  });
-                }
-              }
-
-              // Delete exam question link if flagged
-              if (q.deleted && q.id && !q.id.startsWith("temp_")) {
-                await tx.examQuestion.delete({
-                  where: { Id: q.id },
-                });
-              }
-            }
-
-            // Delete exam if flagged
-            if (item.exam.deleted && item.exam.id > 0) {
-              await tx.exam.delete({
-                where: { Id: item.exam.id },
-              });
-            }
-          }
-
-          // Delete lesson and resources if flagged
-          if (item.type === "lesson" && item.lesson?.deleted) {
-            // Delete resources first
-            const resourcesToDelete = item.lesson.resources
-              .filter(r => r.id > 0)
-              .map(r => r.id);
-            
-            if (resourcesToDelete.length > 0) {
-              await tx.lessonResource.deleteMany({
-                where: { Id: { in: resourcesToDelete } },
-              });
-            }
-
-            // Delete lesson
-            if (item.lesson.id && !item.lesson.id.startsWith("temp_")) {
-              await tx.courseLesson.delete({
-                where: { Id: item.lesson.id },
-              });
-            }
-          }
-
-          // Delete module item if flagged
-          if (item.deleted && item.id && !item.id.startsWith("temp_")) {
-            await tx.moduleItem.delete({
-              where: { Id: item.id },
-            });
-          }
-        }
-
-        // Delete module if flagged
-        if (module.deleted && module.id > 0) {
-          await tx.courseModule.delete({
-            where: { Id: module.id },
-          });
+      for (const skill of existingSkills) {
+        if (!keepSkillIds.has(skill.Id)) {
+          await softDelete(tx, "courseSkill", { Id: skill.Id });
         }
       }
 
-      // ========================================================================
-      // STEP 4: Insert/Update Modules (top-down)
-      // ========================================================================
-
-      // Map to track temp ID -> real ID conversions
-      const moduleIdMap = new Map();
-      const itemIdMap = new Map();
-      const questionBankIdMap = new Map();
-
-      for (const module of draft.modules.filter((m) => !m.deleted)) {
-        let moduleId;
-
-        if (module.id < 0) {
-          // Insert new module
-          const newModule = await tx.courseModule.create({
+      for (const skill of draft.course.skills.filter(s => !s.deleted)) {
+        if (isTempId(skill.id)) {
+          await tx.courseSkill.create({
             data: {
               CourseId: courseId,
-              OrderNo: module.orderNo,
-              Title: module.title,
+              SkillName: skill.skillName,
             },
           });
-          moduleId = newModule.Id;
-          moduleIdMap.set(module.id, moduleId);
         } else {
-          // Update existing module
-          await tx.courseModule.update({
-            where: { Id: module.id },
-            data: {
-              OrderNo: module.orderNo,
-              Title: module.title,
-            },
+          await tx.courseSkill.update({
+            where: { Id: skill.id },
+            data: { SkillName: skill.skillName, DeletedAt: null },
           });
-          moduleId = module.id;
+        }
+      }
+
+      /* ======================================================================
+       * 3. Modules
+       * ==================================================================== */
+
+      const moduleIdMap = new Map();
+
+      for (const module of draft.modules) {
+        if (module.deleted && !isTempId(module.id)) {
+          await softDelete(tx, "courseModule", { Id: module.id });
+          continue;
         }
 
-        // ========================================================================
-        // STEP 5: Insert/Update Module Items
-        // ========================================================================
+        let moduleId;
 
-        for (const item of module.items.filter((i) => !i.deleted)) {
+        if (isTempId(module.id)) {
+          const created = await tx.courseModule.create({
+            data: {
+              CourseId: courseId,
+              Title: module.title,
+              OrderNo: module.orderNo,
+            },
+          });
+          moduleId = created.Id;
+        } else {
+          const result = await safeUpsert(
+            tx,
+            "courseModule",
+            { Id: module.id },
+            {
+              CourseId: courseId,
+              Title: module.title,
+              OrderNo: module.orderNo,
+            },
+            {
+              Title: module.title,
+              OrderNo: module.orderNo,
+              DeletedAt: null,
+            }
+          );
+          moduleId = result.Id;
+        }
+
+        moduleIdMap.set(module.id, moduleId);
+
+        /* ====================================================================
+         * 4. Module items
+         * ================================================================== */
+
+        for (const item of module.items) {
+          if (item.deleted && !isTempId(item.id)) {
+            await softDelete(tx, "moduleItem", { Id: item.id });
+            continue;
+          }
+
           let itemId;
 
-          if (item.id.startsWith("temp_")) {
-            // Insert new module item
-            const newItem = await tx.moduleItem.create({
+          if (isTempId(item.id)) {
+            const created = await tx.moduleItem.create({
               data: {
                 CourseModuleId: moduleId,
                 OrderNo: item.orderNo,
               },
             });
-            itemId = newItem.Id;
-            itemIdMap.set(item.id, itemId);
+            itemId = created.Id;
           } else {
-            // Update existing module item
-            await tx.moduleItem.update({
-              where: { Id: item.id },
-              data: { OrderNo: item.orderNo },
-            });
-            itemId = item.id;
+            const result = await safeUpsert(
+              tx,
+              "moduleItem",
+              { Id: item.id },
+              {
+                CourseModuleId: moduleId,
+                OrderNo: item.orderNo,
+              },
+              {
+                CourseModuleId: moduleId,
+                OrderNo: item.orderNo,
+                DeletedAt: null,
+              }
+            );
+            itemId = result.Id;
           }
 
-          // ========================================================================
-          // STEP 6: Insert/Update Lessons or Exams
-          // ========================================================================
+          /* ================================================================
+           * 5. Lessons
+           * ============================================================== */
 
-          if (item.type === "lesson" && item.lesson && !item.lesson.deleted) {
-            let lessonId;
+          if (item.type === "lesson" && item.lesson) {
+            const lesson = item.lesson;
 
-            if (item.lesson.id.startsWith("temp_")) {
-              // Insert new lesson
-              const newLesson = await tx.courseLesson.create({
-                data: {
-                  ModuleItemId: itemId,
-                  Title: item.lesson.title,
-                  LessonType: item.lesson.lessonType,
-                  VideoUrl: item.lesson.videoUrl,
-                  DocUrl: item.lesson.docUrl,
-                  CreatedById: item.lesson.createdById,
-                },
-              });
-              lessonId = newLesson.Id;
-            } else {
-              // Update existing lesson
-              await tx.courseLesson.update({
-                where: { Id: item.lesson.id },
-                data: {
-                  Title: item.lesson.title,
-                  LessonType: item.lesson.lessonType,
-                  VideoUrl: item.lesson.videoUrl,
-                  DocUrl: item.lesson.docUrl,
-                },
-              });
-              lessonId = item.lesson.id;
+            if (lesson.deleted && !isTempId(lesson.id)) {
+              await softDelete(tx, "courseLesson", { Id: lesson.id });
+              continue;
             }
 
-            // Handle lesson resources
-            for (const resource of item.lesson.resources.filter((r) => !r.deleted)) {
-              if (resource.id < 0) {
-                // Insert new resource
+            let lessonId;
+
+            if (isTempId(lesson.id)) {
+              const created = await tx.courseLesson.create({
+                data: {
+                  ModuleItemId: itemId,
+                  Title: lesson.title,
+                  LessonType: lesson.lessonType,
+                  VideoUrl: lesson.videoUrl,
+                  DocUrl: lesson.docUrl,
+                  CreatedById: lesson.createdById,
+                },
+              });
+              lessonId = created.Id;
+            } else {
+              const result = await safeUpsert(
+                tx,
+                "courseLesson",
+                { Id: lesson.id },
+                {
+                  ModuleItemId: itemId,
+                  Title: lesson.title,
+                  LessonType: lesson.lessonType,
+                  VideoUrl: lesson.videoUrl,
+                  DocUrl: lesson.docUrl,
+                  CreatedById: lesson.createdById,
+                },
+                {
+                  ModuleItemId: itemId,
+                  Title: lesson.title,
+                  LessonType: lesson.lessonType,
+                  VideoUrl: lesson.videoUrl,
+                  DocUrl: lesson.docUrl,
+                  DeletedAt: null,
+                }
+              );
+              lessonId = result.Id;
+            }
+
+            for (const res of lesson.resources) {
+              if (res.deleted && !isTempId(res.id)) {
+                await softDelete(tx, "lessonResource", { Id: res.id });
+              } else if (isTempId(res.id)) {
                 await tx.lessonResource.create({
                   data: {
                     LessonId: lessonId,
-                    Name: resource.name,
-                    Url: resource.url,
-                    OrderNo: null, // or calculate based on index if needed
+                    Name: res.name,
+                    Url: res.url,
                   },
                 });
               } else {
-                // Update existing resource
-                await tx.lessonResource.update({
-                  where: { Id: resource.id },
-                  data: {
-                    Name: resource.name,
-                    Url: resource.url,
+                await safeUpsert(
+                  tx,
+                  "lessonResource",
+                  { Id: res.id },
+                  {
+                    LessonId: lessonId,
+                    Name: res.name,
+                    Url: res.url,
                   },
-                });
+                  {
+                    Name: res.name,
+                    Url: res.url,
+                    DeletedAt: null,
+                  }
+                );
               }
             }
-          } else if (item.type === "exam" && item.exam && !item.exam.deleted) {
+          }
+
+          /* ================================================================
+           * 6. Exams
+           * ============================================================== */
+
+          if (item.type === "exam" && item.exam) {
+            const exam = item.exam;
+
+            if (exam.deleted && !isTempId(exam.id)) {
+              await softDelete(tx, "exam", { Id: exam.id });
+              continue;
+            }
+
             let examId;
 
-            if (item.exam.id < 0) {
-              // Insert new exam
-              const newExam = await tx.exam.create({
+            if (isTempId(exam.id)) {
+              const created = await tx.exam.create({
                 data: {
                   ModuleItemId: itemId,
-                  Title: item.exam.title,
-                  Description: item.exam.description,
-                  DurationPreset: item.exam.durationPreset,
-                  DurationCustom: item.exam.durationCustom,
-                  CreatedById: item.exam.createdById,
+                  Title: exam.title,
+                  Description: exam.description,
+                  DurationPreset: exam.durationPreset,
+                  DurationCustom: exam.durationCustom,
+                  CreatedById: exam.createdById,
                 },
               });
-              examId = newExam.Id;
+              examId = created.Id;
             } else {
-              // Update existing exam
-              await tx.exam.update({
-                where: { Id: item.exam.id },
-                data: {
-                  Title: item.exam.title,
-                  Description: item.exam.description,
-                  DurationPreset: item.exam.durationPreset,
-                  DurationCustom: item.exam.durationCustom,
+              const result = await safeUpsert(
+                tx,
+                "exam",
+                { Id: exam.id },
+                {
+                  ModuleItemId: itemId,
+                  Title: exam.title,
+                  Description: exam.description,
+                  DurationPreset: exam.durationPreset,
+                  DurationCustom: exam.durationCustom,
                 },
-              });
-              examId = item.exam.id;
+                {
+                  Title: exam.title,
+                  Description: exam.description,
+                  DurationPreset: exam.durationPreset,
+                  DurationCustom: exam.durationCustom,
+                  DeletedAt: null,
+                }
+              );
+              examId = result.Id;
             }
 
-            // ========================================================================
-            // STEP 7: Insert/Update Questions and Question Banks
-            // ========================================================================
 
-            for (const q of item.exam.questions.filter((qu) => !qu.deleted)) {
-              let questionBankId;
+            /* ==============================================================
+             * 7. Questions (safe for submissions)
+             * ============================================================ */
 
-              // Insert or update question bank
-              // Changed logic to check for temp_ prefix for QuestionBank as it is String ID
-              const isTempQB = q.questionBank.id.toString().startsWith("temp_") || q.questionBank.id < 0;
-              if (isTempQB) {
-                const newQB = await tx.questionBank.create({
+            for (const q of exam.questions) {
+              if (q.deleted && !isTempId(q.id)) {
+                await softDelete(tx, "examQuestion", { Id: q.id });
+                continue;
+              }
+
+              let qbId;
+
+              if (isTempId(q.questionBank.id)) {
+                const qb = await tx.questionBank.create({
                   data: {
                     QuestionText: q.questionBank.questionText,
-                    Type: q.questionBank.type,
+                    Type: mapQuestionType(q.questionBank.type),
                     Answer: q.questionBank.answer,
-                    LessonId: q.questionBank.lessonId,
-                    courseId: q.questionBank.courseId,
+                    courseId,
                   },
                 });
-                questionBankId = newQB.Id;
-                questionBankIdMap.set(q.questionBank.id, questionBankId);
+                qbId = qb.Id;
               } else {
-                await tx.questionBank.update({
-                  where: { Id: q.questionBank.id.toString() },
-                  data: {
+                const qb = await safeUpsert(
+                  tx,
+                  "questionBank",
+                  { Id: q.questionBank.id },
+                  {
                     QuestionText: q.questionBank.questionText,
-                    Type: q.questionBank.type,
+                    Type: mapQuestionType(q.questionBank.type),
                     Answer: q.questionBank.answer,
+                    courseId,
                   },
-                });
-                questionBankId = q.questionBank.id.toString();
+                  {
+                    QuestionText: q.questionBank.questionText,
+                    Type: mapQuestionType(q.questionBank.type),
+                    Answer: q.questionBank.answer,
+                    DeletedAt: null,
+                  },
+                  "string"
+                );
+
+                qbId = qb.Id;
               }
 
-              // Insert/update answers for MCQ, Fill, TF
-              if (q.questionBank.type !== "Essay") {
-                for (const ans of q.questionBank.answers.filter((a) => !a.deleted)) {
-                  if (ans.id.startsWith("temp_")) {
-                    await tx.examAnswer.create({
-                      data: {
-                        QuestionId: questionBankId,
-                        AnswerText: ans.answerText,
-                        IsCorrect: ans.isCorrect,
-                      },
-                    });
-                  } else {
-                    await tx.examAnswer.update({
-                      where: { Id: ans.id },
-                      data: {
-                        AnswerText: ans.answerText,
-                        IsCorrect: ans.isCorrect,
-                      },
-                    });
-                  }
-                }
+              if (q.deleted && !isTempId(q.id)) {
+                await softDelete(tx, "examQuestion", { Id: q.id });
+                continue;
               }
 
-              // Create/update ExamQuestion link
-              if (q.id.startsWith("temp_")) {
+              if (isTempId(q.id)) {
                 await tx.examQuestion.create({
                   data: {
                     ExamId: examId,
-                    QuestionId: questionBankId,
+                    QuestionId: qbId,
+                    OrderNo: q.orderNo,
+                  },
+                });
+              } else {
+                await tx.examQuestion.update({
+                  where: { Id: q.id },
+                  data: {
+                    ExamId: examId,
+                    QuestionId: qbId,
+                    OrderNo: q.orderNo,
+                    DeletedAt: null,
                   },
                 });
               }
@@ -371,19 +418,23 @@ const commitDraftToDatabase = async (courseId, draft) => {
         }
       }
 
+      /* ======================================================================
+       * 8. Publish course
+       * ==================================================================== */
+
       await tx.course.update({
         where: { Id: courseId },
         data: {
           Draft: null,
+          PublishedAt: new Date(),
           LastUpdated: new Date(),
-          PublishedAt: new Date(), 
         },
       });
     });
 
     return { success: true, courseId };
   } catch (error) {
-    console.error("Error committing draft:", error);
+    console.error("Commit draft failed:", error);
     return { success: false, errors: [error.message], courseId };
   }
 };

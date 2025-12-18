@@ -1,27 +1,20 @@
 import client from "../service/client";
 import type {
   CourseData,
-  ModuleItem,
   ManageLesson,
   ManageModule,
   QuestionBankSearchItem,
   ResourceFile,
-  UiCourseStructure,
   UiExam,
   UiLesson,
   UiModule,
   UiQuestionSearchItem,
   UiResource,
+  CourseStructureRaw,
 } from "../types/manage";
-import type { ExamAnswer, ExamData, ExamQuestion } from "../types/exam";
-import type { Course, DraftJson } from "../types/course";
+import type { Exam, ExamAnswer, ExamData, ExamQuestion } from "../types/exam";
+import type { DraftJson, RawCourseModule } from "../types/course";
 
-type TakingExamResponse = {
-  ExamId: number;
-  Title: string;
-  Duration: number;
-  Questions: ExamQuestion[];
-};
 
 /* -------------------------
    Helpers: normalize Raw → UI
@@ -107,56 +100,55 @@ function toUiModule(m: ManageModule): UiModule {
    Draft Resource Types (re-export from types/manage)
 -------------------------- */
 import type { DraftResource } from "../types/manage";
+import { LessonSummary } from "../types";
+// import { mapStructureToManage } from "../service/CourseManagementService";
 
 /* -------------------------
    Public API cho CourseManagementPage
 -------------------------- */
-export const courseManagementApi = {
-
-  async getStructure(courseId: number): Promise<UiCourseStructure> {
-    const res = await client.get<CourseData>(`/course/${courseId}`);
-    const course: Course = {
-      Id: res.data.Id,
-      Name: res.data.Name,
-      Description: res.data.Description,
-    };
-
-    const modules = (res.data.CourseModule ?? []).map((m) => toUiModule({
-      Id: m.Id,
-      Title: "Untitled Module",
-      OrderNo: m.OrderNo || 0,
-      Lessons: [],
+function normalizeModule(raw: RawCourseModule): ManageModule {
+  const lessons: ManageLesson[] = (raw.ModuleItems ?? [])
+    .map((mi) => mi.CourseLesson)
+    .filter((l): l is LessonSummary => l != null)
+    .map((l): ManageLesson => ({
+      Id: l.Id,
+      Title: l.Title ?? "Untitled Lesson",
+      Resources: [], // default empty array
     }));
 
-    // Fetch full exam data with questions for each exam
-    for (const module of modules) {
-      const rawModule = (res.data.CourseModule ?? []).find((m) => m.Id === module.id);
-      const examIds: number[] =
-        rawModule?.ModuleItems?.flatMap((mi: ModuleItem) => mi.Exam?.map((e) => e.Id) ?? []) ?? [];
-      const exams: UiExam[] = [];
-      for (const examId of examIds) {
-        try {
-          const examData = await client.get<TakingExamResponse>(`/exam/takingExam/${examId}`);
-          const exam = toUiExam({
-            Id: examData.data.ExamId,
-            Title: examData.data.Title,
-            Duration: examData.data.Duration,
-            Questions: examData.data.Questions,
-          } as ExamData);
-          exams.push(exam);
-        } catch (err) {
-          console.error(`Failed to load exam ${examId}:`, err);
-        }
-      }
-      module.exams = exams;
-    }
+
+  const exams: ExamData[] = (raw.ModuleItems ?? [])
+    .map((mi) => mi.Exam)
+    .filter((e): e is Exam => e != null)
+    .map((e): ExamData => ({
+      Id: e.Id,
+      Title: e.Title,
+      Duration: 0, // default
+      Questions: [], // default empty
+      OrderNo: 0,
+      ModuleItem: undefined,
+    }));
+
+
+  return {
+    Id: raw.Id,
+    Title: `Module ${raw.OrderNo ?? 0}`,
+    OrderNo: raw.OrderNo ?? 0,
+    Lessons: lessons,
+    Exam: exams.length ? exams[0] : undefined,
+  };
+}
+
+export const courseManagementApi = {
+  async getStructure(courseId: number): Promise<CourseStructureRaw> {
+    const res = await client.get<CourseData>(`/course/${courseId}`);
+    const modules: ManageModule[] = (res.data.CourseModule ?? []).map(normalizeModule);
 
     return {
-      course,
+      course: res.data,
       modules,
     };
   },
-
   /* ---------- Module ---------- */
   async createModule(courseId: number, title: string): Promise<UiModule> {
     const res = await client.post<ManageModule>(`/manage/module`, {
@@ -241,7 +233,7 @@ export const courseManagementApi = {
   async uploadDraftResource(courseId: number, file: File): Promise<DraftResource> {
     const fd = new FormData();
     fd.append("file", file);
-    
+
     const res = await client.post<{
       id: string;
       name: string;
@@ -252,7 +244,7 @@ export const courseManagementApi = {
     }>(`/manage/course/${courseId}/draft/resource`, fd, {
       headers: { "Content-Type": "multipart/form-data" },
     });
-    
+
     return res.data;
   },
 

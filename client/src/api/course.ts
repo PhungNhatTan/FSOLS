@@ -29,7 +29,7 @@ const mapRawToCourseDetail = (raw: RawCourseDetail & { CourseModule?: RawCourseM
   const buildLessons = (): CourseDetail["Lessons"] => {
     if (Array.isArray(raw.CourseModule) && raw.CourseModule.length) {
       return raw.CourseModule.map((m) =>
-        m.ModuleItems
+        (m.ModuleItems ?? [])
           .map((mi) => mi.CourseLesson)
           .filter((l): l is LessonSummary => l != null && (l as LessonSummary).Id != null)
       ) as CourseDetail["Lessons"];
@@ -52,12 +52,12 @@ const mapRawToCourseDetail = (raw: RawCourseDetail & { CourseModule?: RawCourseM
   const buildExams = (): CourseDetail["Exams"] => {
     if (Array.isArray(raw.CourseModule) && raw.CourseModule.length) {
       return raw.CourseModule.map((m) =>
-        m.ModuleItems
+        (m.ModuleItems ?? [])
           .map((mi) => mi.Exam)
           .filter((e): e is Exam => e != null && (e as Exam).Id != null)
       ) as CourseDetail["Exams"];
     }
-
+    
     if (Array.isArray(raw.Exams)) {
       if (Array.isArray(raw.Exams[0])) {
         return (raw.Exams as unknown as CourseDetail["Exams"]).map((g) =>

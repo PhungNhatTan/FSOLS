@@ -13,12 +13,12 @@ import { ModuleCard } from "../../components/manage/module/ModuleCard";
 import { LessonDetail } from "../../components/manage/lesson/LessonDetail";
 import { ExamDetail } from "../../components/manage/exam/ExamDetail";
 import {
-  mapModuleDtoToLocal,
   mapLocalToDraft,
   mapDraftToLocal,
   validateDraft,
   getDraftStats,
   generateNegativeId,
+  mapStructureToDraft,
 } from "../../service/CourseManagementService";
 
 export default function CourseManagePage() {
@@ -113,12 +113,13 @@ export default function CourseManagePage() {
       }
 
       if (!draftLoaded) {
-        const mappedModules = structure.modules
-          ? structure.modules.map(mapModuleDtoToLocal)
-          : [];
-        setModules(mappedModules);
-        setSkills([]);
-        setLastSaved("No draft");
+        const draft = mapStructureToDraft(structure);
+        const { modules, skills } = mapDraftToLocal(draft);
+
+        setModules(modules);
+        setSkills(skills);
+        setLastSaved("Initialized from structure");
+
       }
     } catch (err) {
       console.error("Error loading course:", err);

@@ -1,4 +1,4 @@
-import type { Course } from "./course";
+import type { Course, RawCourseModule } from "./course";
 import type { ExamData, ExamQuestion } from "./exam";
 import type { QuestionType } from "./questionBank";
 
@@ -18,8 +18,9 @@ export interface CourseData {
   Id: number;
   Name: string;
   Description: string;
-  CourseModule: Module[];
+  CourseModule: RawCourseModule[];
 }
+
 
 export interface CreateModuleResponse {
   Id: number;

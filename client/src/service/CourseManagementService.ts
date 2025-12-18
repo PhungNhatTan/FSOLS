@@ -4,12 +4,14 @@ import type {
     ExamLocal,
     Resource,
     ExamQuestionLocal,
+    CourseStructureRaw,
+    ManageModule,
+    ManageLesson,
 } from "../types/manage";
-
 import type { LessonSummary } from "../types/lesson";
-import type { Exam, ExamQuestion, ExamData } from "../types/exam";
+import type { Exam, ExamQuestion, ExamData, QuestionType } from "../types/exam";
 import type { UiModuleLocal as Module, UiLessonLocal as Lesson } from "../types/manage";
-import type { Course, DraftJson } from "../types/course";
+import type { Course, DraftJson, DraftModule, DraftModuleItem, } from "../types/course";
 
 function mapLessonToDraft(lesson: Lesson) {
     return {
@@ -134,7 +136,7 @@ export function mapDraftToLocal(draft: DraftJson): {
         .filter(m => !m.deleted)
         .map(draftModule => {
             const lessons: Lesson[] = [];
-            const exams: ExamLocal[] = []; 
+            const exams: ExamLocal[] = [];
 
             for (const item of draftModule.items) {
                 if (item.deleted) continue;
@@ -530,6 +532,161 @@ export const markResourceDeleted = (
     };
 };
 
+const ALLOWED_PRESETS = [
+    "P_15",
+    "P_30",
+    "P_60",
+    "P_90",
+    "P_120",
+] as const;
+
+type DurationPreset = typeof ALLOWED_PRESETS[number];
+
+function toDurationPreset(
+    value: string | null | undefined
+): DurationPreset | null {
+    if (!value) return null;
+    return ALLOWED_PRESETS.includes(value as DurationPreset)
+        ? (value as DurationPreset)
+        : null;
+}
+
+export function mapStructureToDraft(
+    structure: CourseStructureRaw
+): DraftJson {
+
+    const modules: DraftModule[] = structure.modules.map(
+        (m): DraftModule => {
+
+            // 👇 STEP 1: lesson items (EXPLICITLY TYPED)
+            const lessonItems: DraftModuleItem[] = m.Lessons.map(
+                (lesson, idx): DraftModuleItem => ({
+                    id: `lesson-${m.Id}-${lesson.Id}`,
+                    orderNo: idx * 10,
+                    deleted: false,
+                    type: "lesson",
+                    lesson: {
+                        id: String(lesson.Id),
+                        title: lesson.Title,
+                        description: lesson.Description,
+                        lessonType: "Video", // ✅ no cast needed
+                        videoUrl: null,
+                        docUrl: null,
+                        createdById: null,
+                        deleted: false,
+                        resources: lesson.Resources.map(r => ({
+                            id: r.Id,
+                            name: r.Name,
+                            url: r.Url,
+                            deleted: false,
+                        })),
+                    },
+                })
+            );
+
+            // 👇 STEP 2: exam items (EXPLICITLY TYPED)
+            const examItems: DraftModuleItem[] = m.Exam
+                ? [
+                    {
+                        id: `exam-${m.Id}-${m.Exam.Id}`,
+                        orderNo: lessonItems.length * 10,
+                        deleted: false,
+                        type: "exam",
+                        exam: {
+                            id: m.Exam.Id,
+                            title: m.Exam.Title,
+                            description: "",
+                            durationPreset: toDurationPreset(m.Exam.DurationPreset),
+                            durationCustom: m.Exam.DurationCustom ?? null,
+                            createdById: null,
+                            deleted: false,
+                            questions: [],
+                        },
+                    },
+                ]
+                : [];
+
+            // 👇 STEP 3: module itself (EXPLICITLY TYPED)
+            return {
+                id: m.Id,
+                title: m.Title,
+                orderNo: m.OrderNo,
+                deleted: false,
+                items: [...lessonItems, ...examItems],
+            };
+        }
+    );
+
+    // 👇 STEP 4: final DraftJson (typed at function boundary)
+    return {
+        version: "1.0",
+        lastModified: new Date().toISOString(),
+        course: {
+            id: structure.course.Id,
+            name: structure.course.Name,
+            description: structure.course.Description,
+            categoryId: null,
+            createdById: null,
+            publishedAt: null,
+            skills: [],
+        },
+        modules,
+    };
+}
+
+export function mapStructureToManage(rawModules: Module[]): ManageModule[] {
+    return rawModules.map(m => {
+        const lessons: ManageLesson[] = [];
+        let exam: ExamData | undefined;
+
+        for (const l of m.lessons) {
+            lessons.push({
+                Id: Number(l.id),
+                Title: l.title,
+                Description: l.description || "",
+                Resources: (l.resources || []).map(r => ({
+                    Id: r.id,
+                    Name: r.name,
+                    Url: r.url || "",
+                    Size: r.size ?? 0,
+                })),
+            });
+        }
+
+        if (m.exams && m.exams.length > 0) {
+            const firstExam = m.exams[0];
+            exam = {
+                Id: firstExam.id,
+                Title: firstExam.title,
+                Duration: firstExam.durationCustom ?? 0,
+                Questions: (firstExam.questions || []).map(q => ({
+                    ExamQuestionId: q.examQuestionId,
+                    QuestionBankId: String(q.questionId),
+                    QuestionText: q.question?.text || "",
+                    Type: (() => {
+                        const t = (q.question?.type || "MCQ").toUpperCase();
+                        return ["MCQ", "FILL", "ESSAY", "TF"].includes(t) ? (t as QuestionType) : "MCQ";
+                    })(),
+
+                    Answers: (q.question?.options || []).map((opt, idx) => ({
+                        Id: String(idx + 1), // ✅ string
+                        AnswerText: opt,
+                        IsCorrect: idx === (q.question?.correctIndex ?? -1),
+                    })),
+                })),
+            };
+        }
+
+        return {
+            Id: m.id,
+            Title: `Module ${m.order}`,
+            OrderNo: m.order,
+            Lessons: lessons,
+            Exam: exam,
+        };
+    });
+}
+
 export interface ValidationResult {
     valid: boolean;
     errors: string[];
@@ -544,3 +701,4 @@ export interface DraftStats {
     totalResources: number;
     completionPercentage: number;
 }
+
