@@ -15,7 +15,7 @@ export default function CoursePage() {
     setLoading(true)
     setError("")
     try {
-      const data = await courseApi.getEnrolled()
+      const data = await courseApi.getAll()
       setCourses(data || [])
     } catch (err) {
       console.log("[CoursePage] Error loading courses:", err)
