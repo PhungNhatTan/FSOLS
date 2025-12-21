@@ -403,15 +403,22 @@ const commitDraftToDatabase = async (courseId, draft) => {
                   },
                 });
               } else {
-                await tx.examQuestion.update({
-                  where: { Id: q.id },
-                  data: {
+                await safeUpsert(
+                  tx,
+                  "examQuestion",
+                  { Id: q.id },
+                  {
+                    ExamId: examId,
+                    QuestionId: qbId,
+                    OrderNo: q.orderNo,
+                  },
+                  {
                     ExamId: examId,
                     QuestionId: qbId,
                     OrderNo: q.orderNo,
                     DeletedAt: null,
-                  },
-                });
+                  }
+                );
               }
             }
           }
@@ -425,7 +432,6 @@ const commitDraftToDatabase = async (courseId, draft) => {
       await tx.course.update({
         where: { Id: courseId },
         data: {
-          Draft: null,
           PublishedAt: new Date(),
           LastUpdated: new Date(),
         },

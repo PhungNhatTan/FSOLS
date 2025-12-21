@@ -9,10 +9,10 @@ import type {
 } from "../../types/manage";
 import type { Course, DraftJson } from "../../types/course";
 import {
-  mapModuleDtoToLocal,
   mapDraftToLocal,
   getDraftStats,
   mapLocalToDraft,
+  mapStructureToDraft,
 } from "../../service/CourseManagementService";
 import { Card } from "../../components/manage/ui/Card";
 import { Btn } from "../../components/manage/ui/Btn";
@@ -271,12 +271,12 @@ export default function CourseDraftPreviewPage() {
       }
 
       if (!draftLoaded) {
-        const mappedModules = structure.modules
-          ? structure.modules.map(mapModuleDtoToLocal)
-          : [];
-        setModules(mappedModules);
-        setSkills([]);
-        setLastSaved("No draft");
+        const draft = mapStructureToDraft(structure);
+        const { modules, skills } = mapDraftToLocal(draft);
+
+        setModules(modules);
+        setSkills(skills);
+        setLastSaved("Initialized from structure");
       }
     } catch (err) {
       console.error("Error loading course:", err);

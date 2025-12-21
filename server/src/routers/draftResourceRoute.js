@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { draftUpload } from "../middleware/multerDraft.js";
 import * as ctrl from "../controllers/courseResource/courseResource.js";
-import authenticate from '../../middleware/auth.js';
-import { authorize } from '../../middleware/role.js';
+import authenticate from '../middleware/auth.js';
+import { authorize } from '../middleware/role.js';
 
 const router = Router();
 

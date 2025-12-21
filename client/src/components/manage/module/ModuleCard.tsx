@@ -10,100 +10,100 @@ import { CreateExamForm } from "../exam/CreateExamForm"
 
 // Simple form for creating lessons in draft mode (metadata only)
 function SimpleLessonForm({
-  onSubmit,
-  onCancel,
+    onSubmit,
+    onCancel,
 }: {
-  onSubmit: (title: string, description: string) => void;
-  onCancel: () => void;
+    onSubmit: (title: string, description: string) => void;
+    onCancel: () => void;
 }) {
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
+    const [title, setTitle] = useState("");
+    const [description, setDescription] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim()) {
-      alert("Please enter a lesson title");
-      return;
-    }
-    onSubmit(title.trim(), description.trim());
-  };
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!title.trim()) {
+            alert("Please enter a lesson title");
+            return;
+        }
+        onSubmit(title.trim(), description.trim());
+    };
 
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Lesson Title <span className="text-red-500">*</span>
-        </label>
-        <input
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          placeholder="e.g., Introduction to React"
-          autoFocus
-          required
-        />
-      </div>
+    return (
+        <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Lesson Title <span className="text-red-500">*</span>
+                </label>
+                <input
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="e.g., Introduction to React"
+                    autoFocus
+                    required
+                />
+            </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Description (Optional)
-        </label>
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={3}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          placeholder="Brief description of the lesson content"
-        />
-      </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Description (Optional)
+                </label>
+                <textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Brief description of the lesson content"
+                />
+            </div>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-        <p className="text-sm text-blue-800">
-          💡 <strong>Tip:</strong> After creating the lesson, click on it to add resources 
-          (videos, PDFs, documents, etc.) using the "+ Add Resource" button.
-        </p>
-      </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm text-blue-800">
+                    💡 <strong>Tip:</strong> After creating the lesson, click on it to add resources
+                    (videos, PDFs, documents, etc.) using the "+ Add Resource" button.
+                </p>
+            </div>
 
-      <div className="flex gap-3 justify-end pt-2">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-        >
-          Create Lesson
-        </button>
-      </div>
-    </form>
-  );
+            <div className="flex gap-3 justify-end pt-2">
+                <button
+                    type="button"
+                    onClick={onCancel}
+                    className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                >
+                    Cancel
+                </button>
+                <button
+                    type="submit"
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                >
+                    Create Lesson
+                </button>
+            </div>
+        </form>
+    );
 }
 
 export function ModuleCard({
-  module,
-  onChange,
-  onDelete,
-  selectedItem,
-  onSelectItem,
-  onMoveUp,
-  onMoveDown,
-  isFirst,
-  isLast,
+    module,
+    onChange,
+    onDelete,
+    selectedItem,
+    onSelectItem,
+    onMoveUp,
+    onMoveDown,
+    isFirst,
+    isLast,
 }: {
-  module: Module;
-  onChange: (m: Module) => void;
-  onDelete: (moduleId: number) => void;
-  selectedItem: { moduleId: number; type: "lesson" | "exam"; id: number } | null;
-  onSelectItem: (item: { moduleId: number; type: "lesson" | "exam"; id: number }) => void;
-  onMoveUp?: () => void;
-  onMoveDown?: () => void;
-  isFirst?: boolean;
-  isLast?: boolean;
+    module: Module;
+    onChange: (m: Module) => void;
+    onDelete: (moduleId: number) => void;
+    selectedItem: { moduleId: number; type: "lesson" | "exam"; id: number } | null;
+    onSelectItem: (item: { moduleId: number; type: "lesson" | "exam"; id: number }) => void;
+    onMoveUp?: () => void;
+    onMoveDown?: () => void;
+    isFirst?: boolean;
+    isLast?: boolean;
 }) {
     const [openAddLesson, setOpenAddLesson] = useState(false);
     const [openCreateExam, setOpenCreateExam] = useState(false);
@@ -125,7 +125,7 @@ export function ModuleCard({
             order: nextItemOrder(),
             resources: [], // Empty - will be added via LessonDetail later
         };
-        
+
         onChange({ ...module, lessons: [...module.lessons, newLesson] });
         setOpenAddLesson(false);
     };
@@ -164,7 +164,7 @@ export function ModuleCard({
 
     const handleItemDrop = (e: React.DragEvent, dropIndex: number) => {
         e.preventDefault();
-        
+
         if (draggedItemIndex === null || draggedItemIndex === dropIndex) {
             setDraggedItemIndex(null);
             return;
@@ -252,7 +252,7 @@ export function ModuleCard({
 
                         return (
                             <div
-                                key={`${entry.type}-${entry.item.id}`}
+                                key={`${entry.type}-${module.id}-${entry.item.id}`}
                                 draggable
                                 onDragStart={(e) => handleItemDragStart(e, index)}
                                 onDragOver={handleItemDragOver}
@@ -264,12 +264,11 @@ export function ModuleCard({
                                         id: entry.item.id,
                                     })
                                 }
-                                className={`rounded-2xl border p-3 cursor-move transition ${
-                                    isDragging
+                                className={`rounded-2xl border p-3 cursor-move transition ${isDragging
                                         ? "opacity-50 border-indigo-300"
                                         : isSelected
-                                        ? "border-indigo-400 bg-indigo-50"
-                                        : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                                            ? "border-indigo-400 bg-indigo-50"
+                                            : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
                                     }`}
                             >
                                 <div className="flex items-start justify-between">

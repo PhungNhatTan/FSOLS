@@ -34,14 +34,24 @@ function mapLessonToDraft(lesson: Lesson) {
     };
 }
 
-function mapDraftLessonToLocal(draftLesson: DraftJson["modules"][0]["items"][0]["lesson"]): Lesson {
-    if (!draftLesson) throw new Error("Draft lesson is undefined");
+function mapDraftLessonToLocal(
+    draftLesson: DraftJson["modules"][0]["items"][0]["lesson"]
+): Lesson {
+    if (!draftLesson) {
+        throw new Error("Draft lesson is undefined");
+    }
+
+    const id = Number(draftLesson.id);
+
+    if (!Number.isFinite(id)) {
+        throw new Error(`Invalid draft lesson id: ${draftLesson.id}`);
+    }
 
     return {
-        id: Number(draftLesson.id) || -1,
+        id,
         title: draftLesson.title,
         description: draftLesson.description,
-        order: 0, // Will be set from parent item
+        order: 0, // set by parent
         resources: draftLesson.resources
             .filter(r => !r.deleted)
             .map(r => ({
@@ -52,6 +62,7 @@ function mapDraftLessonToLocal(draftLesson: DraftJson["modules"][0]["items"][0][
             })),
     };
 }
+
 
 export function mapLocalToDraft(
     course: Course,
@@ -300,9 +311,11 @@ export const generateTempId = (prefix: string = "temp"): string => {
     return `${prefix}_${Date.now()}_${tempIdCounter++}`;
 };
 
-export const generateNegativeId = (): number => {
-    return -Date.now() - tempIdCounter++;
-};
+let nextTempId = -1;
+
+export function generateNegativeId() {
+    return nextTempId--;
+}
 
 export const isTempId = (id: string | number): boolean => {
     if (typeof id === "string") {

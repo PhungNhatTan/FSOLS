@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import { courseManagementApi } from "../../api/courseManagement";
 import type {
@@ -74,13 +74,18 @@ export default function CourseManagePage() {
   const onDeselect = () => setSelectedItem(null);
 
   // Load initial data
+  const loadedRef = useRef(false);
   useEffect(() => {
+    if (loadedRef.current) return;
+    loadedRef.current = true;
+
     loadCourseData();
     loadVerificationStatus();
   }, [courseId]);
 
   const loadCourseData = async () => {
     if (courseId <= 0) return;
+    if (modules.length > 0) return;
 
     try {
       // Always load base course metadata
@@ -98,7 +103,7 @@ export default function CourseManagePage() {
               ? JSON.parse(draftResponse.draft)
               : draftResponse.draft;
 
-          if (Array.isArray(draft.modules)) {
+          if (draft && Array.isArray(draft.modules) && draft.modules.length > 0) {
             const { modules, skills } = mapDraftToLocal(draft);
             setModules(modules);
             setSkills(skills);
@@ -106,20 +111,27 @@ export default function CourseManagePage() {
               `Draft loaded (${new Date(draft.lastModified).toLocaleString()})`
             );
             draftLoaded = true;
+          } else {
+            throw new Error("Draft exists but is invalid");
           }
         }
-      } catch {
-        // no draft, fall back
+
+        console.log("Draft response:", draftResponse);
+        console.log("Structure response:", structure);
+
+      } catch (err) {
+        console.warn("Draft ignored, falling back to structure:", err);
       }
 
+
       if (!draftLoaded) {
+        setSelectedItem(null);
+
         const draft = mapStructureToDraft(structure);
         const { modules, skills } = mapDraftToLocal(draft);
 
         setModules(modules);
         setSkills(skills);
-        setLastSaved("Initialized from structure");
-
       }
     } catch (err) {
       console.error("Error loading course:", err);

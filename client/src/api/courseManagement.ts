@@ -12,9 +12,14 @@ import type {
   UiResource,
   CourseStructureRaw,
 } from "../types/manage";
-import type { Exam, ExamAnswer, ExamData, ExamQuestion } from "../types/exam";
+import type { ExamAnswer, ExamData, ExamQuestion } from "../types/exam";
 import type { DraftJson, RawCourseModule } from "../types/course";
 
+
+let tempIdCounter = -1;
+function generateTempId() {
+  return tempIdCounter--;
+}
 
 /* -------------------------
    Helpers: normalize Raw → UI
@@ -100,40 +105,71 @@ function toUiModule(m: ManageModule): UiModule {
    Draft Resource Types (re-export from types/manage)
 -------------------------- */
 import type { DraftResource } from "../types/manage";
-import { LessonSummary } from "../types";
+// import { LessonSummary } from "../types";
 // import { mapStructureToManage } from "../service/CourseManagementService";
 
 /* -------------------------
    Public API cho CourseManagementPage
 -------------------------- */
 function normalizeModule(raw: RawCourseModule): ManageModule {
-  const lessons: ManageLesson[] = (raw.ModuleItems ?? [])
-    .map((mi) => mi.CourseLesson)
-    .filter((l): l is LessonSummary => l != null)
-    .map((l): ManageLesson => ({
-      Id: l.Id,
-      Title: l.Title ?? "Untitled Lesson",
-      Resources: [], // default empty array
-    }));
+  const lessons: ManageLesson[] = [];
+  const exams: ExamData[] = [];
 
+  (raw.ModuleItems ?? []).forEach((mi) => {
+    // Handle CourseLesson (can be object or array)
+    const rawLesson = mi.CourseLesson as unknown;
+    if (Array.isArray(rawLesson)) {
+      rawLesson.forEach((l: any) => {
+        lessons.push({
+          Id: l.Id ?? l.id ?? generateTempId(),
+          Title: l.Title ?? l.title ?? "Untitled Lesson",
+          Resources: (l.lessonResources ?? []).map((r: any) => ({
+            Id: r.Id,
+            Name: r.Name,
+            Url: r.Url,
+          })),
+        });
+      });
+    } else if (rawLesson) {
+      const l = rawLesson as any;
+      lessons.push({
+        Id: l.Id ?? l.id ?? generateTempId(),
+        Title: l.Title ?? l.title ?? "Untitled Lesson",
+        Resources: [],
+      });
+    }
 
-  const exams: ExamData[] = (raw.ModuleItems ?? [])
-    .map((mi) => mi.Exam)
-    .filter((e): e is Exam => e != null)
-    .map((e): ExamData => ({
-      Id: e.Id,
-      Title: e.Title,
-      Duration: 0, // default
-      Questions: [], // default empty
-      OrderNo: 0,
-      ModuleItem: undefined,
-    }));
+    // Handle Exam (can be object or array)
+    const rawExam = mi.Exam as unknown;
+    if (Array.isArray(rawExam)) {
+      rawExam.forEach((e: any) => {
+        exams.push({
+          Id: e.Id ?? e.id ?? generateTempId(),
+          Title: e.Title ?? e.title ?? "Untitled Exam",
+          Duration: e.DurationCustom ?? 0,
+          DurationPreset: e.DurationPreset,
+          DurationCustom: e.DurationCustom,
+          Questions: [],
+          OrderNo: 0,
+        });
+      });
+    } else if (rawExam) {
+      const e = rawExam as any;
+      exams.push({
+        Id: e.Id ?? e.id ?? generateTempId(),
+        Title: e.Title ?? e.title ?? "Untitled Exam",
+        Duration: 0,
+        Questions: [],
+        OrderNo: 0,
+      });
+    }
+  });
 
-
+  const looseRaw = raw as RawCourseModule & { id?: number; orderNo?: number };
   return {
-    Id: raw.Id,
-    Title: `Module ${raw.OrderNo ?? 0}`,
-    OrderNo: raw.OrderNo ?? 0,
+    Id: raw.Id ?? looseRaw.id ?? generateTempId(),
+    Title: `Module ${raw.OrderNo ?? looseRaw.orderNo ?? 0}`,
+    OrderNo: raw.OrderNo ?? looseRaw.orderNo ?? 0,
     Lessons: lessons,
     Exam: exams.length ? exams[0] : undefined,
   };

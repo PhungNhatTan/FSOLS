@@ -16,8 +16,24 @@ export default async function get(id) {
             where: { DeletedAt: null },
             select: {
               OrderNo: true,
-              CourseLesson: { select: { Id: true, Title: true } },
-              Exam: { select: { Id: true, Title: true } },
+              CourseLesson: {
+                select: {
+                  Id: true,
+                  Title: true,
+                  lessonResources: {
+                    where: { DeletedAt: null },
+                    select: { Id: true, Name: true, Url: true },
+                  },
+                },
+              },
+              Exam: {
+                select: {
+                  Id: true,
+                  Title: true,
+                  DurationPreset: true,
+                  DurationCustom: true,
+                },
+              },
             },
           },
         },

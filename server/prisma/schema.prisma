@@ -184,8 +184,10 @@ model VerificationRequest {
   SpecializationId Int?
   Specialization   Specialization? @relation(fields: [SpecializationId], references: [Id])
 
-  ReviewedById   String?
-  ReviewedBy     Account?           @relation(fields: [ReviewedById], references: [Id])
+  ReviewedById String?
+  ReviewedBy   Account? @relation(fields: [ReviewedById], references: [Id])
+
+  DraftSnapshot  Json?
   ApprovalStatus VerificationStatus @default(Pending)
   Reason         String?
   RequestType    RequestType        @default(New)
