@@ -15,7 +15,6 @@ import CoursesPageMentor from "./pages/mentor/CoursesPage"
 import CourseDetailPage from "./pages/public/CourseDetailPage"
 import QuestionBankPage from "./pages/QuestionBankPage"
 import UploadLessonPage from "./pages/mentor/UploadLessonPage"
-import CertificatesPage from "./pages/mentor/CertificatesPage"
 
 // Public Pages
 import CoursePage from "./pages/public/CoursePage"
@@ -24,7 +23,7 @@ import MyCoursesPage from "./pages/public/MyCoursesPage"
 // Moderator Pages
 import DashboardManager from "./pages/moderator/Dashboard"
 import CourseManagePageManager from "./pages/moderator/CoursesManagePage"
-import CourseDraftPreviewPage from "./pages/moderator/CourseDraftPreviewPage"
+import CertificatesPageAdmin from "./pages/moderator/CertificatesPage"
 
 // Auth
 import ProtectedRoute from "./components/ProtectedRoute"
@@ -71,22 +70,20 @@ export default function App() {
             <Route path="course/:id" element={<CourseManagePageMentor />} />
             <Route path="lesson/upload" element={<UploadLessonPage />} />
             <Route path="questions" element={<QuestionBankPage />} />
-            <Route path="certificates" element={<CertificatesPage />} />
           </Route>
-
 
           {/* Moderator Dashboard */}
           <Route
             path="/moderator"
             element={
-              <ProtectedRoute allowedRoles={["Moderator"]}>
+              <ProtectedRoute allowedRoles={["Admin"]}>
                 <ModeratorLayout />
               </ProtectedRoute>
             }
           >
             <Route path="dashboard" element={<DashboardManager />} />
             <Route path="courses" element={<CourseManagePageManager />} />
-            <Route path="course/:id/preview" element={<CourseDraftPreviewPage />} />
+            <Route path="certificates" element={<CertificatesPageAdmin />} />
           </Route>
 
           {/* 404 */}

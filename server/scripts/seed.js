@@ -2,6 +2,132 @@
 import prisma from "../src/prismaClient.js"
 import bcrypt from "bcrypt"
 
+async function seedCourseTimeline({ courseName, mentorAccountId }) {
+  const course = await prisma.course.findFirst({
+    where: { Name: courseName, DeletedAt: null },
+  })
+
+  if (!course) {
+    console.log(`[Timeline] Course not found: ${courseName}`)
+    return
+  }
+
+  // If modules already exist, skip to avoid duplicates
+  const existingModule = await prisma.courseModule.findFirst({
+    where: { CourseId: course.Id, DeletedAt: null },
+  })
+  if (existingModule) {
+    console.log(`[Timeline] Already exists for course: ${courseName} -> skip`)
+    return
+  }
+
+  console.log(`\n[Timeline] Seeding timeline for: ${courseName} (CourseId=${course.Id})`)
+
+  // Helper creators
+  const createModule = async (title, orderNo) => {
+    return prisma.courseModule.create({
+      data: {
+        Title: title,
+        OrderNo: orderNo,
+        Course: { connect: { Id: course.Id } },
+      },
+    })
+  }
+
+  const createModuleItem = async (courseModuleId, orderNo) => {
+    return prisma.moduleItem.create({
+      data: {
+        OrderNo: orderNo,
+        CourseModule: { connect: { Id: courseModuleId } },
+      },
+    })
+  }
+
+  const createLesson = async (moduleItemId, title, lessonType = "Video") => {
+    return prisma.courseLesson.create({
+      data: {
+        Title: title,
+        LessonType: lessonType, // "Video" | "Document"
+        VideoUrl: lessonType === "Video" ? "https://example.com/video" : null,
+        DocUrl: lessonType === "Document" ? "https://example.com/doc" : null,
+        ModuleItem: { connect: { Id: moduleItemId } },
+        CreatedBy: { connect: { AccountId: mentorAccountId } },
+      },
+    })
+  }
+
+  const createExam = async (moduleItemId, title, description) => {
+    return prisma.exam.create({
+      data: {
+        Title: title,
+        Description: description,
+        ModuleItem: { connect: { Id: moduleItemId } },
+        CreatedBy: { connect: { AccountId: mentorAccountId } },
+        // DurationPreset / DurationCustom can be null
+      },
+    })
+  }
+
+  // --- Module 1: 2 lessons + 1 quiz ---
+  const module1 = await createModule("Module 1: Fundamentals", 1)
+
+  const m1_item1 = await createModuleItem(module1.Id, 10)
+  await createLesson(m1_item1.Id, "Lesson 1: Overview & Setup", "Video")
+
+  const m1_item2 = await createModuleItem(module1.Id, 20)
+  await createLesson(m1_item2.Id, "Lesson 2: Core Concepts", "Video")
+
+  const m1_quizItem = await createModuleItem(module1.Id, 90)
+  await createExam(
+    m1_quizItem.Id,
+    "Module 1 Quiz",
+    "Quick quiz to review Module 1 lessons."
+  )
+
+  // --- Module 2: 3 lessons + 1 quiz + Final Exam ---
+  const module2 = await createModule("Module 2: Building Features", 2)
+
+  const m2_item1 = await createModuleItem(module2.Id, 10)
+  await createLesson(m2_item1.Id, "Lesson 3: Routing & Controllers", "Video")
+
+  const m2_item2 = await createModuleItem(module2.Id, 20)
+  await createLesson(m2_item2.Id, "Lesson 4: Database Integration", "Video")
+
+  const m2_item3 = await createModuleItem(module2.Id, 30)
+  await createLesson(m2_item3.Id, "Lesson 5: Auth & Security Basics", "Video")
+
+  const m2_quizItem = await createModuleItem(module2.Id, 90)
+  await createExam(
+    m2_quizItem.Id,
+    "Module 2 Quiz",
+    "Quick quiz to review Module 2 lessons."
+  )
+
+  // Final Exam (for Certificate) — attached to Module 2 so it stays linked to the course
+  const finalExamItem = await createModuleItem(module2.Id, 999)
+  await createExam(
+    finalExamItem.Id,
+    "Final Exam",
+    "Complete all lessons and module quizzes, then take the final exam to receive your certificate."
+  )
+
+  // Optional: create Certificate record for this course if missing
+  const existingCert = await prisma.certificate.findFirst({
+    where: { CourseId: course.Id, DeletedAt: null },
+  })
+  if (!existingCert) {
+    await prisma.certificate.create({
+      data: {
+        CertificateType: "Course",
+        Course: { connect: { Id: course.Id } },
+      },
+    })
+    console.log(`[Timeline] Certificate created for course: ${courseName}`)
+  }
+
+  console.log(`[Timeline] Done for course: ${courseName}`)
+}
+
 async function main() {
   console.log("Starting seed...")
 
@@ -197,13 +323,8 @@ async function main() {
           data: {
             Name: courseData.Name,
             Description: courseData.Description,
-
-            // ✅ IMPORTANT: Use relation connect (Prisma CreateInput doesn't accept CreatedById/CategoryId)
-            // CreatedBy references Mentor by Mentor.AccountId
             CreatedBy: { connect: { AccountId: mentorAccount.Id } },
-
             Category: { connect: { Id: courseData.CategoryId } },
-
             PublishedAt: new Date(),
           },
         })
@@ -213,6 +334,12 @@ async function main() {
         console.log("Course already exists:", courseData.Name)
       }
     }
+
+    // ✅ Seed timeline for the course you are viewing
+    await seedCourseTimeline({
+      courseName: "Node.js Backend Development",
+      mentorAccountId: mentorAccount.Id,
+    })
   } else {
     console.log("ERROR: Could not find mentor account/mentor record/category!")
   }
