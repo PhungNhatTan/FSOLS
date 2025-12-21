@@ -16,7 +16,34 @@ type DerivedModule = {
   orderNo: number
   lessons: SimpleLesson[]
   quiz: SimpleExam | null
-  exams: SimpleExam[] // all exams in module
+  exams: SimpleExam[]
+}
+
+// ---------- safe helpers (NO any) ----------
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+  typeof v === "object" && v !== null
+
+const pickTitle = (obj: unknown, fallback: string): string => {
+  if (!isRecord(obj)) return fallback
+  const candidate = obj["Title"] ?? obj["title"] ?? obj["Name"] ?? obj["name"]
+  if (typeof candidate === "string" && candidate.trim().length > 0) return candidate.trim()
+  return fallback
+}
+
+const pickId = (obj: unknown): string | number | null => {
+  if (!isRecord(obj)) return null
+  const candidate = obj["Id"] ?? obj["id"]
+  if (typeof candidate === "string" || typeof candidate === "number") return candidate
+  return null
+}
+
+const toNumberId = (id: string | number | null): number | null => {
+  if (typeof id === "number" && Number.isFinite(id)) return id
+  if (typeof id === "string") {
+    const n = Number(id)
+    if (Number.isFinite(n)) return n
+  }
+  return null
 }
 
 export default function CourseDetailPage() {
@@ -26,25 +53,19 @@ export default function CourseDetailPage() {
 
   useEffect(() => {
     if (!id) return
-    loadCourse()
- 
+
+    ;(async () => {
+      try {
+        const courseData = await courseApi.getById(Number(id))
+        setCourse(courseData)
+        setError("")
+      } catch (err) {
+        setError("Failed to load course.")
+        console.error(err)
+      }
+    })()
   }, [id])
 
-  const loadCourse = async () => {
-    try {
-      const courseData = await courseApi.getById(Number(id))
-      setCourse(courseData)
-      setError("")
-    } catch (err) {
-      setError("Failed to load course.")
-      console.error(err)
-    }
-  }
-
-  // FE-only timeline derivation:
-  // - Show lesson count per module
-  // - Each module has a "Quiz" (first exam in that module)
-  // - Course ends with a "Final Exam" (last exam in the whole timeline) for certificate
   const derived = useMemo(() => {
     if (!course) {
       return {
@@ -56,33 +77,43 @@ export default function CourseDetailPage() {
 
     let modules: DerivedModule[] = []
 
-    // 1) Prefer CourseModule (best ordering and accurate timeline)
+    // 1) Prefer CourseModule
     if (Array.isArray(course.CourseModule) && course.CourseModule.length > 0) {
       const cms = [...course.CourseModule].sort((a, b) => a.OrderNo - b.OrderNo)
 
       modules = cms.map((m: CourseModule) => {
         const orderedItems = [...(m.ModuleItems ?? [])].sort((a, b) => a.OrderNo - b.OrderNo)
 
-        const lessons: SimpleLesson[] = orderedItems
-          .filter((it) => it.CourseLesson)
-          .map((it) => ({
-            id: it.CourseLesson!.Id,
-            title: it.CourseLesson!.Title,
-            to: `/lesson/${it.CourseLesson!.Id}`,
-          }))
+        const lessonItems = orderedItems.filter((it) => !!it.CourseLesson)
+        const lessons: SimpleLesson[] = lessonItems.map((it, idx) => {
+          const lessonObj: unknown = it.CourseLesson ?? null
+          const lessonId = pickId(lessonObj)
+          return {
+            id: lessonId ?? `m${m.OrderNo}-l${idx + 1}`,
+            title: pickTitle(lessonObj, `Lesson ${idx + 1}`),
+            to: lessonId != null ? `/lesson/${lessonId}` : "#",
+          }
+        })
 
-        const exams: SimpleExam[] = orderedItems
-          .filter((it) => it.Exam)
-          .map((it) => ({
-            id: it.Exam!.Id,
-            title: it.Exam!.Title ?? "Untitled",
-            to: `/course/${course.Id}/takingExam/${it.Exam!.Id}`,
-          }))
+        const examItems = orderedItems.filter((it) => !!it.Exam)
+        const exams: SimpleExam[] = examItems
+          .map((it, idx) => {
+            const examObj: unknown = it.Exam ?? null
+            const rawId = pickId(examObj)
+            const examId = toNumberId(rawId)
+            if (examId == null) return null
+            return {
+              id: examId,
+              title: pickTitle(examObj, `Exam ${idx + 1}`),
+              to: `/course/${course.Id}/takingExam/${examId}`,
+            }
+          })
+          .filter((x): x is SimpleExam => x !== null)
 
-        const quiz = exams.length > 0 ? exams[0] : null
+        const quiz = exams.length > 0 ? { ...exams[0], title: exams[0].title || "Module Quiz" } : null
 
         return {
-          key: `module-${m.Id}`,
+          key: `module-${m.Id ?? m.OrderNo}`,
           orderNo: m.OrderNo,
           lessons,
           quiz,
@@ -90,27 +121,39 @@ export default function CourseDetailPage() {
         }
       })
     } else {
-      // 2) Fallback: build from Lessons[][] and Exams[][]
+      // 2) Fallback: build from Lessons[][] & Exams[][]
       const lessonGroups = Array.isArray(course.Lessons) ? course.Lessons : []
       const examGroups = Array.isArray(course.Exams) ? course.Exams : []
       const n = Math.max(lessonGroups.length, examGroups.length)
 
       modules = Array.from({ length: n }, (_, i) => {
-        const lessons: SimpleLesson[] = (Array.isArray(lessonGroups[i]) ? lessonGroups[i] : []).map((l) => ({
-          id: l.Id,
-          title: l.Title,
-          to: `/lesson/${l.Id}`,
-        }))
+        const rawLessons = Array.isArray(lessonGroups[i]) ? lessonGroups[i] : []
+        const lessons: SimpleLesson[] = rawLessons.map((l, idx) => {
+          const lessonObj: unknown = l
+          const lessonId = pickId(lessonObj)
+          return {
+            id: lessonId ?? `m${i + 1}-l${idx + 1}`,
+            title: pickTitle(lessonObj, `Lesson ${idx + 1}`),
+            to: lessonId != null ? `/lesson/${lessonId}` : "#",
+          }
+        })
 
-        const exams: SimpleExam[] = (Array.isArray(examGroups[i]) ? examGroups[i] : [])
-          .filter((e) => !!e?.Id)
-          .map((e) => ({
-            id: e!.Id,
-            title: e!.Title ?? "Untitled",
-            to: `/course/${course.Id}/takingExam/${e!.Id}`,
-          }))
+        const rawExams = Array.isArray(examGroups[i]) ? examGroups[i] : []
+        const exams: SimpleExam[] = rawExams
+          .map((e, idx) => {
+            const examObj: unknown = e
+            const rawId = pickId(examObj)
+            const examId = toNumberId(rawId)
+            if (examId == null) return null
+            return {
+              id: examId,
+              title: pickTitle(examObj, `Exam ${idx + 1}`),
+              to: `/course/${course.Id}/takingExam/${examId}`,
+            }
+          })
+          .filter((x): x is SimpleExam => x !== null)
 
-        const quiz = exams.length > 0 ? exams[0] : null
+        const quiz = exams.length > 0 ? { ...exams[0], title: exams[0].title || "Module Quiz" } : null
 
         return {
           key: `module-fallback-${i + 1}`,
@@ -122,21 +165,18 @@ export default function CourseDetailPage() {
       })
     }
 
-    // Final Exam = last exam across all modules (timeline order)
+    // Final Exam = last exam in the whole timeline
     const allExams: { moduleOrder: number; idx: number; exam: SimpleExam }[] = []
-    modules.forEach((m) => {
-      m.exams.forEach((e, idx) => allExams.push({ moduleOrder: m.orderNo, idx, exam: e }))
-    })
+    modules.forEach((m) => m.exams.forEach((e, idx) => allExams.push({ moduleOrder: m.orderNo, idx, exam: e })))
     allExams.sort((a, b) => (a.moduleOrder - b.moduleOrder) || (a.idx - b.idx))
     const finalExam = allExams.length ? allExams[allExams.length - 1].exam : null
 
-    // Totals
     const totalLessons = modules.reduce((sum, m) => sum + m.lessons.length, 0)
     const totalQuizzes = modules.reduce((sum, m) => sum + (m.quiz ? 1 : 0), 0)
 
     return {
       modules,
-      finalExam,
+      finalExam: finalExam ? { ...finalExam, title: finalExam.title || "Final Exam" } : null,
       totals: { lessons: totalLessons, quizzes: totalQuizzes, modules: modules.length },
     }
   }, [course])
@@ -164,22 +204,17 @@ export default function CourseDetailPage() {
 
         {course && (
           <div className="bg-white rounded-lg shadow-md p-6">
-            {/* Header */}
             <div className="mb-6">
               <h1 className="text-2xl font-bold mb-3">{course.Name}</h1>
-
-              {/* Enroll is just an action button. Timeline is FE-only and should not depend on enrollment. */}
               <div className="mt-4 max-w-xs">
                 <EnrollButton courseId={course.Id} />
               </div>
             </div>
 
-            {/* Description */}
             <div className="mb-6">
               <p className="text-gray-700 whitespace-pre-wrap">{course.Description}</p>
             </div>
 
-            {/* Review Course Timeline */}
             <div className="mb-6">
               <div className="flex items-end justify-between gap-4 mb-3">
                 <h2 className="text-xl font-semibold">Review course timeline</h2>
@@ -189,9 +224,7 @@ export default function CourseDetailPage() {
               </div>
 
               {derived.modules.length === 0 ? (
-                <p className="text-gray-600">
-                  No timeline data available.
-                </p>
+                <p className="text-gray-600">No timeline data available.</p>
               ) : (
                 <div className="space-y-3">
                   {derived.modules.map((m, idx) => {
@@ -207,7 +240,6 @@ export default function CourseDetailPage() {
                           </span>
                         </summary>
 
-                        {/* Summary */}
                         <div className="mt-3 text-sm text-gray-700 space-y-2">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="font-medium">Lessons:</span>
@@ -218,7 +250,7 @@ export default function CourseDetailPage() {
                             <span className="font-medium">{quizIsFinal ? "Final Exam (Certificate):" : "Quiz:"}</span>
                             {m.quiz ? (
                               <Link to={m.quiz.to} className="text-blue-600 hover:underline">
-                                {m.quiz.title}
+                                {m.quiz.title || "Module Quiz"}
                               </Link>
                             ) : (
                               <span className="text-gray-500">No quiz available</span>
@@ -226,12 +258,11 @@ export default function CourseDetailPage() {
                           </div>
                         </div>
 
-                        {/* Lessons list */}
                         <div className="mt-4">
                           {m.lessons.length > 0 ? (
                             <ul className="space-y-2">
                               {m.lessons.map((l, i) => (
-                                <li key={l.id} className="flex items-start gap-2">
+                                <li key={String(l.id)} className="flex items-start gap-2">
                                   <span className="mt-0.5 text-gray-500">{i + 1}.</span>
                                   <Link to={l.to} className="text-gray-800 hover:underline">
                                     📹 {l.title}
@@ -249,14 +280,13 @@ export default function CourseDetailPage() {
                 </div>
               )}
 
-              {/* Final exam / certificate section */}
               <div className="mt-5 p-4 rounded-lg border border-gray-200 bg-gray-50">
-                <div className="font-semibold mb-1">Final Exam </div>
+                <div className="font-semibold mb-1">Final Exam (for Certificate)</div>
                 {derived.finalExam ? (
                   <div className="text-sm text-gray-700">
                     Finish all lessons and module quizzes, then take the final exam to receive your certificate:{" "}
                     <Link to={derived.finalExam.to} className="text-blue-600 hover:underline">
-                      {derived.finalExam.title}
+                      {derived.finalExam.title || "Final Exam"}
                     </Link>
                   </div>
                 ) : (
@@ -265,7 +295,6 @@ export default function CourseDetailPage() {
               </div>
             </div>
 
-            {/* Back Button */}
             <div className="mt-6 pt-4 border-t">
               <Link to="/courses" className="text-blue-600 hover:underline font-medium">
                 ← Back to courses
