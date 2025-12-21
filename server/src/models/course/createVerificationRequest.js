@@ -16,6 +16,7 @@ export default async function createVerificationRequest(courseId) {
             CourseId: courseId,
             RequestType: requestType,
             ApprovalStatus: 'Pending',
+            DraftSnapshot: course.Draft,
         }
     });
 }

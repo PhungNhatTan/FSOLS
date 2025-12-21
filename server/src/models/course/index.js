@@ -13,6 +13,7 @@ import createVerificationRequest from './createVerificationRequest.js';
 import getVerificationRequest from './getVerificationRequest.js';
 import getAllVerificationRequests from './getAllVerificationRequests.js';
 import getDraft from './getDraft.js';
+import getVerificationDraft from './getVerificationDraft.js';
 import rejectCourse from './rejectCourse.js';
 
 export default {
@@ -22,6 +23,7 @@ export default {
   getEnrolled,
   getByCreator,
   getDraft,
+  getVerificationDraft,
   update,
   remove,
   verifyCourse,

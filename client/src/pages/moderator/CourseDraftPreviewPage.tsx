@@ -64,8 +64,8 @@ function ReadOnlyModuleCard({
                   })
                 }
                 className={`rounded-2xl border p-3 cursor-pointer transition ${isSelected
-                    ? "border-indigo-400 bg-indigo-50"
-                    : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                  ? "border-indigo-400 bg-indigo-50"
+                  : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
                   }`}
               >
                 <div className="flex items-start justify-between">
@@ -215,17 +215,27 @@ export default function CourseDraftPreviewPage() {
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
 
+  // Fix loading state
+  // I'll use a real loading state
+  const [isLoading, setIsLoading] = useState(true);
+  
   // Load initial data
   useEffect(() => {
-    loadCourse();
-    loadVerificationStatus();
-  }, [courseId]);
+    let cancelled = false;
 
-  useEffect(() => {
-    if (!id) return
-    loadCourse()
-    loadVerificationStatus()
-  }, [id])
+    const load = async () => {
+      setIsLoading(true);
+      await Promise.all([
+        loadCourse(),
+        loadVerificationStatus()
+      ]);
+      if (!cancelled) setIsLoading(false);
+    };
+
+    if (courseId > 0) load();
+
+    return () => { cancelled = true; };
+  }, [courseId]);
 
   const loadVerificationStatus = async () => {
     if (courseId <= 0) return;
@@ -248,7 +258,15 @@ export default function CourseDraftPreviewPage() {
       let draftLoaded = false;
 
       try {
-        const draftResponse = await courseManagementApi.getDraft(courseId);
+        // Try to load from verification draft first (if any)
+        let draftResponse;
+        try {
+          draftResponse = await courseManagementApi.getVerificationDraft(courseId);
+        } catch (e) {
+          console.log("No verification draft found, trying normal draft..." + e);
+          // If verification draft not found, try the old draft
+          draftResponse = await courseManagementApi.getDraft(courseId);
+        }
 
         if (draftResponse?.draft) {
           const draft: DraftJson =
@@ -285,7 +303,7 @@ export default function CourseDraftPreviewPage() {
 
   const handleApprove = async () => {
     if (!confirm("Are you sure you want to approve this course?")) return;
-    
+
     setVerifying(true);
     try {
       await courseApi.verify(courseId);
@@ -301,13 +319,13 @@ export default function CourseDraftPreviewPage() {
 
   const handleReject = async () => {
     if (!verificationStatus) return;
-    
+
     try {
       await courseApi.reject(courseId, rejectionReason);
-      
+
       setRejectModalOpen(false)
       setRejectionReason("")
-      
+
       alert("Course rejected.");
       navigate("/moderator/courses");
     } catch (err) {
@@ -329,14 +347,6 @@ export default function CourseDraftPreviewPage() {
       : undefined;
 
   const stats = course ? getDraftStats(mapLocalToDraft(course, modules, skills, null)) : null;
-  
-  // Fix loading state
-  // I'll use a real loading state
-  const [isLoading, setIsLoading] = useState(true);
-  
-  useEffect(() => {
-      loadCourse().finally(() => setIsLoading(false));
-  }, [courseId]);
 
   const isRejectedLocally = verificationStatus?.ApprovalStatus === "Rejected";
 
@@ -378,35 +388,35 @@ export default function CourseDraftPreviewPage() {
               <div className="text-xs text-white/70 mt-1">Last saved: {lastSaved}</div>
             </div>
             <div className="flex items-center gap-2">
-               <span className="px-3 py-1 bg-yellow-400/20 text-yellow-100 text-xs font-medium rounded-full border border-yellow-400/30">
-                  Read Only Mode
-               </span>
-               {verificationStatus?.ApprovalStatus === "Pending" && !isRejectedLocally && (
-                 <>
-                   <Btn 
-                     variant="primary" 
-                     size="sm" 
-                     className="bg-green-600 hover:bg-green-700 border-none text-white"
-                     onClick={handleApprove}
-                     disabled={verifying}
-                   >
-                     {verifying ? "Approving..." : "Approve"}
-                   </Btn>
-                   <Btn 
-                     variant="primary" 
-                     size="sm" 
-                     className="bg-red-600 hover:bg-red-700 border-none text-white"
-                     onClick={() => setRejectModalOpen(true)}
-                   >
-                     Reject
-                   </Btn>
-                 </>
-               )}
-               {isRejectedLocally && (
-                 <span className="px-3 py-1 bg-red-400/20 text-red-100 text-xs font-medium rounded-full border border-red-400/30">
-                   Rejected
-                 </span>
-               )}
+              <span className="px-3 py-1 bg-yellow-400/20 text-yellow-100 text-xs font-medium rounded-full border border-yellow-400/30">
+                Read Only Mode
+              </span>
+              {verificationStatus?.ApprovalStatus === "Pending" && !isRejectedLocally && (
+                <>
+                  <Btn
+                    variant="primary"
+                    size="sm"
+                    className="bg-green-600 hover:bg-green-700 border-none text-white"
+                    onClick={handleApprove}
+                    disabled={verifying}
+                  >
+                    {verifying ? "Approving..." : "Approve"}
+                  </Btn>
+                  <Btn
+                    variant="primary"
+                    size="sm"
+                    className="bg-red-600 hover:bg-red-700 border-none text-white"
+                    onClick={() => setRejectModalOpen(true)}
+                  >
+                    Reject
+                  </Btn>
+                </>
+              )}
+              {isRejectedLocally && (
+                <span className="px-3 py-1 bg-red-400/20 text-red-100 text-xs font-medium rounded-full border border-red-400/30">
+                  Rejected
+                </span>
+              )}
             </div>
           </div>
           <p className="mt-1 text-white/90 text-sm">
@@ -514,8 +524,8 @@ export default function CourseDraftPreviewPage() {
             />
             <div className="flex justify-end gap-2">
               <Btn onClick={() => setRejectModalOpen(false)}>Cancel</Btn>
-              <Btn 
-                variant="primary" 
+              <Btn
+                variant="primary"
                 className="bg-red-600 hover:bg-red-700 border-none text-white"
                 onClick={handleReject}
                 disabled={!rejectionReason.trim()}

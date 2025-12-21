@@ -111,6 +111,24 @@ import type { DraftResource } from "../types/manage";
 /* -------------------------
    Public API cho CourseManagementPage
 -------------------------- */
+
+interface RawLesson {
+  Id?: number;
+  id?: number;
+  Title?: string;
+  title?: string;
+  lessonResources?: { Id: number; Name: string; Url: string }[];
+}
+
+interface RawExam {
+  Id?: number;
+  id?: number;
+  Title?: string;
+  title?: string;
+  DurationCustom?: number;
+  DurationPreset?: string;
+}
+
 function normalizeModule(raw: RawCourseModule): ManageModule {
   const lessons: ManageLesson[] = [];
   const exams: ExamData[] = [];
@@ -119,11 +137,11 @@ function normalizeModule(raw: RawCourseModule): ManageModule {
     // Handle CourseLesson (can be object or array)
     const rawLesson = mi.CourseLesson as unknown;
     if (Array.isArray(rawLesson)) {
-      rawLesson.forEach((l: any) => {
+      (rawLesson as RawLesson[]).forEach((l) => {
         lessons.push({
           Id: l.Id ?? l.id ?? generateTempId(),
           Title: l.Title ?? l.title ?? "Untitled Lesson",
-          Resources: (l.lessonResources ?? []).map((r: any) => ({
+          Resources: (l.lessonResources ?? []).map((r) => ({
             Id: r.Id,
             Name: r.Name,
             Url: r.Url,
@@ -131,7 +149,7 @@ function normalizeModule(raw: RawCourseModule): ManageModule {
         });
       });
     } else if (rawLesson) {
-      const l = rawLesson as any;
+      const l = rawLesson as RawLesson;
       lessons.push({
         Id: l.Id ?? l.id ?? generateTempId(),
         Title: l.Title ?? l.title ?? "Untitled Lesson",
@@ -142,7 +160,7 @@ function normalizeModule(raw: RawCourseModule): ManageModule {
     // Handle Exam (can be object or array)
     const rawExam = mi.Exam as unknown;
     if (Array.isArray(rawExam)) {
-      rawExam.forEach((e: any) => {
+      (rawExam as RawExam[]).forEach((e) => {
         exams.push({
           Id: e.Id ?? e.id ?? generateTempId(),
           Title: e.Title ?? e.title ?? "Untitled Exam",
@@ -154,7 +172,7 @@ function normalizeModule(raw: RawCourseModule): ManageModule {
         });
       });
     } else if (rawExam) {
-      const e = rawExam as any;
+      const e = rawExam as RawExam;
       exams.push({
         Id: e.Id ?? e.id ?? generateTempId(),
         Title: e.Title ?? e.title ?? "Untitled Exam",
@@ -401,6 +419,12 @@ export const courseManagementApi = {
   getDraft: async (courseId: number) => {
     const response = await client.get(`/manage/course/${courseId}/draft`);
     console.log("Draft data received:", response.data);
+    return response.data;
+  },
+
+  getVerificationDraft: async (courseId: number) => {
+    const response = await client.get(`/manage/course/${courseId}/verification-draft`);
+    console.log("Verification draft data received:", response.data);
     return response.data;
   },
 
