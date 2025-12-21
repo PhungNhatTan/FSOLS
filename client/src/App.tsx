@@ -15,6 +15,7 @@ import CoursesPageMentor from "./pages/mentor/CoursesPage"
 import CourseDetailPage from "./pages/public/CourseDetailPage"
 import QuestionBankPage from "./pages/QuestionBankPage"
 import UploadLessonPage from "./pages/mentor/UploadLessonPage"
+import CertificatesPage from "./pages/mentor/CertificatesPage"
 
 // Public Pages
 import CoursePage from "./pages/public/CoursePage"
@@ -70,7 +71,9 @@ export default function App() {
             <Route path="course/:id" element={<CourseManagePageMentor />} />
             <Route path="lesson/upload" element={<UploadLessonPage />} />
             <Route path="questions" element={<QuestionBankPage />} />
+            <Route path="certificates" element={<CertificatesPage />} />
           </Route>
+
 
           {/* Moderator Dashboard */}
           <Route

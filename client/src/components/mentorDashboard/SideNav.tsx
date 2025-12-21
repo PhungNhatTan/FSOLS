@@ -7,10 +7,10 @@ interface SidebarItem {
 }
 
 const sidebarItems: SidebarItem[] = [
-    { name: "Overview", path: "/manage/dashboard" },
-    { name: "Courses", path: "/manage/courses" },
-    { name: "Certificates", path: "#" },
-    { name: "Settings", path: "#" },
+  { name: "Overview", path: "/manage/dashboard" },
+  { name: "Courses", path: "/manage/courses" },
+  { name: "Certificates", path: "/manage/certificates" }, 
+  { name: "Settings", path: "#" },
 ];
 
 export default function SideNav() {
