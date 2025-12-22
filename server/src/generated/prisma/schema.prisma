@@ -233,7 +233,7 @@ model CourseModule {
   CourseId Int
   Course   Course @relation(fields: [CourseId], references: [Id])
 
-  OrderNo Int // Initial adding in steps of 10 (10 20 30 40 50 ...ect) for easier insertion in middle
+  OrderNo Int
 
   ModuleItems ModuleItem[]
 
@@ -245,7 +245,9 @@ model CourseModule {
 model ModuleItem {
   Id String @id @default(cuid())
 
-  OrderNo Int // Initial adding in steps of 10 (10 20 30 40 50 ...ect) for easier insertion in middle
+  OrderNo Int
+
+  EstimatedDuration Int?
 
   CourseModuleId Int?
   CourseModule   CourseModule? @relation(fields: [CourseModuleId], references: [Id])

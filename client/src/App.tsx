@@ -77,7 +77,7 @@ export default function App() {
           <Route
             path="/moderator"
             element={
-              <ProtectedRoute allowedRoles={["Moderator"]}>
+              <ProtectedRoute allowedRoles={["Moderator", "Admin"]}>
                 <ModeratorLayout />
               </ProtectedRoute>
             }
