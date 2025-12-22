@@ -12,17 +12,14 @@ export default function Navbar() {
     navigate("/login")
   }
 
-  // While AuthProvider is initializing, don't render user-dependent UI
   if (user === undefined) return null
 
   return (
     <nav className="bg-gray-900 text-white px-6 py-3 flex justify-between items-center shadow">
-      {/* Logo */}
       <Link to="/" className="text-lg font-bold hover:text-green-400">
         FSOLS
       </Link>
 
-      {/* Links for all users */}
       <div className="flex gap-5 items-center">
         <Link to="/courses" className="hover:text-green-400">
           Explore
@@ -34,25 +31,36 @@ export default function Navbar() {
           </Link>
         )}
 
-        {/* Mentor-only Dashboard link */}
+        {/* Mentor Dashboard */}
         {user && user.role === "Mentor" && (
-          <Link to="manage/dashboard" className="hover:text-green-400">
+          <Link to="/manage/dashboard" className="hover:text-green-400">
             Dashboard
           </Link>
         )}
 
-        {/* Auth / Guest actions */}
+        {/* Admin uses moderator dashboard */}
+        {user && user.role === "Admin" && (
+          <Link to="/moderator/dashboard" className="hover:text-green-400">
+            Dashboard
+          </Link>
+        )}
+
         {user ? (
           <>
             {(user.role === "Mentor" || user.role === "Admin") && (
-              <Link to="/lesson/upload" className="hover:text-green-400">
+              <Link to="/manage/lesson/upload" className="hover:text-green-400">
                 Upload Lesson
               </Link>
             )}
+
             <span className="text-gray-300 text-sm">
               Hello, <b>{user.username}</b> ({user.role})
             </span>
-            <button onClick={handleLogout} className="bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-sm">
+
+            <button
+              onClick={handleLogout}
+              className="bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-sm"
+            >
               Logout
             </button>
           </>
