@@ -34,6 +34,7 @@ import ModeratorLayout from "./layout/ModeratorLayout"
 import ManageLayout from "./layout/ManageLayout"
 import RootRedirect from "./components/RootRedirect"
 import HomePage from "./pages/public/HomePage"
+import CourseDraftPreviewPage from "./pages/moderator/CourseDraftPreviewPage"
 
 export default function App() {
   return (
@@ -76,13 +77,14 @@ export default function App() {
           <Route
             path="/moderator"
             element={
-              <ProtectedRoute allowedRoles={["Admin"]}>
+              <ProtectedRoute allowedRoles={["Moderator"]}>
                 <ModeratorLayout />
               </ProtectedRoute>
             }
           >
             <Route path="dashboard" element={<DashboardManager />} />
             <Route path="courses" element={<CourseManagePageManager />} />
+            <Route path="course/:id/preview" element={<CourseDraftPreviewPage />} />
             <Route path="certificates" element={<CertificatesPageAdmin />} />
           </Route>
 

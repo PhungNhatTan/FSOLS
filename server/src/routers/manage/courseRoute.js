@@ -8,11 +8,11 @@ const router = Router();
 router.get('/', authenticate, authorize(["Admin", "Mentor", "Moderator"]), course.getByCreator);
 router.get('/:id(\\d+)/draft', authenticate, authorize(["Admin", "Mentor", "Moderator"]), course.getDraft);
 router.get('/:id(\\d+)/verification-draft', authenticate, authorize(["Admin", "Mentor", "Moderator"]), course.getVerificationDraft);
-router.post('/', authenticate, authorize(["Admin", "Mentor"]), course.create);
-router.put('/:id(\\d+)', authenticate, authorize(["Admin", "Mentor"]), course.update);
-router.put('/:id(\\d+)/draft', authenticate, authorize(["Admin", "Mentor"]), course.saveDraft);
+router.post('/', authenticate, authorize(["Admin", "Moderator", "Mentor"]), course.create);
+router.put('/:id(\\d+)', authenticate, authorize(["Admin", "Moderator", "Mentor"]), course.update);
+router.put('/:id(\\d+)/draft', authenticate, authorize(["Admin", "Moderator", "Mentor"]), course.saveDraft);
 router.post('/:id(\\d+)/verification-request', authenticate, authorize(["Admin", "Moderator", "Mentor"]), course.requestVerification);
 router.get('/:id(\\d+)/verification-status', authenticate, authorize(["Admin", "Moderator", "Mentor"]), course.getVerificationStatus);
-router.delete('/:id(\\d+)', authenticate, authorize(["Admin", "Mentor"]), course.remove);
+router.delete('/:id(\\d+)', authenticate, authorize(["Admin", "Moderator", "Mentor"]), course.remove);
 
 export default router;

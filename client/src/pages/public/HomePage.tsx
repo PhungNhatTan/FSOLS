@@ -62,26 +62,40 @@ export default function HomePage() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [featuredData, categoriesData, mentorsDataAPI, postsData] = await Promise.all([
+
+      const results = await Promise.allSettled([
         courseApi.getFeatured(),
         categoryApi.getAll(),
         mentorApi.getAll(),
         postApi.getAll(),
       ]);
-      setFeatured(featuredData || []);
-      setCategories(categoriesData || []);
-      setMentorsData(mentorsDataAPI || []);
-      setPosts(postsData || []);
-    } catch (err) {
-      console.error("Failed to load data:", err);
-      setFeatured([]);
-      setCategories([]);
-      setMentorsData([]);
-      setPosts([]);
+
+      const [featuredRes, categoriesRes, mentorsRes, postsRes] = results;
+
+      if (featuredRes.status === "fulfilled") {
+        setFeatured(featuredRes.value ?? []);
+      }
+
+      if (categoriesRes.status === "fulfilled") {
+        setCategories(categoriesRes.value ?? []);
+      }
+
+      if (mentorsRes.status === "fulfilled") {
+        setMentorsData(mentorsRes.value ?? []);
+      }
+
+      if (postsRes.status === "fulfilled") {
+        setPosts(postsRes.value ?? []);
+      } else {
+        // optional: expected for now
+        setPosts([]);
+      }
+
     } finally {
       setLoading(false);
     }
   };
+
 
   const mentors = useMemo(() => mentorsData, [mentorsData]);
 
