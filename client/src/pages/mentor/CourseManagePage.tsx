@@ -215,7 +215,7 @@ export default function CourseManagePage() {
     const newModule: Module = {
       id: generateNegativeId(),
       title: title.trim(),
-      order: Math.max(0, ...modules.map(m => m.order), 0) + 10,
+      order: Math.max(1, ...modules.map(m => m.order), 1),
       lessons: [],
       exams: [],
     };
