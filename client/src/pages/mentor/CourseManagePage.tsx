@@ -256,6 +256,18 @@ export default function CourseManagePage() {
     updateModule({ ...module, lessons: updatedLessons });
   };
 
+  // Update exam with new data
+  const updateExam = (moduleId: number, examId: number, updates: Partial<Exam>) => {
+    const module = modules.find(m => m.id === moduleId);
+    if (!module) return;
+
+    const updatedExams = module.exams.map(e =>
+      e.id === examId ? { ...e, ...updates } : e
+    );
+
+    updateModule({ ...module, exams: updatedExams });
+  };
+
   const module = selectedItem
     ? modules.find(m => m.id === selectedItem.moduleId)
     : undefined;
@@ -459,6 +471,11 @@ export default function CourseManagePage() {
                   updateLesson(selectedItem.moduleId, selectedItem.id, updates);
                 }
               }}
+              onExamUpdate={(updates) => {
+                if (selectedItem && selectedItem.type === "exam") {
+                  updateExam(selectedItem.moduleId, selectedItem.id, updates);
+                }
+              }}
               onClear={onDeselect}
             />
           </div>
@@ -476,6 +493,7 @@ function DetailCard({
   module,
   onModuleChange,
   onLessonUpdate,
+  onExamUpdate,
   onClear,
 }: {
   selectedItem: { moduleId: number; type: "lesson" | "exam"; id: number } | null;
@@ -485,6 +503,7 @@ function DetailCard({
   module?: Module;
   onModuleChange: (m: Module) => void;
   onLessonUpdate: (updates: Partial<Lesson>) => void;
+  onExamUpdate: (updates: Partial<Exam>) => void;
   onClear: () => void;
 }) {
   if (!selectedItem) {
@@ -513,6 +532,7 @@ function DetailCard({
           exam={exam}
           module={module}
           onModuleChange={onModuleChange}
+          onExamUpdate={onExamUpdate}
           onClear={onClear}
         />
       )}

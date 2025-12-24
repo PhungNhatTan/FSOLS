@@ -110,6 +110,7 @@ export function mapLocalToDraft(
                         description: "",
                         durationPreset: (exam.durationPreset as "P_15" | "P_30" | "P_60" | "P_90" | "P_120" | null) || null,
                         durationCustom: exam.durationCustom || null,
+                        examOpened: exam.examOpened || false,
                         createdById: null,
                         deleted: false,
                         questions: (exam.questions || []).map(q => ({

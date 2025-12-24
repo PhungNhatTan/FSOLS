@@ -140,6 +140,7 @@ export type DraftJson = {
         description: string;
         durationPreset: "P_15" | "P_30" | "P_60" | "P_90" | "P_120" | null;
         durationCustom: number | null;
+        examOpened?: boolean;
         createdById: string | null;
         deleted: boolean;
         questions: {

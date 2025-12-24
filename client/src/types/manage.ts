@@ -145,9 +145,11 @@ export type ExamQuestionLocal = {
 export type ExamLocal = {
   id: number;
   title: string;
+  description?: string;
   order: number;
   durationPreset?: string;
   durationCustom?: number;
+  examOpened?: boolean;
   questions: ExamQuestionLocal[];
 };
 
