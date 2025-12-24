@@ -108,12 +108,28 @@ export function ModuleCard({
     const [openAddLesson, setOpenAddLesson] = useState(false);
     const [openCreateExam, setOpenCreateExam] = useState(false);
     const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editTitle, setEditTitle] = useState(module.title);
 
     const nextItemOrder = () => {
         const maxLesson = module.lessons.reduce((mx, l) => Math.max(mx, l.order), 0);
         const maxExam = (module.exams ?? []).reduce((mx, e) => Math.max(mx, e.order), 0);
 
         return Math.max(maxLesson, maxExam) + 1;
+    };
+
+    const handleSaveTitle = () => {
+        if (!editTitle.trim()) {
+            alert("Module title cannot be empty");
+            return;
+        }
+        onChange({ ...module, title: editTitle.trim() });
+        setIsEditing(false);
+    };
+
+    const handleCancelEdit = () => {
+        setEditTitle(module.title);
+        setIsEditing(false);
     };
 
     // Create lesson in draft mode (metadata only, no file upload)
@@ -196,10 +212,28 @@ export function ModuleCard({
         setDraggedItemIndex(null);
     };
 
+    const handleDeleteItem = (e: React.MouseEvent, type: "lesson" | "exam", id: number) => {
+        e.stopPropagation(); // Prevent selection
+        if (!confirm(`Delete this ${type}?`)) return;
+
+        if (type === "lesson") {
+            const updatedLessons = module.lessons.filter(l => l.id !== id);
+            onChange({ ...module, lessons: updatedLessons });
+        } else {
+            const updatedExams = (module.exams ?? []).filter(ex => ex.id !== id);
+            onChange({ ...module, exams: updatedExams });
+        }
+        
+        // Deselect if deleted item was selected
+        if (selectedItem?.type === type && selectedItem?.id === id) {
+            onSelectItem({ moduleId: module.id, type, id: -9999 }); 
+        }
+    };
+
     return (
         <div className="rounded-2xl border border-slate-200 overflow-hidden mb-4">
             <div className="flex items-center justify-between px-4 py-2 bg-slate-50">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-1">
                     <div className="flex flex-col gap-0.5">
                         {onMoveUp && (
                             <button
@@ -226,7 +260,53 @@ export function ModuleCard({
                             </button>
                         )}
                     </div>
-                    <div className="font-medium text-slate-900">Module {module.order}: {module.title}</div>
+                    
+                    {isEditing ? (
+                        <div className="flex items-center gap-2 flex-1 max-w-md">
+                            <input
+                                type="text"
+                                value={editTitle}
+                                onChange={(e) => setEditTitle(e.target.value)}
+                                className="w-full px-2 py-1 border border-indigo-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500 text-sm"
+                                placeholder="Module title"
+                                autoFocus
+                            />
+                            <button 
+                                onClick={handleSaveTitle}
+                                className="p-1 text-green-600 hover:bg-green-50 rounded"
+                                title="Save"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                            </button>
+                            <button 
+                                onClick={handleCancelEdit}
+                                className="p-1 text-gray-500 hover:bg-gray-100 rounded"
+                                title="Cancel"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-2 group">
+                            <div className="font-medium text-slate-900">Module {module.order}: {module.title}</div>
+                            <button
+                                onClick={() => {
+                                    setEditTitle(module.title);
+                                    setIsEditing(true);
+                                }}
+                                className="text-slate-400 hover:text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                                title="Edit module title"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                </svg>
+                            </button>
+                        </div>
+                    )}
                 </div>
                 <div className="flex items-center gap-2">
                     <Btn size="sm" onClick={() => setOpenAddLesson(true)}>+ Lesson</Btn>
@@ -287,6 +367,15 @@ export function ModuleCard({
                                             </div>
                                         </div>
                                     </div>
+                                    <button
+                                        onClick={(e) => handleDeleteItem(e, entry.type, entry.item.id)}
+                                        className="text-gray-400 hover:text-red-500 p-1 rounded-full hover:bg-red-50 transition-colors"
+                                        title="Delete item"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                    </button>
                                 </div>
                             </div>
                         );

@@ -13,7 +13,7 @@ import type { Exam, ExamQuestion, ExamData, QuestionType } from "../types/exam";
 import type { UiModuleLocal as Module, UiLessonLocal as Lesson } from "../types/manage";
 import type { Course, DraftJson, DraftModule, DraftModuleItem, } from "../types/course";
 
-function mapLessonToDraft(lesson: Lesson) {
+function mapLessonToDraft(lesson: Lesson, createdById: string | null) {
     return {
         id: String(lesson.id),
         title: lesson.title,
@@ -21,7 +21,7 @@ function mapLessonToDraft(lesson: Lesson) {
         lessonType: "Video" as const, // or determine from lesson data
         videoUrl: null,
         docUrl: null,
-        createdById: null,
+        createdById: createdById,
         deleted: false,
         resources: (lesson.resources || []).map(r => ({
             id: r.id,
@@ -97,7 +97,7 @@ export function mapLocalToDraft(
                     orderNo: lessonIndex * 10,
                     deleted: false,
                     type: "lesson" as const,
-                    lesson: mapLessonToDraft(lesson),
+                    lesson: mapLessonToDraft(lesson, createdById),
                 })),
                 ...(module.exams || []).map((exam, examIndex) => ({
                     id: `item-exam-${module.id}-${exam.id}`,
@@ -111,7 +111,7 @@ export function mapLocalToDraft(
                         durationPreset: (exam.durationPreset as "P_15" | "P_30" | "P_60" | "P_90" | "P_120" | null) || null,
                         durationCustom: exam.durationCustom || null,
                         examOpened: exam.examOpened || false,
-                        createdById: null,
+                        createdById: createdById,
                         deleted: false,
                         questions: (exam.questions || []).map(q => ({
                             id: q.examQuestionId,

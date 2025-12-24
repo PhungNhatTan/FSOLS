@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useContext } from "react";
 import { useParams, Link } from "react-router-dom";
 import { courseManagementApi } from "../../api/courseManagement";
+import { AuthContext } from "../../context/authContext";
 import type {
   UiLessonLocal as Lesson,
   UiModuleLocal as Module,
@@ -24,6 +25,7 @@ import {
 export default function CourseManagePage() {
   const { id } = useParams<{ id: string }>();
   const courseId = Number(id ?? 0);
+  const { user } = useContext(AuthContext);
 
   // State
   const [course, setCourse] = useState<Course | null>(null);
@@ -153,7 +155,7 @@ export default function CourseManagePage() {
 
     setSaving(true);
     try {
-      const draft = mapLocalToDraft(course, modules, skills, null);
+      const draft = mapLocalToDraft(course, modules, skills, user?.accountId ?? null);
       const validation = validateDraft(draft);
 
       if (!validation.valid) {
@@ -173,7 +175,7 @@ export default function CourseManagePage() {
   const publish = async () => {
     if (!course) return;
 
-    const draft = mapLocalToDraft(course, modules, skills, null);
+    const draft = mapLocalToDraft(course, modules, skills, user?.accountId ?? null);
     const validation = validateDraft(draft);
 
     if (!validation.valid) {
