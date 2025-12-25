@@ -89,6 +89,7 @@ export type UiLesson = {
   description?: string;
   order: number;
   resources: UiResource[];
+  estimatedTimeMinutes?: number | null;
 };
 
 export type UiExam = {
@@ -99,6 +100,7 @@ export type UiExam = {
   durationCustom?: number;
   order: number;
   questions: ExamQuestion[];
+  estimatedTimeMinutes?: number | null;
 };
 
 export type UiModule = {
@@ -133,6 +135,7 @@ export type UiLessonLocal = {
   description?: string;
   order: number;
   resources: Resource[];  // Always an array, never undefined
+  estimatedTimeMinutes?: number | null;
 };
 
 export type ExamQuestionLocal = {
@@ -151,6 +154,7 @@ export type ExamLocal = {
   durationCustom?: number;
   examOpened?: boolean;
   questions: ExamQuestionLocal[];
+  estimatedTimeMinutes?: number | null;
 };
 
 export type Question = {

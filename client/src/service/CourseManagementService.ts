@@ -98,6 +98,7 @@ export function mapLocalToDraft(
                     orderNo: lessonIndex * 10,
                     deleted: false,
                     type: "lesson" as const,
+                    estimatedTimeMinutes: lesson.estimatedTimeMinutes ?? null,
                     lesson: mapLessonToDraft(lesson, createdById),
                 })),
                 ...(module.exams || []).map((exam, examIndex) => ({
@@ -105,6 +106,7 @@ export function mapLocalToDraft(
                     orderNo: (module.lessons.length + examIndex) * 10,
                     deleted: false,
                     type: "exam" as const,
+                    estimatedTimeMinutes: exam.estimatedTimeMinutes ?? null,
                     exam: {
                         id: exam.id,
                         title: exam.title,
@@ -158,6 +160,7 @@ export function mapDraftToLocal(draft: DraftJson): {
                 if (item.type === "lesson" && item.lesson) {
                     const lesson = mapDraftLessonToLocal(item.lesson);
                     lesson.order = item.orderNo;
+                    lesson.estimatedTimeMinutes = item.estimatedTimeMinutes ?? null;
                     lessons.push(lesson);
                 } else if (item.type === "exam" && item.exam) {
                     exams.push({
@@ -166,6 +169,7 @@ export function mapDraftToLocal(draft: DraftJson): {
                         order: item.orderNo,
                         durationPreset: item.exam.durationPreset ?? undefined,
                         durationCustom: item.exam.durationCustom ?? undefined,
+                        estimatedTimeMinutes: item.estimatedTimeMinutes ?? null,
                         questions: item.exam.questions
                             .filter(q => !q.deleted)
                             .map(q => ({
@@ -342,6 +346,7 @@ export const mapLessonDtoToLocal = (lesson: LessonSummary | { Id?: string | numb
         description: extendedLesson.Description,
         order: extendedLesson.OrderNo ?? 0,
         resources: (extendedLesson.Resources || []).map((r: unknown) => mapResourceDtoToLocal(r as { Id?: number; Name?: string; Url?: string })),
+        estimatedTimeMinutes: (extendedLesson as { EstimatedTimeMinutes?: number; estimatedTimeMinutes?: number }).EstimatedTimeMinutes ?? (extendedLesson as { EstimatedTimeMinutes?: number; estimatedTimeMinutes?: number }).estimatedTimeMinutes ?? null,
     };
 };
 
@@ -371,6 +376,7 @@ export const mapExamDtoToLocal = (exam: Exam | ExamData | (Exam & Partial<ExamDa
         order: extendedExam.OrderNo ?? 0,
         durationPreset: extendedExam.DurationPreset,
         durationCustom: extendedExam.DurationCustom,
+        estimatedTimeMinutes: (extendedExam as { EstimatedTimeMinutes?: number; estimatedTimeMinutes?: number }).EstimatedTimeMinutes ?? (extendedExam as { EstimatedTimeMinutes?: number; estimatedTimeMinutes?: number }).estimatedTimeMinutes ?? null,
         questions: (extendedExam.Questions || []).map((q: ExamQuestion) => mapExamQuestionDtoToLocal(q)),
     };
 };
@@ -581,6 +587,7 @@ export function mapStructureToDraft(
                     orderNo: idx * 10,
                     deleted: false,
                     type: "lesson",
+                    estimatedTimeMinutes: (lesson as { EstimatedTimeMinutes?: number; estimatedTimeMinutes?: number }).EstimatedTimeMinutes ?? (lesson as { EstimatedTimeMinutes?: number; estimatedTimeMinutes?: number }).estimatedTimeMinutes ?? null,
                     lesson: {
                         id: String(lesson.Id),
                         title: lesson.Title,
@@ -608,6 +615,7 @@ export function mapStructureToDraft(
                         orderNo: lessonItems.length * 10,
                         deleted: false,
                         type: "exam",
+                        estimatedTimeMinutes: (m.Exam as { EstimatedTimeMinutes?: number; estimatedTimeMinutes?: number }).EstimatedTimeMinutes ?? (m.Exam as { EstimatedTimeMinutes?: number; estimatedTimeMinutes?: number }).estimatedTimeMinutes ?? null,
                         exam: {
                             id: m.Exam.Id,
                             title: m.Exam.Title,

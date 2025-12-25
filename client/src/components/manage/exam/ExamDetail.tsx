@@ -27,6 +27,7 @@ export function ExamDetail({
     const [description, setDescription] = useState(exam.description || "");
     const [durationPreset, setDurationPreset] = useState(exam.durationPreset || "");
     const [durationCustom, setDurationCustom] = useState(exam.durationCustom?.toString() || "");
+    const [estimatedTime, setEstimatedTime] = useState(exam.estimatedTimeMinutes?.toString() || "");
 
     const exams = module.exams ?? [];
 
@@ -38,14 +39,22 @@ export function ExamDetail({
     };
 
     const handleSave = () => {
+        const trimmedEstimate = estimatedTime.trim();
+        const parsedEstimate = trimmedEstimate ? Number(trimmedEstimate) : null;
+        const sanitizedEstimate = parsedEstimate !== null && !Number.isNaN(parsedEstimate)
+            ? Math.max(0, Math.floor(parsedEstimate))
+            : null;
+
         const updates: Partial<Exam> = {
             title: title.trim() || exam.title,
             description: description.trim(),
             durationPreset: durationPreset || undefined,
             durationCustom: durationCustom ? parseInt(durationCustom) : undefined,
+            estimatedTimeMinutes: sanitizedEstimate,
         };
         
         onExamUpdate(updates);
+        setEstimatedTime(sanitizedEstimate !== null ? sanitizedEstimate.toString() : "");
         setEditMode(false);
     };
 
@@ -142,6 +151,22 @@ export function ExamDetail({
                                 />
                             </div>
                         </div>
+                        <div>
+                            <label className="block text-sm font-semibold text-slate-700 mb-1">
+                                Estimated Time (minutes)
+                            </label>
+                            <input
+                                type="number"
+                                min="0"
+                                value={estimatedTime}
+                                onChange={(e) => setEstimatedTime(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                                placeholder="e.g. 60"
+                            />
+                            <p className="text-xs text-slate-500 mt-1">
+                                Optional time learners should allocate to this exam.
+                            </p>
+                        </div>
                         <div className="flex gap-2 pt-2">
                             <Btn variant="primary" size="sm" onClick={handleSave}>
                                 Save Changes
@@ -152,6 +177,7 @@ export function ExamDetail({
                                 setDescription(exam.description || "");
                                 setDurationPreset(exam.durationPreset || "");
                                 setDurationCustom(exam.durationCustom?.toString() || "");
+                                setEstimatedTime(exam.estimatedTimeMinutes?.toString() || "");
                             }}>
                                 Cancel
                             </Btn>
@@ -172,6 +198,12 @@ export function ExamDetail({
                                 <div className="text-sm text-slate-600 mt-1">
                                     {exam.durationPreset ? exam.durationPreset.replace('P_', '') + ' Minutes' : exam.durationCustom + ' Minutes'}
                                 </div>
+                            </div>
+                        )}
+                        {exam.estimatedTimeMinutes !== undefined && exam.estimatedTimeMinutes !== null && (
+                            <div>
+                                <div className="text-sm font-semibold text-slate-700">Estimated Time</div>
+                                <div className="text-sm text-slate-600 mt-1">{exam.estimatedTimeMinutes} minutes</div>
                             </div>
                         )}
                     </>

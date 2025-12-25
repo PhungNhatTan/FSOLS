@@ -140,6 +140,7 @@ export function ModuleCard({
             description,
             order: nextItemOrder(),
             resources: [], // Empty - will be added via LessonDetail later
+            estimatedTimeMinutes: null,
         };
 
         onChange({ ...module, lessons: [...module.lessons, newLesson] });
@@ -154,6 +155,7 @@ export function ModuleCard({
             durationPreset,
             durationCustom,
             questions: [],
+            estimatedTimeMinutes: null,
         };
         onChange({ ...module, exams: [...(module.exams ?? []), newExam] });
         setOpenCreateExam(false);

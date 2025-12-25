@@ -114,6 +114,7 @@ export type DraftJson = {
       orderNo: number;
       deleted: boolean;
       type: "lesson" | "exam";
+      estimatedTimeMinutes: number | null;
       lesson?: {
         id: string;
         title: string;
