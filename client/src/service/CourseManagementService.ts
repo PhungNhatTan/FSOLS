@@ -68,7 +68,8 @@ export function mapLocalToDraft(
     course: Course,
     modules: Module[],
     skills: { id: number; skillName: string }[],
-    createdById: string | null
+    createdById: string | null,
+    categoryId: number | null = null
 ): DraftJson {
     return {
         version: "1.0",
@@ -77,7 +78,7 @@ export function mapLocalToDraft(
             id: course.Id,
             name: course.Name,
             description: course.Description,
-            categoryId: null,
+            categoryId: categoryId,
             createdById,
             publishedAt: null,
             skills: skills.map(s => ({
@@ -143,6 +144,7 @@ export function mapLocalToDraft(
 export function mapDraftToLocal(draft: DraftJson): {
     modules: Module[];
     skills: { id: number; skillName: string }[];
+    categoryId: number | null;
 } {
     const modules: Module[] = draft.modules
         .filter(m => !m.deleted)
@@ -198,7 +200,7 @@ export function mapDraftToLocal(draft: DraftJson): {
             skillName: s.skillName,
         }));
 
-    return { modules, skills };
+    return { modules, skills, categoryId: draft.course.categoryId };
 }
 
 export function validateDraft(draft: DraftJson): {
@@ -639,8 +641,8 @@ export function mapStructureToDraft(
             id: structure.course.Id,
             name: structure.course.Name,
             description: structure.course.Description,
-            categoryId: null,
-            createdById: null,
+            categoryId: structure.course.Category?.Id ?? null,
+            createdById: structure.course.CreatedBy?.Id ?? null,
             publishedAt: null,
             skills: [],
         },

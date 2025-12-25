@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useContext } from "react";
 import { useParams, Link } from "react-router-dom";
 import { courseManagementApi } from "../../api/courseManagement";
+import categoryApi, { Category as CategoryType } from "../../api/category";
 import { AuthContext } from "../../context/authContext";
 import type {
   UiLessonLocal as Lesson,
@@ -31,6 +32,8 @@ export default function CourseManagePage() {
   const [course, setCourse] = useState<Course | null>(null);
   const [modules, setModules] = useState<Module[]>([]);
   const [skills, setSkills] = useState<{ id: number; skillName: string }[]>([]);
+  const [categories, setCategories] = useState<CategoryType[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [selectedItem, setSelectedItem] = useState<{ moduleId: number; type: "lesson" | "exam"; id: number } | null>(null);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -90,6 +93,10 @@ export default function CourseManagePage() {
     if (modules.length > 0) return;
 
     try {
+      // Load categories
+      const cats = await categoryApi.getAll();
+      setCategories(cats);
+
       // Always load base course metadata
       const structure = await courseManagementApi.getStructure(courseId);
       setCourse(structure.course);
@@ -106,9 +113,10 @@ export default function CourseManagePage() {
               : draftResponse.draft;
 
           if (draft && Array.isArray(draft.modules) && draft.modules.length > 0) {
-            const { modules, skills } = mapDraftToLocal(draft);
+            const { modules, skills, categoryId } = mapDraftToLocal(draft);
             setModules(modules);
             setSkills(skills);
+            setSelectedCategoryId(categoryId);
             setLastSaved(
               `Draft loaded (${new Date(draft.lastModified).toLocaleString()})`
             );
@@ -130,10 +138,11 @@ export default function CourseManagePage() {
         setSelectedItem(null);
 
         const draft = mapStructureToDraft(structure);
-        const { modules, skills } = mapDraftToLocal(draft);
+        const { modules, skills, categoryId } = mapDraftToLocal(draft);
 
         setModules(modules);
         setSkills(skills);
+        setSelectedCategoryId(categoryId);
       }
     } catch (err) {
       console.error("Error loading course:", err);
@@ -155,7 +164,7 @@ export default function CourseManagePage() {
 
     setSaving(true);
     try {
-      const draft = mapLocalToDraft(course, modules, skills, user?.accountId ?? null);
+      const draft = mapLocalToDraft(course, modules, skills, user?.accountId ?? null, selectedCategoryId);
       const validation = validateDraft(draft);
 
       if (!validation.valid) {
@@ -175,7 +184,7 @@ export default function CourseManagePage() {
   const publish = async () => {
     if (!course) return;
 
-    const draft = mapLocalToDraft(course, modules, skills, user?.accountId ?? null);
+    const draft = mapLocalToDraft(course, modules, skills, user?.accountId ?? null, selectedCategoryId);
     const validation = validateDraft(draft);
 
     if (!validation.valid) {
@@ -282,7 +291,7 @@ export default function CourseManagePage() {
       ? module?.exams?.find(e => e.id === selectedItem.id)
       : undefined;
 
-  const stats = course ? getDraftStats(mapLocalToDraft(course, modules, skills, null)) : null;
+  const stats = course ? getDraftStats(mapLocalToDraft(course, modules, skills, null, selectedCategoryId)) : null;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -341,16 +350,35 @@ export default function CourseManagePage() {
         {course && (
           <Card title="Course Information" className="mt-6">
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Course Name
-                </label>
-                <input
-                  type="text"
-                  value={course.Name}
-                  onChange={(e) => updateCourse({ Name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Course Name
+                  </label>
+                  <input
+                    type="text"
+                    value={course.Name}
+                    onChange={(e) => updateCourse({ Name: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Category
+                  </label>
+                  <select
+                    value={selectedCategoryId ?? ""}
+                    onChange={(e) => setSelectedCategoryId(e.target.value ? Number(e.target.value) : null)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                  >
+                    <option value="">Select Category</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
