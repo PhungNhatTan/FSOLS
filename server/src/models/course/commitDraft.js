@@ -75,6 +75,48 @@ function mapQuestionType(rawType) {
   return mapped; // <-- STRING, matches Prisma enum
 }
 
+const syncExamAnswers = async (tx, questionId, answers = []) => {
+  for (const answer of answers) {
+    const answerId = answer?.id;
+    if (answer?.deleted) {
+      if (answerId && !isTempId(answerId)) {
+        await softDelete(tx, "examAnswer", { Id: answerId });
+      }
+      continue;
+    }
+
+    const baseData = {
+      AnswerText: answer?.answerText ?? "",
+      IsCorrect: !!answer?.isCorrect,
+    };
+
+    if (!answerId || isTempId(answerId)) {
+      await tx.examAnswer.create({
+        data: {
+          QuestionId: questionId,
+          ...baseData,
+        },
+      });
+    } else {
+      await safeUpsert(
+        tx,
+        "examAnswer",
+        { Id: answerId },
+        {
+          QuestionId: questionId,
+          ...baseData,
+        },
+        {
+          QuestionId: questionId,
+          ...baseData,
+          DeletedAt: null,
+        },
+        "string"
+      );
+    }
+  }
+};
+
 /* ============================================================================
  * Main Commit Function
  * ========================================================================== */
@@ -131,8 +173,27 @@ const commitDraftToDatabase = async (courseId, draft) => {
       }
 
       /* ======================================================================
-       * 3. Modules
+       * 3. Modules - ADD SOFT DELETE FOR REMOVED MODULES
        * ==================================================================== */
+
+      // Get existing modules
+      const existingModules = await tx.courseModule.findMany({
+        where: { CourseId: courseId, DeletedAt: null },
+      });
+
+      // Build set of module IDs to keep
+      const keepModuleIds = new Set(
+        draft.modules
+          .filter(m => !m.deleted && !isTempId(m.id))
+          .map(m => m.id)
+      );
+
+      // Soft delete modules not in draft
+      for (const existingModule of existingModules) {
+        if (!keepModuleIds.has(existingModule.Id)) {
+          await softDelete(tx, "courseModule", { Id: existingModule.Id });
+        }
+      }
 
       const moduleIdMap = new Map();
 
@@ -175,8 +236,27 @@ const commitDraftToDatabase = async (courseId, draft) => {
         moduleIdMap.set(module.id, moduleId);
 
         /* ====================================================================
-         * 4. Module items
+         * 4. Module items - ADD SOFT DELETE FOR REMOVED ITEMS
          * ================================================================== */
+
+        // Get existing items for this module
+        const existingItems = await tx.moduleItem.findMany({
+          where: { CourseModuleId: moduleId, DeletedAt: null },
+        });
+
+        // Build set of item IDs to keep
+        const keepItemIds = new Set(
+          module.items
+            .filter(i => !i.deleted && !isTempId(i.id))
+            .map(i => i.id)
+        );
+
+        // Soft delete items not in draft
+        for (const existingItem of existingItems) {
+          if (!keepItemIds.has(existingItem.Id)) {
+            await softDelete(tx, "moduleItem", { Id: existingItem.Id });
+          }
+        }
 
         for (const item of module.items) {
           if (item.deleted && !isTempId(item.id)) {
@@ -191,6 +271,7 @@ const commitDraftToDatabase = async (courseId, draft) => {
               data: {
                 CourseModuleId: moduleId,
                 OrderNo: item.orderNo,
+                EstimatedDuration: item.estimatedTimeMinutes ?? null,
               },
             });
             itemId = created.Id;
@@ -202,18 +283,21 @@ const commitDraftToDatabase = async (courseId, draft) => {
               {
                 CourseModuleId: moduleId,
                 OrderNo: item.orderNo,
+                EstimatedDuration: item.estimatedTimeMinutes ?? null,
               },
               {
                 CourseModuleId: moduleId,
                 OrderNo: item.orderNo,
+                EstimatedDuration: item.estimatedTimeMinutes ?? null,
                 DeletedAt: null,
-              }
+              },
+              "string"
             );
             itemId = result.Id;
           }
 
           /* ================================================================
-           * 5. Lessons
+           * 5. Lessons - ADD SOFT DELETE FOR RESOURCES
            * ============================================================== */
 
           if (item.type === "lesson" && item.lesson) {
@@ -258,9 +342,27 @@ const commitDraftToDatabase = async (courseId, draft) => {
                   VideoUrl: lesson.videoUrl,
                   DocUrl: lesson.docUrl,
                   DeletedAt: null,
-                }
+                },
+                "string"
               );
               lessonId = result.Id;
+            }
+
+            // ADD: Soft delete resources not in draft
+            const existingResources = await tx.lessonResource.findMany({
+              where: { LessonId: lessonId, DeletedAt: null },
+            });
+
+            const keepResourceIds = new Set(
+              lesson.resources
+                .filter(r => !r.deleted && !isTempId(r.id))
+                .map(r => r.id)
+            );
+
+            for (const existingResource of existingResources) {
+              if (!keepResourceIds.has(existingResource.Id)) {
+                await softDelete(tx, "lessonResource", { Id: existingResource.Id });
+              }
             }
 
             for (const res of lesson.resources) {
@@ -295,7 +397,7 @@ const commitDraftToDatabase = async (courseId, draft) => {
           }
 
           /* ================================================================
-           * 6. Exams
+           * 6. Exams - ADD SOFT DELETE FOR QUESTIONS
            * ============================================================== */
 
           if (item.type === "exam" && item.exam) {
@@ -343,44 +445,81 @@ const commitDraftToDatabase = async (courseId, draft) => {
               examId = result.Id;
             }
 
-
             /* ==============================================================
-             * 7. Questions (safe for submissions)
+             * 7. Questions - ADD SOFT DELETE FOR REMOVED QUESTIONS
              * ============================================================ */
 
+            // Get existing questions for this exam
+            const existingQuestions = await tx.examQuestion.findMany({
+              where: { ExamId: examId, DeletedAt: null },
+            });
+
+            // Build set of question IDs to keep
+            const keepQuestionIds = new Set(
+              exam.questions
+                .filter(q => !q.deleted && !isTempId(q.id))
+                .map(q => q.id)
+            );
+
+            // Soft delete questions not in draft
+            for (const existingQ of existingQuestions) {
+              if (!keepQuestionIds.has(existingQ.Id)) {
+                await softDelete(tx, "examQuestion", { Id: existingQ.Id });
+              }
+            }
+
             for (const q of exam.questions) {
-              if (q.deleted && !isTempId(q.id)) {
-                await softDelete(tx, "examQuestion", { Id: q.id });
+              if (q.deleted) {
+                if (!isTempId(q.id)) {
+                  await softDelete(tx, "examQuestion", { Id: q.id });
+                }
                 continue;
               }
 
+              const qbPayload = q.questionBank;
+              if (!qbPayload) {
+                throw new Error("Draft exam question missing question bank data");
+              }
+
+              const rawQbId = qbPayload.id ?? q.questionBankId;
+              if (rawQbId == null) {
+                throw new Error("Draft exam question missing question bank identifier");
+              }
+
+              const qbIdIsTemp = isTempId(rawQbId);
+              const qbIdentifier = qbIdIsTemp ? rawQbId : String(rawQbId);
+
+              if (qbPayload.deleted) {
+                if (!qbIdIsTemp) {
+                  await softDelete(tx, "questionBank", { Id: qbIdentifier });
+                }
+                continue;
+              }
+
+              const questionType = mapQuestionType(qbPayload.type);
+              const qbBaseData = {
+                QuestionText: qbPayload.questionText,
+                Type: questionType,
+                Answer: qbPayload.answer ?? null,
+                courseId,
+                LessonId: qbPayload.lessonId ?? null,
+              };
+
               let qbId;
 
-              if (isTempId(q.questionBank.id)) {
+              if (qbIdIsTemp) {
                 const qb = await tx.questionBank.create({
-                  data: {
-                    QuestionText: q.questionBank.questionText,
-                    Type: mapQuestionType(q.questionBank.type),
-                    Answer: q.questionBank.answer,
-                    courseId,
-                  },
+                  data: qbBaseData,
                 });
                 qbId = qb.Id;
               } else {
                 const qb = await safeUpsert(
                   tx,
                   "questionBank",
-                  { Id: q.questionBank.id },
+                  { Id: qbIdentifier },
+                  qbBaseData,
                   {
-                    QuestionText: q.questionBank.questionText,
-                    Type: mapQuestionType(q.questionBank.type),
-                    Answer: q.questionBank.answer,
-                    courseId,
-                  },
-                  {
-                    QuestionText: q.questionBank.questionText,
-                    Type: mapQuestionType(q.questionBank.type),
-                    Answer: q.questionBank.answer,
+                    ...qbBaseData,
                     DeletedAt: null,
                   },
                   "string"
@@ -389,9 +528,14 @@ const commitDraftToDatabase = async (courseId, draft) => {
                 qbId = qb.Id;
               }
 
-              if (q.deleted && !isTempId(q.id)) {
-                await softDelete(tx, "examQuestion", { Id: q.id });
-                continue;
+              if (questionType !== "Essay") {
+                await syncExamAnswers(tx, qbId, qbPayload.answers ?? []);
+              } else if (qbPayload.answers?.length) {
+                for (const answer of qbPayload.answers) {
+                  if (answer?.id && !isTempId(answer.id)) {
+                    await softDelete(tx, "examAnswer", { Id: answer.id });
+                  }
+                }
               }
 
               if (isTempId(q.id)) {
@@ -417,7 +561,8 @@ const commitDraftToDatabase = async (courseId, draft) => {
                     QuestionId: qbId,
                     OrderNo: q.orderNo,
                     DeletedAt: null,
-                  }
+                  },
+                  "string"
                 );
               }
             }
