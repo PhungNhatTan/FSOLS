@@ -13,11 +13,12 @@ function SimpleLessonForm({
     onSubmit,
     onCancel,
 }: {
-    onSubmit: (title: string, description: string) => void;
+    onSubmit: (title: string, description: string, estimatedTimeMinutes: number | null) => void;
     onCancel: () => void;
 }) {
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
+    const [estimatedTime, setEstimatedTime] = useState("");
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -25,7 +26,19 @@ function SimpleLessonForm({
             alert("Please enter a lesson title");
             return;
         }
-        onSubmit(title.trim(), description.trim());
+
+        const trimmedEstimate = estimatedTime.trim();
+        let sanitizedEstimate: number | null = null;
+        if (trimmedEstimate) {
+            const parsedEstimate = Number(trimmedEstimate);
+            if (Number.isNaN(parsedEstimate) || parsedEstimate < 0) {
+                alert("Estimated time must be a non-negative number");
+                return;
+            }
+            sanitizedEstimate = Math.floor(parsedEstimate);
+        }
+
+        onSubmit(title.trim(), description.trim(), sanitizedEstimate);
     };
 
     return (
@@ -56,6 +69,23 @@ function SimpleLessonForm({
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     placeholder="Brief description of the lesson content"
                 />
+            </div>
+
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Estimated Time (minutes)
+                </label>
+                <input
+                    type="number"
+                    min="0"
+                    value={estimatedTime}
+                    onChange={(e) => setEstimatedTime(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="e.g., 30"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                    Optional, helps learners plan their time.
+                </p>
             </div>
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
@@ -133,14 +163,14 @@ export function ModuleCard({
     };
 
     // Create lesson in draft mode (metadata only, no file upload)
-    const handleCreateLesson = (title: string, description: string) => {
+    const handleCreateLesson = (title: string, description: string, estimatedTimeMinutes: number | null) => {
         const newLesson: Lesson = {
             id: -Date.now(), // Negative ID for draft items (not in database yet)
             title,
             description,
             order: nextItemOrder(),
             resources: [], // Empty - will be added via LessonDetail later
-            estimatedTimeMinutes: null,
+            estimatedTimeMinutes,
         };
 
         onChange({ ...module, lessons: [...module.lessons, newLesson] });

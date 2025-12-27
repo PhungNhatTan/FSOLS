@@ -6,6 +6,35 @@ import { ExamQuestionItem } from "./ExamQuestionItem";
 import { AddQuestion } from "./AddQuestion";
 import type { ExamLocal as Exam, UiModuleLocal as Module } from "../../../types/manage";
 
+const PRESET_DURATION_MINUTES: Record<string, number> = {
+    P_15: 15,
+    P_30: 30,
+    P_60: 60,
+    P_90: 90,
+    P_120: 120,
+};
+
+const resolveDurationMinutes = (preset?: string | null, custom?: number | string | null) => {
+    if (preset) {
+        return PRESET_DURATION_MINUTES[preset] ?? null;
+    }
+    if (custom === undefined || custom === null || custom === "") {
+        return null;
+    }
+    const parsed = typeof custom === "string" ? Number(custom) : custom;
+    if (Number.isNaN(parsed)) {
+        return null;
+    }
+    return parsed;
+};
+
+const formatDurationLabel = (minutes: number | null) => {
+    if (minutes === null || typeof minutes === "undefined") {
+        return "Not set";
+    }
+    return `${minutes} minutes`;
+};
+
 export function ExamDetail({
     courseId,
     exam,
@@ -27,9 +56,11 @@ export function ExamDetail({
     const [description, setDescription] = useState(exam.description || "");
     const [durationPreset, setDurationPreset] = useState(exam.durationPreset || "");
     const [durationCustom, setDurationCustom] = useState(exam.durationCustom?.toString() || "");
-    const [estimatedTime, setEstimatedTime] = useState(exam.estimatedTimeMinutes?.toString() || "");
 
     const exams = module.exams ?? [];
+    const currentDurationMinutes = resolveDurationMinutes(durationPreset || null, durationCustom);
+    const examDurationMinutes = resolveDurationMinutes(exam.durationPreset, exam.durationCustom);
+    const viewEstimatedMinutes = exam.estimatedTimeMinutes ?? examDurationMinutes;
 
     const onExamChange = (updated: Exam) => {
         onModuleChange({
@@ -39,22 +70,20 @@ export function ExamDetail({
     };
 
     const handleSave = () => {
-        const trimmedEstimate = estimatedTime.trim();
-        const parsedEstimate = trimmedEstimate ? Number(trimmedEstimate) : null;
-        const sanitizedEstimate = parsedEstimate !== null && !Number.isNaN(parsedEstimate)
-            ? Math.max(0, Math.floor(parsedEstimate))
-            : null;
+        const presetValue = durationPreset || undefined;
+        const parsedCustom = durationCustom ? parseInt(durationCustom, 10) : undefined;
+        const customValue = parsedCustom !== undefined && !Number.isNaN(parsedCustom) ? parsedCustom : undefined;
+        const estimatedMinutes = resolveDurationMinutes(presetValue ?? null, customValue ?? null);
 
         const updates: Partial<Exam> = {
             title: title.trim() || exam.title,
             description: description.trim(),
-            durationPreset: durationPreset || undefined,
-            durationCustom: durationCustom ? parseInt(durationCustom) : undefined,
-            estimatedTimeMinutes: sanitizedEstimate,
+            durationPreset: presetValue,
+            durationCustom: customValue,
+            estimatedTimeMinutes: estimatedMinutes ?? null,
         };
-        
+
         onExamUpdate(updates);
-        setEstimatedTime(sanitizedEstimate !== null ? sanitizedEstimate.toString() : "");
         setEditMode(false);
     };
 
@@ -153,18 +182,13 @@ export function ExamDetail({
                         </div>
                         <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-1">
-                                Estimated Time (minutes)
+                                Estimated Time
                             </label>
-                            <input
-                                type="number"
-                                min="0"
-                                value={estimatedTime}
-                                onChange={(e) => setEstimatedTime(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                                placeholder="e.g. 60"
-                            />
+                            <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-sm">
+                                {formatDurationLabel(currentDurationMinutes)}
+                            </div>
                             <p className="text-xs text-slate-500 mt-1">
-                                Optional time learners should allocate to this exam.
+                                Mirrors the selected exam duration.
                             </p>
                         </div>
                         <div className="flex gap-2 pt-2">
@@ -177,7 +201,6 @@ export function ExamDetail({
                                 setDescription(exam.description || "");
                                 setDurationPreset(exam.durationPreset || "");
                                 setDurationCustom(exam.durationCustom?.toString() || "");
-                                setEstimatedTime(exam.estimatedTimeMinutes?.toString() || "");
                             }}>
                                 Cancel
                             </Btn>
@@ -192,18 +215,16 @@ export function ExamDetail({
                                 <div className="text-sm text-slate-600 mt-1">{exam.description}</div>
                             </div>
                         )}
-                        {(exam.durationPreset || exam.durationCustom) && (
+                        {examDurationMinutes !== null && (
                             <div>
                                 <div className="text-sm font-semibold text-slate-700">Duration</div>
-                                <div className="text-sm text-slate-600 mt-1">
-                                    {exam.durationPreset ? exam.durationPreset.replace('P_', '') + ' Minutes' : exam.durationCustom + ' Minutes'}
-                                </div>
+                                <div className="text-sm text-slate-600 mt-1">{formatDurationLabel(examDurationMinutes)}</div>
                             </div>
                         )}
-                        {exam.estimatedTimeMinutes !== undefined && exam.estimatedTimeMinutes !== null && (
+                        {viewEstimatedMinutes !== null && (
                             <div>
                                 <div className="text-sm font-semibold text-slate-700">Estimated Time</div>
-                                <div className="text-sm text-slate-600 mt-1">{exam.estimatedTimeMinutes} minutes</div>
+                                <div className="text-sm text-slate-600 mt-1">{formatDurationLabel(viewEstimatedMinutes)}</div>
                             </div>
                         )}
                     </>
