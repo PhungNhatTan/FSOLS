@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Btn } from "../ui/Btn";
 import { Card } from "../ui/Card";
-import type { UiLessonLocal as Lesson } from "../../../types/manage";
+import { Modal } from "../ui/Modal";
+import type { UiLessonLocal as Lesson, Resource } from "../../../types/manage";
 import { courseManagementApi, type DraftResource } from "../../../api/courseManagement";
 
 interface ResourceUploadDialogProps {
@@ -9,6 +10,17 @@ interface ResourceUploadDialogProps {
   onResourceUploaded: (resource: DraftResource) => void;
   onClose: () => void;
 }
+
+const IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp"];
+const VIDEO_EXTENSIONS = [".mp4", ".webm", ".ogg", ".mov", ".m4v", ".avi", ".mkv"];
+
+const inferResourceType = (resource: Resource): "image" | "video" | "pdf" | null => {
+  const source = (resource.url || resource.name || "").toLowerCase().split("?")[0];
+  if (IMAGE_EXTENSIONS.some((ext) => source.endsWith(ext))) return "image";
+  if (VIDEO_EXTENSIONS.some((ext) => source.endsWith(ext))) return "video";
+  if (source.endsWith(".pdf")) return "pdf";
+  return null;
+};
 
 function ResourceUploadDialog({ 
   courseId, 
@@ -126,6 +138,9 @@ export function LessonDetail({
     const [title, setTitle] = useState(lesson.title);
     const [description, setDescription] = useState(lesson.description || "");
     const [estimatedTime, setEstimatedTime] = useState(lesson.estimatedTimeMinutes?.toString() || "");
+    const [previewResource, setPreviewResource] = useState<Resource | null>(null);
+    const [previewType, setPreviewType] = useState<"image" | "video" | "pdf" | null>(null);
+    const [previewError, setPreviewError] = useState(false);
 
     const handleSave = () => {
         const trimmedEstimate = estimatedTime.trim();
@@ -162,6 +177,84 @@ export function LessonDetail({
         onUpdate({
             resources: lesson.resources.filter((r) => r.id !== resourceId),
         });
+    };
+
+    const handleViewResource = (resource: Resource) => {
+        if (!resource.url) return;
+        const type = inferResourceType(resource);
+        if (!type) {
+            window.open(resource.url, "_blank", "noopener,noreferrer");
+            return;
+        }
+        setPreviewResource(resource);
+        setPreviewType(type);
+        setPreviewError(false);
+    };
+
+    const closePreview = () => {
+        setPreviewResource(null);
+        setPreviewType(null);
+        setPreviewError(false);
+    };
+
+    const renderPreviewContent = () => {
+        if (!previewResource || !previewType || !previewResource.url || previewError) {
+            return (
+                <div className="space-y-3 text-sm text-slate-600">
+                    <div>Preview unavailable. You can download the file instead.</div>
+                    {previewResource?.url && (
+                        <a
+                            href={previewResource.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-indigo-600 underline"
+                        >
+                            Download
+                        </a>
+                    )}
+                </div>
+            );
+        }
+
+        if (previewType === "image") {
+            return (
+                <img
+                    src={previewResource.url}
+                    alt={previewResource.name}
+                    className="max-h-[70vh] w-full object-contain rounded-2xl border"
+                    onError={() => setPreviewError(true)}
+                />
+            );
+        }
+
+        if (previewType === "video") {
+            return (
+                <video
+                    src={previewResource.url}
+                    controls
+                    className="w-full max-h-[70vh] rounded-2xl bg-black"
+                    onError={() => setPreviewError(true)}
+                />
+            );
+        }
+
+        return (
+            <object
+                data={previewResource.url}
+                type="application/pdf"
+                className="w-full h-[70vh]"
+                onError={() => setPreviewError(true)}
+            >
+                <a
+                    href={previewResource.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-indigo-600 underline"
+                >
+                    Download PDF
+                </a>
+            </object>
+        );
     };
 
     return (
@@ -272,32 +365,49 @@ export function LessonDetail({
                         
                         {lesson.resources && lesson.resources.length > 0 ? (
                             <ul className="mt-2 space-y-2">
-                                {lesson.resources.map((r) => (
-                                    <li key={r.id} className="rounded-xl border p-2 flex items-center justify-between">
-                                        <div className="flex-1 min-w-0">
-                                            <a 
-                                                className="text-indigo-600 hover:underline text-sm block truncate" 
-                                                href={r.url} 
-                                                target="_blank" 
-                                                rel="noreferrer"
-                                            >
-                                                {r.name}
-                                            </a>
-                                            {r.size && (
-                                                <div className="text-xs text-slate-500 mt-0.5">
-                                                    {(r.size / 1024 / 1024).toFixed(2)} MB
+                                {lesson.resources.map((r) => {
+                                    const previewable = Boolean(r.url && inferResourceType(r));
+                                    return (
+                                        <li key={r.id} className="rounded-xl border p-2 flex items-center justify-between gap-3">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-sm font-medium text-slate-800 truncate" title={r.name}>
+                                                    {r.name}
                                                 </div>
-                                            )}
-                                        </div>
-                                        <button
-                                            onClick={() => handleRemoveResource(r.id)}
-                                            className="ml-2 text-red-600 hover:text-red-700 text-xs px-2 py-1"
-                                            title="Remove resource"
-                                        >
-                                            Remove
-                                        </button>
-                                    </li>
-                                ))}
+                                                {r.url && (
+                                                    <a
+                                                        className="text-xs text-indigo-600 hover:underline"
+                                                        href={r.url}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                    >
+                                                        Open in new tab
+                                                    </a>
+                                                )}
+                                                {r.size && (
+                                                    <div className="text-xs text-slate-500 mt-0.5">
+                                                        {(r.size / 1024 / 1024).toFixed(2)} MB
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <Btn
+                                                    size="sm"
+                                                    onClick={() => handleViewResource(r)}
+                                                    disabled={!r.url}
+                                                >
+                                                    {previewable ? "View" : "Download"}
+                                                </Btn>
+                                                <button
+                                                    onClick={() => handleRemoveResource(r.id)}
+                                                    className="text-red-600 hover:text-red-700 text-xs px-2 py-1"
+                                                    title="Remove resource"
+                                                >
+                                                    Remove
+                                                </button>
+                                            </div>
+                                        </li>
+                                    );
+                                })}
                             </ul>
                         ) : (
                             <div className="text-xs text-slate-500 italic">
@@ -317,6 +427,24 @@ export function LessonDetail({
                     onResourceUploaded={handleResourceUploaded}
                     onClose={() => setShowUploadDialog(false)}
                 />
+            )}
+
+            {previewResource && (
+                <Modal title={`Preview: ${previewResource.name}`} onClose={closePreview}>
+                    <div className="space-y-4">
+                        {renderPreviewContent()}
+                        {previewResource.url && (
+                            <a
+                                href={previewResource.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-sm text-indigo-600 hover:underline"
+                            >
+                                Download file
+                            </a>
+                        )}
+                    </div>
+                </Modal>
             )}
         </>
     );
