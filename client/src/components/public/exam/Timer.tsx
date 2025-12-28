@@ -1,18 +1,28 @@
-import { useTimer } from "../../../hooks/useTimer";
-import type { TimerProps } from "../../../types";
+import { useTimer } from "../../../hooks/useTimer"
+import type { TimerProps } from "../../../types"
 
-export default function Timer({ timeLeft, setTimeLeft, onExpire, submitted }: TimerProps) {
-  useTimer(timeLeft, setTimeLeft, onExpire, submitted);
+interface TimerDisplayProps extends TimerProps {
+  compact?: boolean
+}
+
+export default function Timer({ timeLeft, setTimeLeft, onExpire, submitted, compact = false }: TimerDisplayProps) {
+  useTimer(timeLeft, setTimeLeft, onExpire, submitted)
 
   const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${s < 10 ? "0" : ""}${s}`;
-  };
+    const m = Math.floor(seconds / 60)
+    const s = seconds % 60
+    return `${m}:${s < 10 ? "0" : ""}${s}`
+  }
 
-  return (
-    <div className="mb-4 text-red-600 font-semibold text-lg">
-      Time Left: {formatTime(timeLeft)}
-    </div>
-  );
+  const getTimerColor = () => {
+    if (timeLeft <= 60) return "text-red-600"
+    if (timeLeft <= 300) return "text-orange-600"
+    return "text-gray-600"
+  }
+
+  if (compact) {
+    return <span className={`font-mono text-sm font-semibold ${getTimerColor()}`}>{formatTime(timeLeft)}</span>
+  }
+
+  return <div className={`text-lg font-mono font-semibold ${getTimerColor()}`}>Time Left: {formatTime(timeLeft)}</div>
 }
