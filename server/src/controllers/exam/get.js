@@ -15,7 +15,7 @@ export default async function get(req, res, next) {
             return res.status(400).json({ message: "Invalid exam ID" });
         }
 
-        const examData = await exam.getExamDetail(examId);
+        const examData = await exam.get(examId);
         if (!examData) {
             return res.status(404).json({ message: "Exam not found" });
         }

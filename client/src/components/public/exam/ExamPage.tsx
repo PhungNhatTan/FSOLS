@@ -1,17 +1,16 @@
 "use client"
 
 import { useState, type FormEvent, useEffect } from "react"
-import { useParams, useNavigate, useOutletContext } from "react-router-dom"
+import { useParams, useNavigate } from "react-router-dom"
 import * as exam from "../../../api/exam"
 import { useFetch } from "../../../hooks/useFetch"
-import type { ExamData, StudentAnswer, CourseStudyContext } from "../../../types"
+import type { ExamData, StudentAnswer } from "../../../types"
 import ExamForm from "./ExamForm"
 import ExamHeader from "./ExamHeader"
 import QuestionNavigation from "./QuestionNavigation"
 
 export default function ExamPage() {
-  const { examId } = useParams<{ examId: string }>()
-  const { courseId } = useOutletContext<CourseStudyContext>()
+  const { examId, courseId } = useParams<{ examId?: string; courseId?: string }>()
   const navigate = useNavigate()
 
   const [answers, setAnswers] = useState<Record<string, StudentAnswer>>({})

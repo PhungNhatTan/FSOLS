@@ -71,6 +71,9 @@ export interface ExamFormProps {
   >;
   onSubmit: (e: React.FormEvent) => void;
   submitted: boolean;
+  currentQuestionIndex?: number;
+  onNext?: () => void;
+  onPrevious?: () => void;
 }
 
 export interface TimerProps {

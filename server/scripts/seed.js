@@ -466,7 +466,7 @@ async function main() {
   log("Provider created:", provider.Name)
 
   // Accounts
-  const admin = await ensureAccount({
+  await ensureAccount({
     username: "admin",
     displayName: "Admin User",
     password: "admin123",

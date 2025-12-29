@@ -56,6 +56,7 @@ export default function App() {
           <Route path="/courses" element={<CoursePage />} />
           <Route path="/my-courses" element={<MyCoursesPage />} />
           <Route path="/course/:id" element={<CourseDetailPage />} />
+          <Route path="/course/:courseId/takingExam/:examId" element={<ExamPage />} />
 
           {/* Mentor Dashboard */}
           <Route

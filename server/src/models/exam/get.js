@@ -11,7 +11,7 @@ export default async function get(id) {
             Title: true,
             Description: true,
             DurationPreset:true,
-            DUrationCustom: true,
+            DurationCustom: true,
         }
     });
 }
