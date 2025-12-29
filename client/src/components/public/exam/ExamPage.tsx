@@ -1,17 +1,16 @@
 "use client"
 
-import { useState, type FormEvent, useEffect } from "react"
-import { useParams, useNavigate, useOutletContext } from "react-router-dom"
+import { useState, type FormEvent, useEffect, useCallback } from "react"
+import { useParams, useNavigate } from "react-router-dom"
 import * as exam from "../../../api/exam"
 import { useFetch } from "../../../hooks/useFetch"
-import type { ExamData, StudentAnswer, CourseStudyContext } from "../../../types"
+import type { ExamData, StudentAnswer } from "../../../types"
 import ExamForm from "./ExamForm"
 import ExamHeader from "./ExamHeader"
 import QuestionNavigation from "./QuestionNavigation"
 
 export default function ExamPage() {
   const { examId } = useParams<{ examId: string }>()
-  const { courseId } = useOutletContext<CourseStudyContext>()
   const navigate = useNavigate()
 
   const [answers, setAnswers] = useState<Record<string, StudentAnswer>>({})
@@ -20,48 +19,54 @@ export default function ExamPage() {
   const [timeLeft, setTimeLeft] = useState(0)
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [retryCount, setRetryCount] = useState(0) // add retry counter
 
-  const {
-    data: examData,
-    error,
-    loading,
-  } = useFetch<ExamData>(examId ? () => exam.get(Number(examId)) : null, [examId])
+  const fetchExam = useCallback(() => {
+    if (!examId) return Promise.reject(new Error("No exam ID"))
+    return exam.get(Number(examId))
+  }, [examId])
 
-  useEffect(() => {
-    if (examData && !timeLeft) {
-      setTimeLeft(examData.Duration * 60)
-    }
-  }, [examData, timeLeft])
+  const { data: examData, error, loading } = useFetch<ExamData>(fetchExam, [retryCount])
 
   useEffect(() => {
-    if (timeLeft === 0 && examData && !submitted) {
-      handleSubmit()
+    if (examData && timeLeft === 0) {
+      setTimeLeft(examData.Duration * 60) // Fixed: Duration (capital D) from backend, not duration
     }
-  }, [timeLeft, examData, submitted])
+  }, [examData])
 
-  const handleSubmit = async (e?: FormEvent) => {
-    e?.preventDefault()
-    if (!examData || submitted) return
+  // This was causing flickering by triggering repeatedly
+  // useEffect(() => {
+  //   if (timeLeft === 0 && examData && !submitted) {
+  //     handleSubmit()
+  //   }
+  // }, [timeLeft, examData, submitted])
 
-    setSubmitted(true)
+  const handleSubmit = useCallback(
+    async (e?: FormEvent) => {
+      e?.preventDefault()
+      if (!examData || submitted) return
 
-    try {
-      const result = await exam.submit({
-        examId: examData.Id,
-        answers: Object.values(answers),
-      })
+      setSubmitted(true)
 
-      setMessage(`Submitted! Score: ${result.score}/${result.total}`)
+      try {
+        const result = await exam.submit({
+          examId: examData.Id,
+          answers: Object.values(answers),
+        })
 
-      // Navigate back to ExamDetailDisplay immediately
-      if (courseId && examId) {
-        navigate(`/course/${courseId}/exam/${examId}`, { replace: true })
+        setMessage(`Submitted! Score: ${result.score}/${result.total}`)
+
+        // Navigate back to ExamDetailDisplay immediately
+        if (examId) {
+          navigate(`/exam/${examId}`, { replace: true })
+        }
+      } catch {
+        setMessage("Submission failed")
+        setSubmitted(false)
       }
-    } catch {
-      setMessage("Submission failed")
-      setSubmitted(false)
-    }
-  }
+    },
+    [examData, answers, submitted, examId, navigate],
+  )
 
   const handleNextQuestion = () => {
     if (examData && currentQuestionIndex < examData.Questions.length - 1) {
@@ -79,8 +84,37 @@ export default function ExamPage() {
     setCurrentQuestionIndex(index)
   }
 
+  const handleRetry = () => {
+    setRetryCount(retryCount + 1)
+  }
+
   if (loading) return <p className="text-center py-8">Loading exam...</p>
-  if (error) return <p className="text-center py-8 text-red-500">Error: {error}</p>
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="max-w-md mx-auto p-6 bg-red-50 border border-red-200 rounded-lg text-center">
+          <h2 className="text-xl font-semibold text-red-700 mb-2">Failed to Load Exam</h2>
+          <p className="text-red-600 mb-4">
+            {error.includes("500") ? "Server error. Please try again in a moment." : error}
+          </p>
+          <button
+            onClick={handleRetry}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition"
+          >
+            Try Again
+          </button>
+          <button
+            onClick={() => navigate("/my-courses")}
+            className="ml-2 px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg font-medium transition"
+          >
+            Back to Courses
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   if (!examData) return null
 
   return (

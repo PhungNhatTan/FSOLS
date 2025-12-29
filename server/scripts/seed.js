@@ -456,6 +456,138 @@ async function ensureCourseTimeline(courseName, mentorAccountId) {
 
 /**
  * =========================
+ * SEED QUESTIONS FOR EXAMS
+ * =========================
+ */
+async function seedQuestionsForExams(mentorAccount) {
+  log("\n[Questions] Seeding questions for exams...\n")
+
+  const course = await prisma.course.findFirst({
+    where: { Name: TARGET_COURSE_NAME, DeletedAt: null },
+  })
+
+  if (!course) {
+    log("[Questions] Target course not found")
+    return
+  }
+
+  // Get all exams for this course
+  const exams = await prisma.exam.findMany({
+    where: {
+      DeletedAt: null,
+      ModuleItem: {
+        is: {
+          CourseModule: { is: { CourseId: course.Id } },
+        },
+      },
+    },
+    include: {
+      ExamQuestion: true,
+    },
+  })
+
+  if (exams.length === 0) {
+    log("[Questions] No exams found for course")
+    return
+  }
+
+  // Sample questions bank to distribute
+  const sampleQuestions = [
+    {
+      QuestionText: "What is Node.js?",
+      Type: "MCQ",
+      answers: [
+        { text: "A JavaScript runtime for server-side development", isCorrect: true },
+        { text: "A database management system", isCorrect: false },
+        { text: "A frontend framework", isCorrect: false },
+        { text: "A CSS preprocessor", isCorrect: false },
+      ],
+    },
+    {
+      QuestionText: "Express.js is a backend framework for Node.js.",
+      Type: "TF",
+      answers: [
+        { text: "True", isCorrect: true },
+        { text: "False", isCorrect: false },
+      ],
+    },
+    {
+      QuestionText: "What HTTP status code means 'Not Found'?",
+      Type: "MCQ",
+      answers: [
+        { text: "200", isCorrect: false },
+        { text: "404", isCorrect: true },
+        { text: "500", isCorrect: false },
+        { text: "301", isCorrect: false },
+      ],
+    },
+    {
+      QuestionText: "npm stands for ___________",
+      Type: "Fill",
+      answers: [
+        { text: "Node Package Manager", isCorrect: true },
+        { text: "Node Process Manager", isCorrect: false },
+      ],
+    },
+    {
+      QuestionText: "Explain the purpose of middleware in Express.js.",
+      Type: "Essay",
+      answers: [{ text: "Middleware functions process requests and responses", isCorrect: true }],
+    },
+  ]
+
+  // Add questions to each exam
+  for (const e of exams) {
+    // Skip if exam already has questions
+    if (e.ExamQuestion.length > 0) {
+      log(`[Questions] Exam "${e.Title}" already has questions, skipping...`)
+      continue
+    }
+
+    // Determine how many questions based on exam type
+    const numQuestions = e.Title.includes("Quiz") ? 3 : 5
+    const quesToAdd = sampleQuestions.slice(0, numQuestions)
+
+    for (let idx = 0; idx < quesToAdd.length; idx++) {
+      const q = quesToAdd[idx]
+
+      // Create question bank entry
+      const questionBank = await prisma.questionBank.create({
+        data: {
+          QuestionText: q.QuestionText,
+          Type: q.Type,
+          courseId: course.Id,
+        },
+      })
+
+      // Create exam answers
+      for (const ans of q.answers) {
+        await prisma.examAnswer.create({
+          data: {
+            AnswerText: ans.text,
+            IsCorrect: ans.isCorrect,
+            QuestionId: questionBank.Id,
+          },
+        })
+      }
+
+      // Create exam question link
+      await prisma.examQuestion.create({
+        data: {
+          ExamId: e.Id,
+          QuestionId: questionBank.Id,
+        },
+      })
+
+      log(`  [Q${idx + 1}] Added: "${q.QuestionText.substring(0, 50)}..."`)
+    }
+
+    log(`[Questions] Exam "${e.Title}": ${quesToAdd.length} questions added\n`)
+  }
+}
+
+/**
+ * =========================
  * MAIN
  * =========================
  */
@@ -524,7 +656,8 @@ async function main() {
     },
     {
       Name: "React Fundamentals",
-      Description: "Build modern web applications with React. Learn components, hooks, state management, and best practices.",
+      Description:
+        "Build modern web applications with React. Learn components, hooks, state management, and best practices.",
       CategoryId: webDevCategory.Id,
     },
     {
@@ -546,6 +679,9 @@ async function main() {
 
   // Ensure timeline + quizzes + final exam for the target course
   await ensureCourseTimeline(TARGET_COURSE_NAME, mentorAccount.Id)
+
+  // Ensure questions for exams
+  await seedQuestionsForExams(mentorAccount)
 
   const allCourses = await prisma.course.findMany({
     where: { PublishedAt: { not: null }, DeletedAt: null },

@@ -40,7 +40,13 @@ const estimateExamMinutes = (title: string, durationMinutes: number | null): num
 
 type SimpleLesson = { id: string | number; title: string; to: string; lessonType?: string }
 type SimpleExam = { id: number; title: string; to: string; durationMinutes: number | null }
-type DerivedModule = { key: string; orderNo: number; lessons: SimpleLesson[]; quiz: SimpleExam | null; exams: SimpleExam[] }
+type DerivedModule = {
+  key: string
+  orderNo: number
+  lessons: SimpleLesson[]
+  quiz: SimpleExam | null
+  exams: SimpleExam[]
+}
 
 type CourseDetailExt = CourseDetail & {
   CourseModule?: CourseModule[]
@@ -179,7 +185,7 @@ export default function CourseDetailPage() {
             exams.push({
               id: examId,
               title: pickTitle(examObj, `Exam ${examIdx}`),
-              to: `/course/${course.Id}/takingExam/${examId}`,
+              to: `/exam/${examId}`,
               durationMinutes: duration != null && duration > 0 ? duration : null,
             })
           })
@@ -231,7 +237,7 @@ export default function CourseDetailPage() {
             exams.push({
               id: examId,
               title: pickTitle(examObj, `Exam ${examIdx}`),
-              to: `/course/${course.Id}/takingExam/${examId}`,
+              to: `/exam/${examId}`,
               durationMinutes: duration != null && duration > 0 ? duration : null,
             })
           })
@@ -255,7 +261,7 @@ export default function CourseDetailPage() {
 
     // step 3: set quiz per module (pick exam that is NOT final exam)
     const modules: DerivedModule[] = baseModules.map((m) => {
-      const quiz = finalId != null ? m.exams.find((e) => e.id !== finalId) ?? null : m.exams[0] ?? null
+      const quiz = finalId != null ? (m.exams.find((e) => e.id !== finalId) ?? null) : (m.exams[0] ?? null)
       return { ...m, quiz }
     })
 
@@ -394,7 +400,8 @@ export default function CourseDetailPage() {
                       {derived.finalExam.title || "Final Exam"}
                     </Link>{" "}
                     <span className="text-gray-500">
-                      (~{formatMinutes(estimateExamMinutes(derived.finalExam.title, derived.finalExam.durationMinutes))})
+                      (~{formatMinutes(estimateExamMinutes(derived.finalExam.title, derived.finalExam.durationMinutes))}
+                      )
                     </span>
                   </div>
                 ) : (
