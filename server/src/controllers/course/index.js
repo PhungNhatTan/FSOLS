@@ -14,6 +14,7 @@ import getAllVerificationRequests from './getAllVerificationRequests.js';
 import getDraft from './getDraft.js';
 import getVerificationDraft from './getVerificationDraft.js';
 import rejectCourse from './rejectCourse.js';
+import getCertificate from './getCertificate.js';
 
 export default {
   create,
@@ -32,4 +33,5 @@ export default {
   requestVerification,
   getVerificationStatus,
   getAllVerificationRequests,
+  getCertificate,
 };

@@ -12,6 +12,8 @@ export default async function get(id) {
         },
     });
 
+    if (!lesson) return null;
+
     return {
         ...lesson,
         ContentUrl: lesson.LessonType === 'Video' ? lesson.VideoUrl : lesson.DocUrl

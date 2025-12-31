@@ -459,7 +459,7 @@ async function ensureCourseTimeline(courseName, mentorAccountId) {
  * SEED QUESTIONS FOR EXAMS
  * =========================
  */
-async function seedQuestionsForExams(mentorAccount) {
+async function seedQuestionsForExams() {
   log("\n[Questions] Seeding questions for exams...\n")
 
   const course = await prisma.course.findFirst({
@@ -681,7 +681,7 @@ async function main() {
   await ensureCourseTimeline(TARGET_COURSE_NAME, mentorAccount.Id)
 
   // Ensure questions for exams
-  await seedQuestionsForExams(mentorAccount)
+  await seedQuestionsForExams()
 
   const allCourses = await prisma.course.findMany({
     where: { PublishedAt: { not: null }, DeletedAt: null },

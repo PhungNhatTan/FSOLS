@@ -5,7 +5,10 @@ export interface LessonSummary {
 
 export interface LessonDetail extends LessonSummary {
   LessonType: string;
-  Content: string;
+  Content?: string;
+  VideoUrl?: string;
+  DocUrl?: string;
+  ContentUrl?: string;
 }
 
 export interface Lesson {

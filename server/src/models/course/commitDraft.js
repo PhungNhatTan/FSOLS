@@ -581,6 +581,15 @@ const commitDraftToDatabase = async (courseId, draft) => {
           LastUpdated: new Date(),
         },
       });
+
+      await tx.certificate.upsert({
+        where: { CourseId: courseId },
+        update: { DeletedAt: null },
+        create: {
+          CertificateType: "Course",
+          Course: { connect: { Id: courseId } },
+        },
+      });
     });
 
     return { success: true, courseId };
