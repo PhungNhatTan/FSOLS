@@ -9,6 +9,48 @@ import ExamForm from "./ExamForm"
 import ExamHeader from "./ExamHeader"
 import QuestionNavigation from "./QuestionNavigation"
 
+const PRESET_DURATION_MINUTES: Record<string, number> = {
+  P_10: 10,
+  P_15: 15,
+  P_30: 30,
+  P_60: 60,
+}
+
+const getDurationMinutes = (examData: ExamData): number => {
+  // First try DurationCustom
+  if (examData.DurationCustom) {
+    const customDuration = Number(examData.DurationCustom)
+    if (!isNaN(customDuration) && customDuration > 0) {
+      return customDuration
+    }
+  }
+
+  // Then try DurationPreset
+  if (examData.DurationPreset) {
+    const presetKey = String(examData.DurationPreset).trim()
+    const presetDuration = PRESET_DURATION_MINUTES[presetKey]
+    if (presetDuration && presetDuration > 0) {
+      return presetDuration
+    }
+  }
+
+  if (examData.Duration) {
+    const durationStr = String(examData.Duration).trim()
+    // Try parsing as preset key (e.g., "P_15", "P_30")
+    const presetDuration = PRESET_DURATION_MINUTES[durationStr]
+    if (presetDuration && presetDuration > 0) {
+      return presetDuration
+    }
+    // Try parsing as plain number
+    const numDuration = Number(durationStr)
+    if (!isNaN(numDuration) && numDuration > 0) {
+      return numDuration
+    }
+  }
+
+  return 0
+}
+
 export default function ExamPage() {
   const params = useParams<{ examId: string }>()
   const examId = params?.examId ?? null
@@ -48,10 +90,11 @@ export default function ExamPage() {
   }, [examId])
 
   useEffect(() => {
-    if (examData && timeLeft === 0) {
-      setTimeLeft(examData.Duration * 60)
+    if (examData && !submitted) {
+      const durationInSeconds = getDurationMinutes(examData) * 60
+      setTimeLeft(durationInSeconds > 0 ? durationInSeconds : 0)
     }
-  }, [examData])
+  }, [examData, submitted])
 
   const handleSubmit = useCallback(
     async (e?: FormEvent) => {
@@ -67,9 +110,20 @@ export default function ExamPage() {
           answers: Object.values(answers),
         })
 
+        const totalQuestions = examData.Questions.length
+        const percentage = totalQuestions > 0 ? ((result.score / totalQuestions) * 100).toFixed(1) : 0
+
         setMessageType("success")
-        setMessage(`Submitted! Score: ${result.score}/${result.total}`)
+        setMessage(`Submitted! Score: ${result.score}/${totalQuestions} (${percentage}%)`)
         setSubmitted(true)
+
+        sessionStorage.setItem(
+          `exam_${examData.ExamId || examData.Id}_result`,
+          JSON.stringify({
+            score: result.score,
+            total: totalQuestions,
+          }),
+        )
 
         setTimeout(() => {
           if (examId) {

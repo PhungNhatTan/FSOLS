@@ -9,12 +9,10 @@ export const get = async (examId: number): Promise<ExamData> => {
 }
 
 export const getWithResult = async (examId: number): Promise<ExamDetailWithResult> => {
-  const accountId = getAccountId()
-  if (!accountId) throw new Error("User not authenticated")
-
-  const res = await client.get<{ exam: ExamData; result: { score: number } | null }>(
-    `/exam/${examId}?accountId=${accountId}`,
-  )
+  const res = await client.get<{
+    exam: ExamData
+    result: { Id?: number; Score?: number; SubmittedAt?: string } | null
+  }>(`/exam/${examId}`)
 
   return res.data as ExamDetailWithResult
 }
