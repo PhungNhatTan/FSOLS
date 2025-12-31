@@ -1,14 +1,16 @@
 "use client"
 
+import { useCallback, memo, useMemo } from "react"
 import Question from "./Question"
-import type { ExamFormProps } from "../../../types"
+import type { ExamFormProps, StudentAnswer, QuestionValue } from "../../../types"
 
-export default function ExamForm({
+const ExamForm = memo(function ExamForm({
   exam,
   answers,
   setAnswers,
   onSubmit,
   submitted,
+  isSubmitting,
   currentQuestionIndex,
   onNext,
   onPrevious,
@@ -17,6 +19,33 @@ export default function ExamForm({
   const totalQuestions = exam.Questions.length
   const isFirstQuestion = currentQuestionIndex === 0
   const isLastQuestion = currentQuestionIndex === totalQuestions - 1
+
+  const handleAnswerChange = useCallback(
+    (questionBankId: string, data: Partial<QuestionValue>) => {
+      setAnswers((prev) => {
+        const newAnswer: StudentAnswer = {
+          questionId: questionBankId,
+          answerId: data.answerId,
+          answerIds: data.answerIds,
+          answer: data.answer,
+        }
+
+        return {
+          ...prev,
+          [questionBankId]: newAnswer,
+        }
+      })
+    },
+    [setAnswers],
+  )
+
+  const currentValue: QuestionValue | null = useMemo(() => {
+    if (!currentQuestion) return null
+    const currentAnswer = answers[currentQuestion.QuestionBankId]
+    return currentAnswer
+      ? { answerId: currentAnswer.answerId, answerIds: currentAnswer.answerIds, answer: currentAnswer.answer }
+      : null
+  }, [answers, currentQuestion])
 
   return (
     <form onSubmit={onSubmit} className="space-y-6">
@@ -36,15 +65,10 @@ export default function ExamForm({
       {/* Current question only */}
       {currentQuestion && (
         <Question
-          key={currentQuestion.ExamQuestionId}
+          key={currentQuestion.QuestionBankId}
           question={currentQuestion}
-          value={answers[currentQuestion.QuestionBankId]}
-          onChange={(questionId, data) =>
-            setAnswers((prev) => ({
-              ...prev,
-              [questionId]: { questionId, ...data },
-            }))
-          }
+          value={currentValue}
+          onChange={handleAnswerChange}
         />
       )}
 
@@ -53,7 +77,7 @@ export default function ExamForm({
         <button
           type="button"
           onClick={onPrevious}
-          disabled={isFirstQuestion || submitted}
+          disabled={isFirstQuestion || submitted || isSubmitting}
           className="px-4 py-2 bg-gray-300 hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed text-gray-800 rounded transition"
         >
           Previous
@@ -65,7 +89,7 @@ export default function ExamForm({
           <button
             type="button"
             onClick={onNext}
-            disabled={submitted}
+            disabled={submitted || isSubmitting}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded transition"
           >
             Next
@@ -73,13 +97,18 @@ export default function ExamForm({
         ) : (
           <button
             type="submit"
-            disabled={submitted}
-            className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded transition"
+            disabled={submitted || isSubmitting}
+            className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded transition flex items-center gap-2"
           >
-            {submitted ? "Submitted" : "Submit Exam"}
+            {isSubmitting && (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            )}
+            {isSubmitting ? "Submitting..." : submitted ? "Submitted" : "Submit Exam"}
           </button>
         )}
       </div>
     </form>
   )
-}
+})
+
+export default ExamForm

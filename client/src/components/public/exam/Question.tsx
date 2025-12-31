@@ -1,9 +1,10 @@
 "use client"
 
+import { memo } from "react"
 import { MCQuestion, FillQuestion, EssayQuestion } from "./QuestionTypes/index"
 import type { QuestionProps } from "../../../types"
 
-export default function Question({ question, value, onChange }: QuestionProps) {
+const Question = memo(function Question({ question, value, onChange }: QuestionProps) {
   switch (question.Type) {
     case "MCQ":
     case "TF":
@@ -15,4 +16,6 @@ export default function Question({ question, value, onChange }: QuestionProps) {
     default:
       return null
   }
-}
+})
+
+export default Question

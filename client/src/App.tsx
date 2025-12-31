@@ -7,6 +7,7 @@ import LoginPage from "./pages/public/LoginPage"
 import RegisterPage from "./pages/public/RegisterPage"
 import LessonPage from "./components/public/lesson/LessonPage"
 import ExamPage from "./components/public/exam/ExamPage"
+import ExamDetailDisplay from "./components/public/exam/ExamDetailDisplay"
 
 // Mentor Pages
 import Dashboard from "./pages/mentor/Dashboard"
@@ -24,6 +25,7 @@ import MyCoursesPage from "./pages/public/MyCoursesPage"
 import DashboardManager from "./pages/moderator/Dashboard"
 import CourseManagePageManager from "./pages/moderator/CoursesManagePage"
 import CertificatesPageAdmin from "./pages/moderator/CertificatesPage"
+import CourseDraftPreviewPage from "./pages/moderator/CourseDraftPreviewPage"
 
 // Auth
 import ProtectedRoute from "./components/ProtectedRoute"
@@ -34,7 +36,6 @@ import ModeratorLayout from "./layout/ModeratorLayout"
 import ManageLayout from "./layout/ManageLayout"
 import RootRedirect from "./components/RootRedirect"
 import HomePage from "./pages/public/HomePage"
-import CourseDraftPreviewPage from "./pages/moderator/CourseDraftPreviewPage"
 
 export default function App() {
   return (
@@ -50,6 +51,7 @@ export default function App() {
 
           {/* Lesson / Exam */}
           <Route path="/lesson/:id" element={<LessonPage />} />
+          <Route path="/exam-detail/:examId" element={<ExamDetailDisplay />} />
           <Route path="/exam/:examId" element={<ExamPage />} />
 
           {/* Courses */}

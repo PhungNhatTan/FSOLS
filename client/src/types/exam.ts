@@ -1,6 +1,7 @@
 import type React from "react"
 export interface ExamAnswer {
-  Id: string
+  AnswerId?: string
+  Id?: string
   AnswerText: string
 }
 
@@ -32,6 +33,7 @@ export interface ExamData extends Exam {
     DeletedAt?: string
   }
   Questions: ExamQuestion[]
+  ExamId?: number // Added ExamId field since backend returns ExamId, not Id
 }
 
 export interface ExamResult {
@@ -70,6 +72,7 @@ export interface ExamFormProps {
   setAnswers: React.Dispatch<React.SetStateAction<Record<string, StudentAnswer>>>
   onSubmit: (e: React.FormEvent) => void
   submitted: boolean
+  isSubmitting: boolean // explicitly define isSubmitting property
   currentQuestionIndex: number
   onNext: () => void
   onPrevious: () => void

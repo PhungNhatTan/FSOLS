@@ -23,10 +23,25 @@ export const submit = async (data: { examId: number; answers: StudentAnswer[] })
   const accountId = getAccountId()
   if (!accountId) throw new Error("User not authenticated")
 
-  const res = await client.post("/examSubmission/submit", {
-    ...data,
-    accountId,
-  })
+  try {
+    const submitData = {
+      examId: data.examId,
+      accountId,
+      answers: data.answers,
+    }
 
-  return res.data
+    console.log("[v0] Submitting exam with data:", submitData)
+    console.log("[v0] Full JSON:", JSON.stringify(submitData, null, 2))
+
+    const res = await client.post("/examSubmission/submit", submitData)
+
+    return res.data
+  } catch (error: any) {
+    console.error("[v0] Exam submission error:", error.response?.data || error.message)
+
+    const errorMsg =
+      error.response?.data?.error || error.response?.data?.message || error.message || "Submission failed"
+
+    throw new Error(errorMsg)
+  }
 }
