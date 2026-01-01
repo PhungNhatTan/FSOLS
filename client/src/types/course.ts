@@ -172,3 +172,11 @@ export type DraftJson = {
 export type DraftModuleItem = DraftJson["modules"][number]["items"][number];
 export type DraftModule = DraftJson["modules"][number];
 
+export interface Certificate {
+  Id: number;
+  CertificateType: "Course" | "Specialization";
+  CourseId?: number;
+  SpecializationId?: number;
+  CreatedAt: string;
+}
+

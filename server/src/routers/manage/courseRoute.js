@@ -14,5 +14,6 @@ router.put('/:id(\\d+)/draft', authenticate, authorize(["Admin", "Moderator", "M
 router.post('/:id(\\d+)/verification-request', authenticate, authorize(["Admin", "Moderator", "Mentor"]), course.requestVerification);
 router.get('/:id(\\d+)/verification-status', authenticate, authorize(["Admin", "Moderator", "Mentor"]), course.getVerificationStatus);
 router.delete('/:id(\\d+)', authenticate, authorize(["Admin", "Moderator", "Mentor"]), course.remove);
+router.get('/:id(\\d+)/certificate', authenticate, authorize(["Admin", "Moderator", "Mentor"]), course.getCertificate);
 
 export default router;
