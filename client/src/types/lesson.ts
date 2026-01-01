@@ -1,3 +1,9 @@
+export interface LessonResource {
+  Id: number;
+  Name: string;
+  Url: string;
+}
+
 export interface LessonSummary {
   Id: number;
   Title: string;
@@ -5,16 +11,21 @@ export interface LessonSummary {
 
 export interface LessonDetail extends LessonSummary {
   LessonType: string;
+  ContentUrl?: string | null;
+  Resource?: LessonResource | null;
+  // Deprecated fields - kept for backward compatibility during migration
   Content?: string;
   VideoUrl?: string;
   DocUrl?: string;
-  ContentUrl?: string;
 }
 
 export interface Lesson {
   Id: string | number;
   Title: string;
   LessonType: string;
+  ContentUrl?: string | null;
+  Resource?: LessonResource | null;
+  // Deprecated fields
   VideoUrl?: string;
   DocUrl?: string;
   Content?: string;
@@ -27,3 +38,4 @@ export interface CreateLessonData {
   OrderNo?: number;
   file: File;
 }
+
