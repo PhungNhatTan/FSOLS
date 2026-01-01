@@ -118,6 +118,7 @@ const isLocalUrl = (url?: string) => {
 
 function ResourcePreview({ resource }: { resource: { name: string; url?: string; size?: number } }) {
   const [downloading, setDownloading] = useState(false);
+  const [videoError, setVideoError] = useState(false);
 
   if (!resource.url) return null;
   const type = getFileType(resource.url);
@@ -148,12 +149,46 @@ function ResourcePreview({ resource }: { resource: { name: string; url?: string;
     }
   };
 
+  // Get MIME type based on file extension
+  const getMimeType = (url: string): string => {
+    const extension = url.split('.').pop()?.toLowerCase();
+    const mimeTypes: { [key: string]: string } = {
+      'mp4': 'video/mp4',
+      'webm': 'video/webm',
+      'ogg': 'video/ogg',
+      'ogv': 'video/ogg',
+      'mov': 'video/quicktime',
+    };
+    return mimeTypes[extension || ''] || '';
+  };
+
   if (type === 'video') {
+    const mimeType = getMimeType(resource.url);
+
     return (
       <div className="mt-2">
-        <video controls className="w-full rounded-lg border bg-black" src={resource.url}>
-          Your browser does not support the video tag.
-        </video>
+        {videoError ? (
+          <div className="w-full rounded-lg border bg-slate-50 p-8 text-center">
+            <p className="text-slate-600 mb-3">Unable to preview this video format</p>
+            <button
+              onClick={handleDownload}
+              disabled={downloading}
+              className="text-indigo-600 hover:underline text-sm font-medium disabled:opacity-50"
+            >
+              {downloading ? "Downloading..." : "Download video"}
+            </button>
+          </div>
+        ) : (
+          <video
+            controls
+            className="w-full rounded-lg border bg-black"
+            onError={() => setVideoError(true)}
+            preload="metadata"
+          >
+            <source src={resource.url} type={mimeType} />
+            Your browser does not support the video tag.
+          </video>
+        )}
       </div>
     );
   }
@@ -241,7 +276,7 @@ function ReadOnlyLessonDetail({ lesson }: { lesson: Lesson }) {
                       )}
                     </div>
                   </div>
-                  
+
                   {/* Preview Content */}
                   <ResourcePreview resource={r} />
                 </li>
@@ -338,7 +373,7 @@ export default function CourseDraftPreviewPage() {
   // Fix loading state
   // I'll use a real loading state
   const [isLoading, setIsLoading] = useState(true);
-  
+
   // Load initial data
   useEffect(() => {
     let cancelled = false;

@@ -137,24 +137,24 @@ export function LessonDetail({
     const [editMode, setEditMode] = useState(false);
     const [title, setTitle] = useState(lesson.title);
     const [description, setDescription] = useState(lesson.description || "");
-    const [estimatedTime, setEstimatedTime] = useState(lesson.estimatedTimeMinutes?.toString() || "");
+    // const [estimatedTime, setEstimatedTime] = useState(lesson.estimatedTimeMinutes?.toString() || "");
     const [previewResource, setPreviewResource] = useState<Resource | null>(null);
     const [previewType, setPreviewType] = useState<"image" | "video" | "pdf" | null>(null);
     const [previewError, setPreviewError] = useState(false);
 
     const handleSave = () => {
-        const trimmedEstimate = estimatedTime.trim();
-        const parsedEstimate = trimmedEstimate ? Number(trimmedEstimate) : null;
-        const sanitizedEstimate = parsedEstimate !== null && !Number.isNaN(parsedEstimate)
-            ? Math.max(0, Math.floor(parsedEstimate))
-            : null;
+        // const trimmedEstimate = estimatedTime.trim();
+        // const parsedEstimate = trimmedEstimate ? Number(trimmedEstimate) : null;
+        // const sanitizedEstimate = parsedEstimate !== null && !Number.isNaN(parsedEstimate)
+            // ? Math.max(0, Math.floor(parsedEstimate))
+            // : null;
 
         onUpdate({
             title: title.trim() || lesson.title,
             description: description.trim(),
-            estimatedTimeMinutes: sanitizedEstimate,
+            // estimatedTimeMinutes: sanitizedEstimate,
         });
-        setEstimatedTime(sanitizedEstimate !== null ? sanitizedEstimate.toString() : "");
+        // setEstimatedTime(sanitizedEstimate !== null ? sanitizedEstimate.toString() : "");
         setEditMode(false);
     };
 
@@ -300,7 +300,7 @@ export function LessonDetail({
                                     placeholder="Lesson description (optional)"
                                 />
                             </div>
-                            <div>
+                            {/* <div>
                                 <label className="block text-sm font-semibold text-slate-700 mb-1">
                                     Estimated Time (minutes)
                                 </label>
@@ -315,7 +315,7 @@ export function LessonDetail({
                                 <p className="text-xs text-slate-500 mt-1">
                                     Leave empty if not applicable.
                                 </p>
-                            </div>
+                            </div> */}
                             <div className="flex gap-2 pt-2">
                                 <Btn variant="primary" size="sm" onClick={handleSave}>
                                     Save Changes
@@ -324,7 +324,7 @@ export function LessonDetail({
                                     setEditMode(false);
                                     setTitle(lesson.title);
                                     setDescription(lesson.description || "");
-                                    setEstimatedTime(lesson.estimatedTimeMinutes?.toString() || "");
+                                    // setEstimatedTime(lesson.estimatedTimeMinutes?.toString() || "");
                                 }}>
                                     Cancel
                                 </Btn>
@@ -339,12 +339,12 @@ export function LessonDetail({
                                     <div className="text-sm text-slate-600 mt-1">{lesson.description}</div>
                                 </div>
                             )}
-                            {lesson.estimatedTimeMinutes !== undefined && lesson.estimatedTimeMinutes !== null && (
+                            {/* {lesson.estimatedTimeMinutes !== undefined && lesson.estimatedTimeMinutes !== null && (
                                 <div>
                                     <div className="text-sm font-semibold text-slate-700">Estimated Time</div>
                                     <div className="text-sm text-slate-600 mt-1">{lesson.estimatedTimeMinutes} minutes</div>
                                 </div>
-                            )}
+                            )} */}
                         </>
                     )}
 

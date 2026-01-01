@@ -60,7 +60,7 @@ export function ExamDetail({
     const exams = module.exams ?? [];
     const currentDurationMinutes = resolveDurationMinutes(durationPreset || null, durationCustom);
     const examDurationMinutes = resolveDurationMinutes(exam.durationPreset, exam.durationCustom);
-    const viewEstimatedMinutes = exam.estimatedTimeMinutes ?? examDurationMinutes;
+    // const viewEstimatedMinutes = exam.estimatedTimeMinutes ?? examDurationMinutes;
 
     const onExamChange = (updated: Exam) => {
         onModuleChange({
@@ -221,12 +221,12 @@ export function ExamDetail({
                                 <div className="text-sm text-slate-600 mt-1">{formatDurationLabel(examDurationMinutes)}</div>
                             </div>
                         )}
-                        {viewEstimatedMinutes !== null && (
+                        {/* {viewEstimatedMinutes !== null && (
                             <div>
                                 <div className="text-sm font-semibold text-slate-700">Estimated Time</div>
                                 <div className="text-sm text-slate-600 mt-1">{formatDurationLabel(viewEstimatedMinutes)}</div>
                             </div>
-                        )}
+                        )} */}
                     </>
                 )}
 
