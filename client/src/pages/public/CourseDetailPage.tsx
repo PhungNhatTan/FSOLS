@@ -185,7 +185,7 @@ export default function CourseDetailPage() {
             exams.push({
               id: examId,
               title: pickTitle(examObj, `Exam ${examIdx}`),
-              to: `/exam/${examId}`,
+              to: `/exam-detail/${examId}`,
               durationMinutes: duration != null && duration > 0 ? duration : null,
             })
           })
@@ -237,7 +237,7 @@ export default function CourseDetailPage() {
             exams.push({
               id: examId,
               title: pickTitle(examObj, `Exam ${examIdx}`),
-              to: `/exam/${examId}`,
+              to: `/exam-detail/${examId}`,
               durationMinutes: duration != null && duration > 0 ? duration : null,
             })
           })

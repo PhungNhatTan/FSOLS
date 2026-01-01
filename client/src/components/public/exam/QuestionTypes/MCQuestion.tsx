@@ -1,29 +1,47 @@
 "use client"
 
-import type { QuestionTypeProps } from "../../../../types"
+import { memo, useCallback } from "react"
+import type { QuestionTypeProps, ExamAnswer } from "../../../../types"
 
-export default function MCQuestion({ question, value, onChange }: QuestionTypeProps) {
+const MCQuestion = memo(function MCQuestion({ question, value, onChange }: QuestionTypeProps) {
+  const handleChange = useCallback(
+    (answerId: string) => {
+      onChange(question.QuestionBankId, { answerId })
+    },
+    [question.QuestionBankId, onChange],
+  )
+
   return (
     <div className="space-y-6">
       <p className="text-lg font-semibold text-gray-900">{question.QuestionText}</p>
       <div className="space-y-3">
-        {question.Answers.map((a) => (
-          <label
-            key={a.Id}
-            className="flex items-start gap-3 p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-blue-50 transition-colors"
-          >
-            <input
-              type="radio"
-              name={question.ExamQuestionId}
-              value={a.Id}
-              checked={value?.answerId === a.Id}
-              onChange={() => onChange(question.QuestionBankId, { answerId: a.Id })}
-              className="mt-1"
-            />
-            <span className="text-gray-700">{a.AnswerText}</span>
-          </label>
-        ))}
+        {question.Answers.map((answer: ExamAnswer, index: number) => {
+          const answerId = answer.AnswerId ? String(answer.AnswerId) : `answer-${index}`
+          const answerText = answer.AnswerText
+          const isChecked = !!(value?.answerId && String(value.answerId) === answerId)
+
+          return (
+            <label
+              key={answerId}
+              className={`flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors ${
+                isChecked ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:bg-blue-50"
+              }`}
+            >
+              <input
+                type="radio"
+                name={`question-${question.QuestionBankId}`}
+                value={answerId}
+                checked={isChecked}
+                onChange={() => handleChange(answerId)}
+                className="mt-1"
+              />
+              <span className="text-gray-700">{answerText}</span>
+            </label>
+          )
+        })}
       </div>
     </div>
   )
-}
+})
+
+export default MCQuestion

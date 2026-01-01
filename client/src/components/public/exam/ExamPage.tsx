@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, type FormEvent, useEffect, useCallback } from "react"
+import { useState, type FormEvent, useEffect, useCallback, useRef } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import * as exam from "../../../api/exam"
 import { useFetch } from "../../../hooks/useFetch"
@@ -9,63 +9,136 @@ import ExamForm from "./ExamForm"
 import ExamHeader from "./ExamHeader"
 import QuestionNavigation from "./QuestionNavigation"
 
+const PRESET_DURATION_MINUTES: Record<string, number> = {
+  P_10: 10,
+  P_15: 15,
+  P_30: 30,
+  P_60: 60,
+}
+
+const getDurationMinutes = (examData: ExamData): number => {
+  // First try DurationCustom
+  if (examData.DurationCustom) {
+    const customDuration = Number(examData.DurationCustom)
+    if (!isNaN(customDuration) && customDuration > 0) {
+      return customDuration
+    }
+  }
+
+  // Then try DurationPreset
+  if (examData.DurationPreset) {
+    const presetKey = String(examData.DurationPreset).trim()
+    const presetDuration = PRESET_DURATION_MINUTES[presetKey]
+    if (presetDuration && presetDuration > 0) {
+      return presetDuration
+    }
+  }
+
+  if (examData.Duration) {
+    const durationStr = String(examData.Duration).trim()
+    // Try parsing as preset key (e.g., "P_15", "P_30")
+    const presetDuration = PRESET_DURATION_MINUTES[durationStr]
+    if (presetDuration && presetDuration > 0) {
+      return presetDuration
+    }
+    // Try parsing as plain number
+    const numDuration = Number(durationStr)
+    if (!isNaN(numDuration) && numDuration > 0) {
+      return numDuration
+    }
+  }
+
+  return 0
+}
+
 export default function ExamPage() {
-  const { examId } = useParams<{ examId: string }>()
+  const params = useParams<{ examId: string }>()
+  const examId = params?.examId ?? null
+
   const navigate = useNavigate()
 
   const [answers, setAnswers] = useState<Record<string, StudentAnswer>>({})
   const [message, setMessage] = useState("")
+  const [messageType, setMessageType] = useState<"success" | "error" | "">("")
   const [submitted, setSubmitted] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [timeLeft, setTimeLeft] = useState(0)
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [retryCount, setRetryCount] = useState(0) // add retry counter
+
+  const initializedExamId = useRef<string | null>(null)
 
   const fetchExam = useCallback(() => {
     if (!examId) return Promise.reject(new Error("No exam ID"))
-    return exam.get(Number(examId))
+    const numExamId = Number.parseInt(examId, 10)
+    if (isNaN(numExamId)) return Promise.reject(new Error("Invalid exam ID"))
+    return exam.get(numExamId)
   }, [examId])
 
-  const { data: examData, error, loading } = useFetch<ExamData>(fetchExam, [retryCount])
+  const { data: examData, error, loading, refetch } = useFetch<ExamData>(fetchExam, [fetchExam])
 
   useEffect(() => {
-    if (examData && timeLeft === 0) {
-      setTimeLeft(examData.Duration * 60) // Fixed: Duration (capital D) from backend, not duration
+    if (examId && examId !== initializedExamId.current) {
+      setAnswers({})
+      setCurrentQuestionIndex(0)
+      setTimeLeft(0)
+      setSubmitted(false)
+      setMessage("")
+      setMessageType("")
+      initializedExamId.current = examId
     }
-  }, [examData])
+  }, [examId])
 
-  // This was causing flickering by triggering repeatedly
-  // useEffect(() => {
-  //   if (timeLeft === 0 && examData && !submitted) {
-  //     handleSubmit()
-  //   }
-  // }, [timeLeft, examData, submitted])
+  useEffect(() => {
+    if (examData && !submitted) {
+      const durationInSeconds = getDurationMinutes(examData) * 60
+      setTimeLeft(durationInSeconds > 0 ? durationInSeconds : 0)
+    }
+  }, [examData, submitted])
 
   const handleSubmit = useCallback(
     async (e?: FormEvent) => {
       e?.preventDefault()
-      if (!examData || submitted) return
+      if (!examData || submitted || isSubmitting) return
 
-      setSubmitted(true)
+      setIsSubmitting(true)
+      setMessage("")
 
       try {
         const result = await exam.submit({
-          examId: examData.Id,
+          examId: examData.ExamId || examData.Id,
           answers: Object.values(answers),
         })
 
-        setMessage(`Submitted! Score: ${result.score}/${result.total}`)
+        const totalQuestions = examData.Questions.length
+        const percentage = totalQuestions > 0 ? ((result.score / totalQuestions) * 100).toFixed(1) : 0
 
-        // Navigate back to ExamDetailDisplay immediately
-        if (examId) {
-          navigate(`/exam/${examId}`, { replace: true })
-        }
-      } catch {
-        setMessage("Submission failed")
-        setSubmitted(false)
+        setMessageType("success")
+        setMessage(`Submitted! Score: ${result.score}/${totalQuestions} (${percentage}%)`)
+        setSubmitted(true)
+
+        sessionStorage.setItem(
+          `exam_${examData.ExamId || examData.Id}_result`,
+          JSON.stringify({
+            score: result.score,
+            total: totalQuestions,
+          }),
+        )
+
+        setTimeout(() => {
+          if (examId) {
+            navigate(`/exam-detail/${examId}`, { replace: true })
+          }
+        }, 1500)
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : "Failed to submit exam"
+        console.error("[v0] Submit error:", errorMessage)
+        setMessageType("error")
+        setMessage(`${errorMessage}. Please check your connection and try again.`)
+        setIsSubmitting(false)
       }
     },
-    [examData, answers, submitted, examId, navigate],
+    [examData, answers, submitted, isSubmitting, examId, navigate],
   )
 
   const handleNextQuestion = () => {
@@ -85,7 +158,7 @@ export default function ExamPage() {
   }
 
   const handleRetry = () => {
-    setRetryCount(retryCount + 1)
+    refetch()
   }
 
   if (loading) return <p className="text-center py-8">Loading exam...</p>
@@ -150,14 +223,31 @@ export default function ExamPage() {
               setAnswers={setAnswers}
               onSubmit={handleSubmit}
               submitted={submitted}
+              isSubmitting={isSubmitting}
               currentQuestionIndex={currentQuestionIndex}
               onNext={handleNextQuestion}
               onPrevious={handlePreviousQuestion}
             />
 
             {message && (
-              <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 font-medium">
-                {message}
+              <div
+                className={`mt-6 p-4 rounded-lg font-medium flex items-start justify-between gap-4 ${
+                  messageType === "success"
+                    ? "bg-green-50 border border-green-200 text-green-700"
+                    : messageType === "error"
+                      ? "bg-red-50 border border-red-200 text-red-700"
+                      : "bg-blue-50 border border-blue-200 text-blue-700"
+                }`}
+              >
+                <span>{message}</span>
+                {messageType === "error" && !submitted && (
+                  <button
+                    onClick={handleSubmit}
+                    className="ml-auto px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm whitespace-nowrap transition"
+                  >
+                    Retry
+                  </button>
+                )}
               </div>
             )}
           </div>

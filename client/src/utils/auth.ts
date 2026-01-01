@@ -1,40 +1,40 @@
 // src/utils/auth.ts
-import { jwtDecode } from "jwt-decode";
+import { jwtDecode } from "jwt-decode"
 
 interface TokenPayload {
-  accountId: string;
-  username: string;
-  roles?: string;
-  exp: number;
-  iat: number;
+  userId: string
+  username: string
+  roles?: string[]
+  exp: number
+  iat: number
 }
 
 export function setToken(token: string) {
-  localStorage.setItem("token", token);
-  window.dispatchEvent(new Event("tokenChanged"));
+  localStorage.setItem("token", token)
+  window.dispatchEvent(new Event("tokenChanged"))
 }
 
 export function getToken(): string | null {
-  return localStorage.getItem("token");
+  return localStorage.getItem("token")
 }
 
 export function logout() {
-  localStorage.removeItem("token");
-  window.dispatchEvent(new Event("tokenChanged"));
+  localStorage.removeItem("token")
+  window.dispatchEvent(new Event("tokenChanged"))
 }
 
 export function decodeToken(): TokenPayload | null {
-  const token = getToken();
-  if (!token) return null;
+  const token = getToken()
+  if (!token) return null
 
   try {
-    return jwtDecode<TokenPayload>(token);
+    return jwtDecode<TokenPayload>(token)
   } catch {
-    return null;
+    return null
   }
 }
 
 export function getAccountId(): string | null {
-  const decoded = decodeToken();
-  return decoded?.accountId ?? null;
+  const decoded = decodeToken()
+  return decoded?.userId ?? null
 }
