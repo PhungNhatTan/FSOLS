@@ -4,8 +4,8 @@ import type { Exam } from "./exam"
 export interface ModuleItem {
   Id: number
   OrderNo: number
-  CourseLesson?: LessonSummary | null
-  Exam?: Exam | null
+  CourseLesson?: LessonSummary[] | null
+  Exam?: Exam[] | null
 }
 
 export interface CourseModule {
