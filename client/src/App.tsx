@@ -36,6 +36,7 @@ import ModeratorLayout from "./layout/ModeratorLayout"
 import ManageLayout from "./layout/ManageLayout"
 import RootRedirect from "./components/RootRedirect"
 import HomePage from "./pages/public/HomePage"
+import { CourseStudyPage } from "./pages"
 
 export default function App() {
   return (
@@ -59,6 +60,7 @@ export default function App() {
           <Route path="/my-courses" element={<MyCoursesPage />} />
           <Route path="/course/:id" element={<CourseDetailPage />} />
           <Route path="/course/:courseId/takingExam/:examId" element={<ExamPage />} />
+          <Route path="/course-study/:id" element={<CourseStudyPage />} />
 
           {/* Mentor Dashboard */}
           <Route

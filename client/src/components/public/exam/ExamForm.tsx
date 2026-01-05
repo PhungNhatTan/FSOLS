@@ -26,7 +26,6 @@ const ExamForm = memo(function ExamForm({
         const newAnswer: StudentAnswer = {
           questionId: questionBankId,
           answerId: data.answerId,
-          answerIds: data.answerIds,
           answer: data.answer,
         }
 

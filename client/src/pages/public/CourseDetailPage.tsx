@@ -1,14 +1,7 @@
-// client/src/pages/public/CourseDetailPage.tsx
-// ✅ FE-only: show time for MODULE and TOTAL COURSE only (no per-lesson time, no lesson detail fetch)
-// ✅ No explicit `any`
-
-"use client"
-
 import { useEffect, useMemo, useState } from "react"
-import { Link, useParams } from "react-router-dom"
+import { Link, useParams, useNavigate } from "react-router-dom"
 import courseApi from "../../api/course"
 import type { CourseDetail, CourseModule } from "../../types/course"
-import CourseSidebar from "../../components/public/courseSidebar/CourseSidebar"
 import EnrollButton from "../../components/public/course/EnrollButton"
 
 /* ----------------------------- Helpers: time rule ---------------------------- */
@@ -106,7 +99,6 @@ const getOrderNo = (obj: unknown): number => {
   return typeof v === "number" && Number.isFinite(v) ? v : 0
 }
 
-// IMPORTANT: in your schema ModuleItem.CourseLesson is CourseLesson[] and ModuleItem.Exam is Exam[]
 const getCourseLessonRaw = (item: unknown): unknown => (isRecord(item) ? item["CourseLesson"] : undefined)
 const getExamRaw = (item: unknown): unknown => (isRecord(item) ? item["Exam"] : undefined)
 
@@ -114,6 +106,7 @@ const getExamRaw = (item: unknown): unknown => (isRecord(item) ? item["Exam"] : 
 
 export default function CourseDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const [course, setCourse] = useState<CourseDetailExt | null>(null)
   const [error, setError] = useState("")
 
@@ -140,7 +133,6 @@ export default function CourseDetailPage() {
       }
     }
 
-    // step 1: build modules with lessons+exams (quiz set later)
     let baseModules: Omit<DerivedModule, "quiz">[] = []
 
     if (Array.isArray(course.CourseModule) && course.CourseModule.length > 0) {
@@ -156,7 +148,7 @@ export default function CourseDetailPage() {
         items.forEach((it) => {
           const raw = getCourseLessonRaw(it)
           if (!hasAny(raw)) return
-          const lessonObjs = toArray(raw) // ✅ unwrap CourseLesson[]
+          const lessonObjs = toArray(raw)
           lessonObjs.forEach((lessonObj) => {
             lessonIdx += 1
             const lessonId = pickId(lessonObj)
@@ -175,7 +167,7 @@ export default function CourseDetailPage() {
         items.forEach((it) => {
           const raw = getExamRaw(it)
           if (!hasAny(raw)) return
-          const examObjs = toArray(raw) // ✅ unwrap Exam[]
+          const examObjs = toArray(raw)
           examObjs.forEach((examObj) => {
             examIdx += 1
             const rawId = pickId(examObj)
@@ -201,7 +193,6 @@ export default function CourseDetailPage() {
         }
       })
     } else {
-      // Fallback: Lessons[][] & Exams[][]
       const lessonGroups = asUnknownArray(course.Lessons)
       const examGroups = asUnknownArray(course.Exams)
 
@@ -209,7 +200,6 @@ export default function CourseDetailPage() {
         const lessons: SimpleLesson[] = []
         let lessonIdx = 0
         toArray(ls).forEach((maybeLesson) => {
-          // ls có thể là array lesson hoặc object lesson
           const lessonObjs = toArray(maybeLesson)
           lessonObjs.forEach((lessonObj) => {
             lessonIdx += 1
@@ -252,14 +242,12 @@ export default function CourseDetailPage() {
       })
     }
 
-    // step 2: final exam = last exam in timeline order
     const allExams: { moduleOrder: number; idx: number; exam: SimpleExam }[] = []
     baseModules.forEach((m) => m.exams.forEach((e, idx) => allExams.push({ moduleOrder: m.orderNo, idx, exam: e })))
     allExams.sort((a, b) => a.moduleOrder - b.moduleOrder || a.idx - b.idx)
     const finalExam = allExams.length ? allExams[allExams.length - 1].exam : null
     const finalId = finalExam?.id ?? null
 
-    // step 3: set quiz per module (pick exam that is NOT final exam)
     const modules: DerivedModule[] = baseModules.map((m) => {
       const quiz = finalId != null ? (m.exams.find((e) => e.id !== finalId) ?? null) : (m.exams[0] ?? null)
       return { ...m, quiz }
@@ -275,7 +263,6 @@ export default function CourseDetailPage() {
     }
   }, [course])
 
-  // ✅ compute module minutes + course minutes (no async)
   const moduleMinutesMap = useMemo(() => {
     const map: Record<string, number> = {}
     derived.modules.forEach((m) => {
@@ -290,10 +277,16 @@ export default function CourseDetailPage() {
     return derived.modules.reduce((sum, m) => sum + (moduleMinutesMap[m.key] ?? 0), 0)
   }, [derived.modules, moduleMinutesMap])
 
+  // NEW: Handler for Start Course button
+  const handleStartCourse = () => {
+    if (course?.Id) {
+      navigate(`/course-study/${course.Id}`)
+    }
+  }
+
   if (!course && !error) {
     return (
       <div className="flex">
-        <CourseSidebar />
         <div className="p-6 max-w-3xl mx-auto flex-1">
           <p>Loading course...</p>
         </div>
@@ -303,7 +296,6 @@ export default function CourseDetailPage() {
 
   return (
     <div className="flex">
-      <CourseSidebar />
       <div className="p-6 max-w-4xl mx-auto flex-1">
         {error && <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">{error}</div>}
 
@@ -311,8 +303,19 @@ export default function CourseDetailPage() {
           <div className="bg-white rounded-lg shadow-md p-6">
             <div className="mb-6">
               <h1 className="text-2xl font-bold mb-3">{course.Name}</h1>
-              <div className="mt-4 max-w-xs">
+              
+              {/* NEW: Action buttons */}
+              <div className="mt-4 flex gap-3 flex-wrap">
                 <EnrollButton courseId={course.Id} />
+                
+                {/* NEW: Start Course button */}
+                <button
+                  onClick={handleStartCourse}
+                  className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition flex items-center gap-2"
+                >
+                  <span>▶</span>
+                  Start Course
+                </button>
               </div>
             </div>
 
@@ -400,8 +403,7 @@ export default function CourseDetailPage() {
                       {derived.finalExam.title || "Final Exam"}
                     </Link>{" "}
                     <span className="text-gray-500">
-                      (~{formatMinutes(estimateExamMinutes(derived.finalExam.title, derived.finalExam.durationMinutes))}
-                      )
+                      (~{formatMinutes(estimateExamMinutes(derived.finalExam.title, derived.finalExam.durationMinutes))})
                     </span>
                   </div>
                 ) : (

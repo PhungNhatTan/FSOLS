@@ -353,6 +353,8 @@ model LessonProgress {
   CompletedAt DateTime?
 
   CreatedAt DateTime @default(now())
+
+  @@unique([AccountId, CourseEnrollId, LessonId])
 }
 
 // #endregion

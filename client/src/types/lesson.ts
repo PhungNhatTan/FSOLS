@@ -2,6 +2,7 @@ export interface LessonResource {
   Id: number;
   Name: string;
   Url: string;
+  OrderNo?: number | null;
 }
 
 export interface LessonSummary {
@@ -12,6 +13,7 @@ export interface LessonSummary {
 export interface LessonDetail extends LessonSummary {
   LessonType: string;
   ContentUrl?: string | null;
+  LessonResources?: LessonResource[] | null;
   Resource?: LessonResource | null;
   // Deprecated fields - kept for backward compatibility during migration
   Content?: string;

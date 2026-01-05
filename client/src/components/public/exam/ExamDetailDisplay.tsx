@@ -11,6 +11,8 @@ const PRESET_DURATION_MINUTES: Record<string, number> = {
   P_15: 15,
   P_30: 30,
   P_60: 60,
+  P_90: 90,
+  P_120: 120,
 }
 
 const getDurationMinutes = (exam: ExamData): number => {
@@ -41,7 +43,7 @@ export default function ExamDetailDisplay() {
 
   useEffect(() => {
     if (examId) {
-      const storedResult = sessionStorage.getItem(`exam_${examId}_result`)
+      const storedResult = sessionStorage.getItem(`exam_${examId}_result`) // FIXED: Template string
       if (storedResult) {
         try {
           setSessionScore(JSON.parse(storedResult))
@@ -58,7 +60,6 @@ export default function ExamDetailDisplay() {
 
   const { exam, result } = data
   const hasAttempted = (result !== null && result !== undefined) || sessionScore !== null
-
   const totalQuestions = sessionScore?.total || exam.Questions?.length || 0
   const scoreData = sessionScore || result
   const score = scoreData?.score || 0
@@ -70,13 +71,13 @@ export default function ExamDetailDisplay() {
   const durationDisplay = durationMinutes > 0 ? `${durationMinutes} minutes` : "No limit"
 
   const handleTakeExam = () => {
-    navigate(`/exam/${exam.Id}`)
+    navigate(`/exam/${exam.Id}`) // FIXED: Template string
   }
 
   return (
     <div className="p-6 max-w-3xl mx-auto border rounded-lg shadow">
       <h1 className="text-2xl font-bold mb-4">{exam.Title}</h1>
-
+      
       {/* Display duration from calculated value instead of exam.Duration */}
       <p className="text-gray-700 mb-2">Duration: {durationDisplay}</p>
 
@@ -86,10 +87,10 @@ export default function ExamDetailDisplay() {
             isPassed ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"
           }`}
         >
-          <p className={`font-semibold mb-1 ${isPassed ? "text-green-700" : "text-red-700"}`}>
+          <p className={`font-semibold mb-1 ${isPassed ? "text-green-700" : "text-red-700"}`}> {/* FIXED: Template string */}
             {isPassed ? "Exam Passed!" : "Not Passed"}
           </p>
-          <p className={`text-lg ${isPassed ? "text-green-600" : "text-red-600"}`}>
+          <p className={`text-lg ${isPassed ? "text-green-600" : "text-red-600"}`}> {/* FIXED: Template string */}
             Your Score: {score}/{totalQuestions} ({percentage}%)
           </p>
         </div>
