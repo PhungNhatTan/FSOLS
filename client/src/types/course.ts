@@ -35,6 +35,7 @@ export interface Course {
   Id: number
   Name: string
   Description: string
+  PublishedAt?: string | null  // Add this line
   DeletedAt?: string | null
   IsRejected?: boolean
   RejectionReason?: string | null
@@ -180,3 +181,12 @@ export interface Certificate {
   CreatedAt: string;
 }
 
+export interface FlattenedItem {
+  id: string;
+  type: "Lesson" | "Exam";
+  title: string;
+  moduleId: number;
+  moduleTitle: string;
+  lessonId?: string;
+  examId?: number;
+}
