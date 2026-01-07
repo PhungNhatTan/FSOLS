@@ -133,6 +133,7 @@ model Course {
   CourseEnroll         CourseEnroll[]
   QuestionBank         QuestionBank[]
   SpecializationCourse SpecializationCourse[]
+  Embedding            CourseEmbedding?
 
   // Verified check
   PublishedAt DateTime?
@@ -245,7 +246,7 @@ model CourseModule {
 model ModuleItem {
   Id String @id @default(cuid())
 
-  OrderNo Int 
+  OrderNo Int
 
   EstimatedDuration Int?
 
@@ -309,6 +310,13 @@ model CourseSkill {
   // Active check
   CreatedAt DateTime  @default(now())
   DeletedAt DateTime?
+}
+
+model CourseEmbedding {
+  Id       Int    @id @default(autoincrement())
+  CourseId Int    @unique
+  Course   Course @relation(fields: [CourseId], references: [Id])
+  Vector   Json // Stores the float array as JSON for MySQL compatibility
 }
 
 // #endregion
