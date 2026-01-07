@@ -8,5 +8,6 @@ router.get('/featured', course.getFeatured);
 router.get('/:id(\\d+)', course.get);
 router.get('/', course.getAll);
 router.get('/enrolled', course.getEnrolled);
+router.get('/recommendations', course.getRecommendation);
 
 export default router;

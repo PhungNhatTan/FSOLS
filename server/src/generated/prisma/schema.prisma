@@ -133,6 +133,7 @@ model Course {
   CourseEnroll         CourseEnroll[]
   QuestionBank         QuestionBank[]
   SpecializationCourse SpecializationCourse[]
+  Embedding            CourseEmbedding?
 
   // Verified check
   PublishedAt DateTime?
@@ -311,6 +312,13 @@ model CourseSkill {
   DeletedAt DateTime?
 }
 
+model CourseEmbedding {
+  Id       Int    @id @default(autoincrement())
+  CourseId Int    @unique
+  Course   Course @relation(fields: [CourseId], references: [Id])
+  Vector   Json // Stores the float array as JSON for MySQL compatibility
+}
+
 // #endregion
 
 // #region Enrollment and progress tracking
@@ -353,6 +361,8 @@ model LessonProgress {
   CompletedAt DateTime?
 
   CreatedAt DateTime @default(now())
+
+  @@unique([AccountId, CourseEnrollId, LessonId])
 }
 
 // #endregion
