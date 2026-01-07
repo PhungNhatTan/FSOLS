@@ -27,6 +27,10 @@ import CourseManagePageManager from "./pages/moderator/CoursesManagePage"
 import CertificatesPageAdmin from "./pages/moderator/CertificatesPage"
 import CourseDraftPreviewPage from "./pages/moderator/CourseDraftPreviewPage"
 
+// Admin Pages
+import AdminDashboard from "./pages/admin/Dashboard"
+import AccountsPage from "./pages/admin/AccountsPage"
+
 // Auth
 import ProtectedRoute from "./components/ProtectedRoute"
 import { AuthProvider } from "./context/authProvider"
@@ -34,6 +38,7 @@ import { AuthProvider } from "./context/authProvider"
 // Layouts and Helpers
 import ModeratorLayout from "./layout/ModeratorLayout"
 import ManageLayout from "./layout/ManageLayout"
+import AdminLayout from "./layout/AdminLayout"
 import RootRedirect from "./components/RootRedirect"
 import HomePage from "./pages/public/HomePage"
 import { CourseStudyPage } from "./pages"
@@ -82,7 +87,7 @@ export default function App() {
           <Route
             path="/moderator"
             element={
-              <ProtectedRoute allowedRoles={["Moderator", "Admin"]}>
+              <ProtectedRoute allowedRoles={["Moderator"]}>
                 <ModeratorLayout />
               </ProtectedRoute>
             }
@@ -90,6 +95,21 @@ export default function App() {
             <Route path="dashboard" element={<DashboardManager />} />
             <Route path="courses" element={<CourseManagePageManager />} />
             <Route path="course/:id/preview" element={<CourseDraftPreviewPage />} />
+            <Route path="certificates" element={<CertificatesPageAdmin />} />
+          </Route>
+
+          {/* Admin Dashboard */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute allowedRoles={["Admin"]}>
+                <AdminLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="dashboard" element={<AdminDashboard />} />
+            <Route path="accounts" element={<AccountsPage />} />
+            <Route path="courses" element={<CourseManagePageManager />} />
             <Route path="certificates" element={<CertificatesPageAdmin />} />
           </Route>
 
