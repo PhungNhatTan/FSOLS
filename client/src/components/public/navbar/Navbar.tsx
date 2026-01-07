@@ -38,9 +38,9 @@ export default function Navbar() {
           </Link>
         )}
 
-        {/* Admin uses moderator dashboard */}
+        {/* Admin dashboard */}
         {user && user.role === "Admin" && (
-          <Link to="/moderator/dashboard" className="hover:text-green-400">
+          <Link to="/admin/dashboard" className="hover:text-green-400">
             Dashboard
           </Link>
         )}

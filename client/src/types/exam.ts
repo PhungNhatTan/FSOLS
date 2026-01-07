@@ -55,6 +55,7 @@ export interface StudentAnswer {
 
 export interface QuestionValue {
   answerId?: string
+  answerIds?: string[]
   answer?: string
 }
 
