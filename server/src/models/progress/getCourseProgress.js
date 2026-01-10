@@ -1,4 +1,4 @@
-import prisma from "../../prismaClient";
+import prisma from "../../prismaClient.js";
 
 async function getCourseProgress(accountId, courseId) {
   // Get or create enrollment

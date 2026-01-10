@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "start": "node index.js",
     "test": "npx vitest",
     "dev": "nodemon index.js",
     "lint": "eslint ."

@@ -11,7 +11,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "server": "npm run dev --workspace server",
     "client": "npm run dev --workspace client",
-    "lint": "eslint . --config eslint.config.js",
+    "lint": "npm run lint --workspace client && npm run lint --workspace server",
     "dev": "concurrently \"npm run server\" \"npm run client\""
   },
   "keywords": [],
@@ -20,20 +20,9 @@
   "type": "module",
   "devDependencies": {
     "@eslint/js": "^9.35.0",
-    "@types/react": "^19.2.2",
-    "@types/react-dom": "^19.2.2",
-    "@types/react-router-dom": "^5.3.3",
     "concurrently": "^9.2.1",
     "eslint": "^9.37.0",
-    "eslint-plugin-react": "^7.37.5",
-    "eslint-plugin-react-hooks": "^5.2.0",
     "nodemon": "^3.1.10",
     "typescript": "^5.9.3"
-  },
-  "dependencies": {
-    "axios": "^1.12.2",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "react-router-dom": "^7.9.5"
   }
 }

@@ -4,7 +4,14 @@ export default [
   },
   {
     files: ["src/**/*.js"],
-    languageOptions: { sourceType: "module" },
+    languageOptions: {
+      sourceType: "module",
+      globals: {
+        process: "readonly",
+        __dirname: "readonly",
+        console: "readonly",
+      },
+    },
     rules: {
       "no-unused-vars": "warn",
     },
