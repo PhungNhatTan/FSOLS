@@ -3,6 +3,7 @@ import { jwtDecode } from "jwt-decode"
 
 interface TokenPayload {
   userId: string
+  accountId: string
   username: string
   roles?: string[]
   exp: number

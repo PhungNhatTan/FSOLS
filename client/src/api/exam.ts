@@ -1,4 +1,5 @@
 // src/api/exam.ts
+import axios from "axios"
 import client from "../service/client"
 import type { ExamData, ExamDetailWithResult, StudentAnswer } from "../types"
 import { getAccountId } from "../utils/auth"
@@ -34,12 +35,16 @@ export const submit = async (data: { examId: number; answers: StudentAnswer[] })
     const res = await client.post("/examSubmission/submit", submitData)
 
     return res.data
-  } catch (error: any) {
-    console.error("[v0] Exam submission error:", error.response?.data || error.message)
+  } catch (error: unknown) {
+    let errorMsg = "Submission failed";
 
-    const errorMsg =
-      error.response?.data?.error || error.response?.data?.message || error.message || "Submission failed"
+    if (axios.isAxiosError(error)) {
+      console.error("[v0] Exam submission error:", error.response?.data || error.message);
+      errorMsg = error.response?.data?.error || error.response?.data?.message || error.message || errorMsg;
+    } else if (error instanceof Error) {
+      errorMsg = error.message;
+    }
 
-    throw new Error(errorMsg)
+    throw new Error(errorMsg);
   }
 }

@@ -8,6 +8,7 @@ import { Btn } from "../../components/manage/ui/Btn"
 import { Modal } from "../../components/manage/ui/Modal"
 import { createAccountWithRole } from "../../api/auth"
 import { getAllAccounts, type Account } from "../../api/account"
+import axios from "axios"
 
 interface AccountFormData {
   username: string
@@ -62,7 +63,7 @@ export default function AccountsPage() {
       const data = await getAllAccounts()
       setAccounts(data)
       setFilteredAccounts(data)
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error loading accounts:", err)
       setError("Failed to load accounts from database")
     } finally {
@@ -112,9 +113,15 @@ export default function AccountsPage() {
         setMessage("")
         loadAccounts()
       }, 1500)
-    } catch (err: any) {
-      console.error("Error creating account:", err)
-      setError(err.response?.data?.message || "Failed to create account")
+    } catch (err: unknown) {
+      console.error("Error creating account:", err);
+      let message = "Failed to create account";
+      if (axios.isAxiosError(err)) {
+        message = err.response?.data?.message || message;
+      } else if (err instanceof Error) {
+        message = err.message;
+      }
+      setError(message);
     } finally {
       setLoading(false)
     }

@@ -2,6 +2,7 @@
 import client from "../service/client"
 import type { AuthData, AuthResponse } from "../types/auth"
 import { setToken } from "../utils/auth"
+import { Account } from "./account"
 
 export async function login(data: AuthData): Promise<AuthResponse> {
   const res = await client.post<AuthResponse>("/account/login", data)
@@ -34,7 +35,7 @@ export async function createAccountWithRole(data: {
   role: "Mentor" | "Moderator" | "Admin"
   email?: string
   phone?: string
-}): Promise<any> {
+}): Promise<Account> {
   const res = await client.post("/account/create-with-role", data)
   return res.data
 }
