@@ -1,5 +1,7 @@
 import examSubmissionModel from "../../models/examSubmission/index.js";
 import questionBankModel from "../../models/questionBank/index.js";
+import progressModels from '../../models/progress/index.js';
+import prisma from '../../prismaClient.js';
 
 export default async function submitExam(req, res, next) {
     try {
@@ -21,7 +23,38 @@ export default async function submitExam(req, res, next) {
             let isCorrect = null;
             let gainedScore = 0;
 
-            if (["MCQ", "TF", "Fill"].includes(question.Type)) {
+            // Handle Fill questions separately
+            if (question.Type === "Fill") {
+                const correctAnswers = question.ExamAnswer.filter((a) => a.IsCorrect);
+                
+                if (correctAnswers.length > 0 && answer) {
+                    // Normalize both answers for comparison
+                    const normalizeAnswer = (str) => 
+                        str.trim().toLowerCase().replace(/\s+/g, ' ');
+                    
+                    const submittedAnswer = normalizeAnswer(answer);
+                    
+                    // Check if submitted answer matches any correct answer
+                    isCorrect = correctAnswers.some(correctAns => 
+                        normalizeAnswer(correctAns.AnswerText) === submittedAnswer
+                    );
+                    
+                    gainedScore = isCorrect ? 1 : 0;
+                }
+                
+                score += gainedScore;
+                total += 1;
+                
+                await examSubmissionModel.createStudentAnswer({
+                    SubmissionId: submission.Id,
+                    QuestionId: questionId,
+                    Answer: answer,
+                    IsCorrect: isCorrect,
+                    Score: gainedScore,
+                });
+            }
+            // Handle MCQ and True/False questions
+            else if (["MCQ", "TF"].includes(question.Type)) {
                 const correctAnswers = question.ExamAnswer.filter((a) => a.IsCorrect);
 
                 if (correctAnswers.length === 1) {
@@ -72,7 +105,9 @@ export default async function submitExam(req, res, next) {
                         Score: gainedScore,
                     });
                 }
-            } else if (question.Type === "Essay") {
+            }
+            // Handle Essay questions
+            else if (question.Type === "Essay") {
                 await examSubmissionModel.createStudentAnswer({
                     SubmissionId: submission.Id,
                     QuestionId: questionId,
@@ -84,6 +119,23 @@ export default async function submitExam(req, res, next) {
         }
 
         await examSubmissionModel.updateScore(submission.Id, score);
+
+        const examData = await prisma.exam.findUnique({
+            where: { Id: parseInt(examId) },
+            include: {
+                ModuleItem: {
+                    include: {
+                        CourseModule: true
+                    }
+                }
+            }
+        });
+
+        const courseId = examData?.ModuleItem?.CourseModule?.CourseId;
+        if (courseId) {
+            console.log("Checking course completion for account:", accountId, "course:", courseId);
+            await progressModels.completeCourse(accountId, courseId);
+        }
 
         res.status(201).json({
             message: "Submission recorded",

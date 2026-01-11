@@ -24,38 +24,27 @@ async function checkCourseCompletion(accountId, courseId) {
     },
   });
 
-  // Get total exams in course
-  const totalExams = await prisma.exam.count({
-    where: {
-      ModuleItem: {
-        CourseModule: {
-          CourseId: courseId,
-        },
-      },
-      DeletedAt: null,
-    },
-  });
-
   // Count completed lessons
   const completedLessons = enrollment.lessonProgresses.filter(
     lp => lp.IsCompleted
   ).length;
 
   // Count completed exams
-  const completedExams = await prisma.examSubmission.count({
-    where: {
-      AccountId: accountId,
-      Exam: {
-        ModuleItem: {
-          CourseModule: {
-            CourseId: courseId,
-          },
-        },
-      },
-    },
+  const exams = await prisma.exam.findMany({
+    where: { ModuleItem: { CourseModule: { CourseId: courseId } }, DeletedAt: null },
+    include: { _count: { select: { ExamQuestion: true } } }
   });
 
-  return completedLessons === totalLessons && completedExams === totalExams;
+  let passedExamsCount = 0;
+  for (const exam of exams) {
+    const passingScore = Math.ceil(exam._count.ExamQuestion * 0.8);
+    const bestSubmission = await prisma.examSubmission.findFirst({
+      where: { AccountId: accountId, ExamId: exam.Id, Score: { gte: passingScore } }
+    });
+    if (bestSubmission) passedExamsCount++;
+  }
+
+  return completedLessons === totalLessons && passedExamsCount === exams.length;
 }
 
 export default checkCourseCompletion;

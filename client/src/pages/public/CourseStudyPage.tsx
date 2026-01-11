@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import CourseSidebar from "../../components/public/courseSidebar/CourseSidebar";
-import LessonViewer from "../../components/public/lesson/LessonViewer"; // NEW wrapper component
+import LessonViewer from "../../components/public/lesson/LessonViewer";
 import ExamViewer from "../../components/public/exam/ExamViewer";
 import ExamDetailViewer from "../../components/public/exam/ExamDetailViewer";
 import http from "../../service/http";
@@ -17,7 +17,7 @@ export default function CourseStudyPage() {
   const [enrollmentId, setEnrollmentId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [takingExam, setTakingExam] = useState(false); // NEW: Track exam mode
+  const [takingExam, setTakingExam] = useState(false);
 
   // Load course data
   useEffect(() => {
@@ -27,7 +27,6 @@ export default function CourseStudyPage() {
       return;
     }
 
-    // Load course data and progress in parallel
     Promise.all([
       http.get<CourseNavData>(`/course/${id}`),
       http.get<{ enrollmentId: number; completedLessons: number[]; completedExams: number[] }>(`/progress/courses/${id}`)
@@ -38,14 +37,11 @@ export default function CourseStudyPage() {
         const { enrollmentId: eId, completedLessons, completedExams } = progressRes.data;
         setEnrollmentId(eId);
 
-        // Convert backend IDs to frontend Set format
         const completed = new Set<string>();
         completedLessons.forEach(lid => completed.add(`lesson-${lid}`));
         completedExams.forEach(eid => completed.add(`exam-${eid}`));
         setCompletedItems(completed);
         
-        // Set first item as current if nothing is saved in local storage for this session
-        // We still use localStorage for the current item ID as a convenience
         const savedProgress = localStorage.getItem(`course_${id}_last_item`);
         const firstItem = flattenCourseItems(courseRes.data.CourseModule)[0];
         
@@ -64,7 +60,6 @@ export default function CourseStudyPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  // Flatten course structure
   const flattenedItems = courseData 
     ? flattenCourseItems(courseData.CourseModule)
     : [];
@@ -72,7 +67,10 @@ export default function CourseStudyPage() {
   const currentItem = flattenedItems.find(item => item.id === currentItemId);
   const currentIndex = flattenedItems.findIndex(item => item.id === currentItemId);
 
-  // Save current item to localStorage for convenience
+  // Check if all items are completed
+  const allItemsCompleted = flattenedItems.length > 0 && 
+    flattenedItems.every(item => completedItems.has(item.id));
+
   useEffect(() => {
     if (id && currentItemId) {
       localStorage.setItem(`course_${id}_last_item`, currentItemId);
@@ -89,8 +87,6 @@ export default function CourseStudyPage() {
           enrollmentId
         });
       }
-      // For Exams, the submission already tracks progress on the backend
-      // But we update the local state to reflect it immediately
       
       setCompletedItems(prev => new Set(prev).add(currentItemId));
       
@@ -104,32 +100,54 @@ export default function CourseStudyPage() {
     }
   }, [currentItemId, currentItem, id, enrollmentId, currentIndex, flattenedItems]);
 
-  // NEW: Start taking exam
   const handleStartExam = useCallback(() => {
     setTakingExam(true);
   }, []);
 
-  // NEW: Return from taking exam to detail view
-  const handleExamComplete = useCallback(() => {
+  // NEW: Handle exam completion - mark as complete AND exit exam mode
+  const handleExamComplete = useCallback(async () => {
+    if (!currentItemId || !currentItem || !id) return;
+    
+    // Mark the exam as completed
+    setCompletedItems(prev => new Set(prev).add(currentItemId));
+    
+    // Exit exam taking mode
     setTakingExam(false);
-  }, []);
+    
+    // Optional: Auto-advance to next item after a short delay
+    setTimeout(() => {
+      if (currentIndex < flattenedItems.length - 1) {
+        setCurrentItemId(flattenedItems[currentIndex + 1].id);
+      }
+    }, 2000);
+  }, [currentItemId, currentItem, id, currentIndex, flattenedItems]);
 
-  // Navigation handlers
   const handlePrevious = () => {
     if (currentIndex > 0) {
       setCurrentItemId(flattenedItems[currentIndex - 1].id);
+      setTakingExam(false);
     }
   };
 
   const handleNext = () => {
     if (currentIndex < flattenedItems.length - 1) {
       setCurrentItemId(flattenedItems[currentIndex + 1].id);
+      setTakingExam(false);
     }
   };
 
   const handleSelectItem = (itemId: string) => {
     setCurrentItemId(itemId);
-    setTakingExam(false); // Reset exam mode when switching items
+    setTakingExam(false);
+  };
+
+  // NEW: Handle course completion
+  const handleCompleteCourse = () => {
+    if (allItemsCompleted) {
+      // You can add completion logic here (API call, show modal, etc.)
+      alert("Congratulations! You've completed the course!");
+      navigate("/courses");
+    }
   };
 
   if (loading) {
@@ -168,7 +186,6 @@ export default function CourseStudyPage() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      {/* Sidebar */}
       <CourseSidebar
         courseData={courseData}
         currentItemId={currentItemId}
@@ -178,7 +195,6 @@ export default function CourseStudyPage() {
         onBack={() => navigate("/courses")}
       />
 
-      {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="flex-1 overflow-y-auto bg-white">
           {currentItem?.type === "Lesson" ? (
@@ -187,7 +203,6 @@ export default function CourseStudyPage() {
               onComplete={handleComplete}
             />
           ) : currentItem?.type === "Exam" ? (
-            // Show ExamDetailViewer or ExamViewer based on takingExam state
             takingExam ? (
               <ExamViewer
                 examId={currentItem.examId!}
@@ -219,20 +234,28 @@ export default function CourseStudyPage() {
             {currentIndex + 1} of {flattenedItems.length}
           </div>
 
-          <button
-            onClick={handleNext}
-            disabled={currentIndex === flattenedItems.length - 1}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 transition"
-          >
-            {currentIndex === flattenedItems.length - 1 ? "Complete Course" : "Next →"}
-          </button>
+          {currentIndex === flattenedItems.length - 1 ? (
+            <button
+              onClick={handleCompleteCourse}
+              disabled={!allItemsCompleted}
+              className="px-6 py-2 bg-green-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-green-700 transition"
+            >
+              Complete Course {allItemsCompleted ? "✓" : ""}
+            </button>
+          ) : (
+            <button
+              onClick={handleNext}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+            >
+              Next →
+            </button>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-// Flatten course structure into linear array
 function flattenCourseItems(modules: CourseModule[]): FlattenedItem[] {
   const items: FlattenedItem[] = [];
 
@@ -244,7 +267,6 @@ function flattenCourseItems(modules: CourseModule[]): FlattenedItem[] {
     );
 
     for (const moduleItem of sortedItems) {
-      // Add lessons (CourseLesson is an array or null)
       const lessons = moduleItem.CourseLesson || [];
       for (const lesson of lessons) {
         items.push({
@@ -253,11 +275,10 @@ function flattenCourseItems(modules: CourseModule[]): FlattenedItem[] {
           title: lesson.Title,
           moduleId: module.Id,
           moduleTitle: `Module ${module.OrderNo || module.Id}`,
-          lessonId: String(lesson.Id), // Convert to string
+          lessonId: String(lesson.Id),
         });
       }
 
-      // Add exams (Exam is an array or null)
       const exams = moduleItem.Exam || [];
       for (const exam of exams) {
         items.push({
