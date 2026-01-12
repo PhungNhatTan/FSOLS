@@ -1,12 +1,41 @@
-import certificateModel from "../../models/certificate/index.js";
+import prisma from "../../prismaClient.js";
 
 export default async function getCertificateController(req, res, next) {
     try {
         const { accountId, certificateId } = req.params;
 
-        const cert = await certificateModel.get({
-            accountId,
-            certificateId: parseInt(certificateId, 10),
+        const cert = await prisma.userCertificate.findFirst({
+            where: {
+                AccountId: accountId,
+                CertificateId: parseInt(certificateId, 10),
+            },
+            include: {
+                Account: {
+                    select: {
+                        Id: true,
+                        DisplayName: true,
+                    },
+                },
+                Certificate: {
+                    select: {
+                        Id: true,
+                        CertificateType: true,
+                        CourseId: true,
+                        Course: {
+                            select: {
+                                Name: true,
+                            },
+                        },
+                        SpecializationId: true,
+                        Specialization: {
+                            select: {
+                                SpecializationCode: true,
+                                SpecializationName: true,
+                            },
+                        },
+                    },
+                },
+            },
         });
 
         if (!cert) {

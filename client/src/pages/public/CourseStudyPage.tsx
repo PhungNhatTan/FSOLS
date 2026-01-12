@@ -10,7 +10,7 @@ import type { CourseNavData, CourseModule, FlattenedItem } from "../../types/cou
 export default function CourseStudyPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  
+
   const [courseData, setCourseData] = useState<CourseNavData | null>(null);
   const [currentItemId, setCurrentItemId] = useState<string | null>(null);
   const [completedItems, setCompletedItems] = useState<Set<string>>(new Set());
@@ -33,7 +33,7 @@ export default function CourseStudyPage() {
     ])
       .then(([courseRes, progressRes]) => {
         setCourseData(courseRes.data);
-        
+
         const { enrollmentId: eId, completedLessons, completedExams } = progressRes.data;
         setEnrollmentId(eId);
 
@@ -41,16 +41,16 @@ export default function CourseStudyPage() {
         completedLessons.forEach(lid => completed.add(`lesson-${lid}`));
         completedExams.forEach(eid => completed.add(`exam-${eid}`));
         setCompletedItems(completed);
-        
+
         const savedProgress = localStorage.getItem(`course_${id}_last_item`);
         const firstItem = flattenCourseItems(courseRes.data.CourseModule)[0];
-        
+
         if (savedProgress) {
           setCurrentItemId(savedProgress);
         } else if (firstItem) {
           setCurrentItemId(firstItem.id);
         }
-        
+
         setError("");
       })
       .catch((err) => {
@@ -60,7 +60,7 @@ export default function CourseStudyPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  const flattenedItems = courseData 
+  const flattenedItems = courseData
     ? flattenCourseItems(courseData.CourseModule)
     : [];
 
@@ -68,7 +68,7 @@ export default function CourseStudyPage() {
   const currentIndex = flattenedItems.findIndex(item => item.id === currentItemId);
 
   // Check if all items are completed
-  const allItemsCompleted = flattenedItems.length > 0 && 
+  const allItemsCompleted = flattenedItems.length > 0 &&
     flattenedItems.every(item => completedItems.has(item.id));
 
   useEffect(() => {
@@ -80,16 +80,16 @@ export default function CourseStudyPage() {
   // Mark current item as completed and move to next
   const handleComplete = useCallback(async () => {
     if (!currentItemId || !currentItem || !id) return;
-    
+
     try {
       if (currentItem.type === "Lesson" && enrollmentId) {
         await http.post(`/progress/lessons/${currentItem.lessonId}/complete`, {
           enrollmentId
         });
       }
-      
+
       setCompletedItems(prev => new Set(prev).add(currentItemId));
-      
+
       // Move to next item
       if (currentIndex < flattenedItems.length - 1) {
         setCurrentItemId(flattenedItems[currentIndex + 1].id);
@@ -107,13 +107,13 @@ export default function CourseStudyPage() {
   // NEW: Handle exam completion - mark as complete AND exit exam mode
   const handleExamComplete = useCallback(async () => {
     if (!currentItemId || !currentItem || !id) return;
-    
+
     // Mark the exam as completed
     setCompletedItems(prev => new Set(prev).add(currentItemId));
-    
+
     // Exit exam taking mode
     setTakingExam(false);
-    
+
     // Optional: Auto-advance to next item after a short delay
     setTimeout(() => {
       if (currentIndex < flattenedItems.length - 1) {
@@ -146,7 +146,7 @@ export default function CourseStudyPage() {
     if (allItemsCompleted) {
       // You can add completion logic here (API call, show modal, etc.)
       alert("Congratulations! You've completed the course!");
-      navigate("/courses");
+      navigate(`/course/${id}`);
     }
   };
 
@@ -167,7 +167,7 @@ export default function CourseStudyPage() {
             onClick={() => navigate("/courses")}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
           >
-            Back to Courses
+            Back to Course
           </button>
         </div>
       </div>
@@ -192,7 +192,7 @@ export default function CourseStudyPage() {
         completedItems={completedItems}
         progress={progress}
         onSelectItem={handleSelectItem}
-        onBack={() => navigate("/courses")}
+        onBack={() => navigate(`/course/${id}`)}
       />
 
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -235,13 +235,16 @@ export default function CourseStudyPage() {
           </div>
 
           {currentIndex === flattenedItems.length - 1 ? (
-            <button
-              onClick={handleCompleteCourse}
-              disabled={!allItemsCompleted}
-              className="px-6 py-2 bg-green-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-green-700 transition"
-            >
-              Complete Course {allItemsCompleted ? "✓" : ""}
-            </button>
+            <div className="flex gap-2">
+              {allItemsCompleted}
+              <button
+                onClick={handleCompleteCourse}
+                disabled={!allItemsCompleted}
+                className="px-6 py-2 bg-green-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-green-700 transition"
+              >
+                Complete Course {allItemsCompleted ? "✓" : ""}
+              </button>
+            </div>
           ) : (
             <button
               onClick={handleNext}

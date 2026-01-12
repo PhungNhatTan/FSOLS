@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from "react"
 import { Link, useParams, useNavigate } from "react-router-dom"
 import courseApi from "../../api/course"
 import type { CourseDetail, CourseModule } from "../../types/course"
+import type { Enrollment } from "../../types/enrollment"
 import EnrollButton from "../../components/public/course/EnrollButton"
+import { useAuth } from "../../hooks/useAuth"
 
 /* ----------------------------- Helpers: time rule ---------------------------- */
 
@@ -45,6 +47,8 @@ type CourseDetailExt = CourseDetail & {
   CourseModule?: CourseModule[]
   Lessons?: unknown
   Exams?: unknown
+  Certificate?: { Id: number }
+  isCompleted?: boolean
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null
@@ -107,22 +111,33 @@ const getExamRaw = (item: unknown): unknown => (isRecord(item) ? item["Exam"] : 
 export default function CourseDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [course, setCourse] = useState<CourseDetailExt | null>(null)
+  const [enrollment, setEnrollment] = useState<Enrollment | null>(null)
   const [error, setError] = useState("")
 
   useEffect(() => {
-    if (!id) return
+    if (!id || !user?.accountId) return
     ;(async () => {
       try {
-        const courseData = (await courseApi.getById(Number(id))) as CourseDetailExt
+        console.log("Fetching course data...")
+        const courseData = await courseApi.getCourseWithCertificate(Number(id), user.accountId)
+        console.log("Fetched course data:", courseData)
         setCourse(courseData)
+
+        console.log("Fetching enrollment data...")
+        const enrollmentResponse = await courseApi.getEnrollmentStatus(Number(id))
+        const enrollmentData = enrollmentResponse?.enrollment || null
+        console.log("Fetched enrollment data:", enrollmentData)
+        setEnrollment(enrollmentData)
+
         setError("")
       } catch (err) {
-        console.error(err)
+        console.error("Error fetching course or enrollment data:", err)
         setError("Failed to load course.")
       }
     })()
-  }, [id])
+  }, [id, user?.accountId])
 
   const derived = useMemo(() => {
     if (!course) {
@@ -277,12 +292,18 @@ export default function CourseDetailPage() {
     return derived.modules.reduce((sum, m) => sum + (moduleMinutesMap[m.key] ?? 0), 0)
   }, [derived.modules, moduleMinutesMap])
 
-  // NEW: Handler for Start Course button
   const handleStartCourse = () => {
     if (course?.Id) {
       navigate(`/course-study/${course.Id}`)
     }
   }
+
+  // Check if course is completed and has a certificate
+  const showCertificate = enrollment?.Status === "Completed" && course?.Certificate != null;
+
+  console.log("Enrollment Status:", enrollment?.Status);
+  console.log("Course Certificate:", course?.Certificate);
+  console.log("User Account ID:", user?.accountId);
 
   if (!course && !error) {
     return (
@@ -304,11 +325,10 @@ export default function CourseDetailPage() {
             <div className="mb-6">
               <h1 className="text-2xl font-bold mb-3">{course.Name}</h1>
               
-              {/* NEW: Action buttons */}
+              {/* Action buttons */}
               <div className="mt-4 flex gap-3 flex-wrap">
                 <EnrollButton courseId={course.Id} />
                 
-                {/* NEW: Start Course button */}
                 <button
                   onClick={handleStartCourse}
                   className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition flex items-center gap-2"
@@ -316,7 +336,28 @@ export default function CourseDetailPage() {
                   <span>▶</span>
                   Start Course
                 </button>
+
+                {/* NEW: View Certificate button */}
+                {user && showCertificate && course.Certificate && (
+                  <Link
+                    to={`/certificate/${user.accountId}/${course.Certificate.Id}`}
+                    className="px-6 py-2 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg transition flex items-center gap-2"
+                  >
+                    <span>🏆</span>
+                    View Certificate
+                  </Link>
+                )}
               </div>
+
+              {/* Completion status */}
+              {enrollment?.Status === "Completed" && (
+                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
+                  <span className="text-green-600 text-xl">✓</span>
+                  <span className="text-green-800 font-medium">
+                    Congratulations! You've completed this course.
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="mb-6">

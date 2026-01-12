@@ -54,6 +54,10 @@ export interface CourseDetail extends Course {
   Exams: Exam[][] // nested arrays grouped by module
   // Optional: returned by some endpoints. Useful for rendering an ordered timeline (module -> items).
   CourseModule?: CourseModule[]
+  Certificate?: {
+    Id: number
+    CertificateType: "Course" | "Specialization"
+  }
 }
 
 export interface CourseStudyContext {

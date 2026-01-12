@@ -3,6 +3,7 @@ import client from "../service/client";
 import type { Course, CourseDetail, RawCourseDetail, RawCourseModule, CourseModule, VerificationRequest } from "../types/course";
 import type { LessonSummary } from "../types/lesson";
 import type { Exam } from "../types/exam";
+import type { EnrollmentResponse } from "../types/enrollment";
 
 const getAll = async (): Promise<Course[]> => {
   const res = await client.get<Course[]>("/course");
@@ -144,5 +145,25 @@ const getVerificationRequests = async (): Promise<VerificationRequest[]> => {
   return res.data;
 };
 
-const course = { getAll, getEnrolled, getFeatured, getById, getDraftById, getRawById, getByCreator, create, update, remove, verify, reject, getVerificationRequests };
+const getEnrollmentStatus = async (courseId: number): Promise<EnrollmentResponse | null> => {
+  try {
+    const res = await client.get<EnrollmentResponse>(`/enrollment/status/${courseId}`);
+    return res.data;
+  } catch (err) {
+    console.error("Failed to fetch enrollment status", err);
+    return null;
+  }
+};
+
+const getCourseWithCertificate = async (courseId: number, accountId: string): Promise<CourseDetail> => {
+  try {
+    const res = await client.get<CourseDetail>(`/course/${courseId}/${accountId}`);
+    return res.data;
+  } catch (err) {
+    console.error("Failed to fetch course with certificate", err);
+    throw err;
+  }
+};
+
+const course = { getAll, getEnrolled, getFeatured, getById, getDraftById, getRawById, getByCreator, create, update, remove, verify, reject, getVerificationRequests, getEnrollmentStatus, getCourseWithCertificate };
 export default course;

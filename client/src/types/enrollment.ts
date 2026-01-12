@@ -20,3 +20,8 @@ export interface EnrollmentWithCourse extends Enrollment {
     }
   }
 }
+
+export interface EnrollmentResponse {
+  isEnrolled: boolean;
+  enrollment: Enrollment | null;
+}

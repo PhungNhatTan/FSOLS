@@ -8,6 +8,7 @@ import RegisterPage from "./pages/public/RegisterPage"
 import LessonPage from "./components/public/lesson/LessonPage"
 import ExamPage from "./components/public/exam/ExamPage"
 import ExamDetailDisplay from "./components/public/exam/ExamDetailDisplay"
+import CertificatePage from "./pages/public/CertificatePage"
 
 // Mentor Pages
 import Dashboard from "./pages/mentor/Dashboard"
@@ -112,6 +113,9 @@ export default function App() {
             <Route path="courses" element={<CourseManagePageManager />} />
             <Route path="certificates" element={<CertificatesPageAdmin />} />
           </Route>
+
+          {/* Certificate */}
+          <Route path="/certificate/:accountId/:certificateId" element={<CertificatePage />} />
 
           {/* 404 */}
           <Route path="*" element={<h1 className="p-6 text-red-500">404 Not Found</h1>} />

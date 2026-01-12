@@ -20,7 +20,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         handleLogout();
       } else {
         setUser({
-          accountId: decoded.accountId,
+          accountId: decoded.userId, // Fix mapping
           username: decoded.username,
           role: decoded.roles?.[0] ?? "Student",
         });
