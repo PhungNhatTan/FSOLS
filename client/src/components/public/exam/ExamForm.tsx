@@ -1,5 +1,4 @@
 "use client"
-
 import { useCallback, memo, useMemo } from "react"
 import Question from "./Question"
 import type { ExamFormProps, StudentAnswer, QuestionValue } from "../../../types"
@@ -23,12 +22,22 @@ const ExamForm = memo(function ExamForm({
   const handleAnswerChange = useCallback(
     (questionBankId: string, data: Partial<QuestionValue>) => {
       setAnswers((prev) => {
+        // Create answer object with only defined properties
         const newAnswer: StudentAnswer = {
           questionId: questionBankId,
-          answerId: data.answerId,
-          answer: data.answer,
         }
-
+        
+        // Only add properties if they're defined
+        if (data.answerId !== undefined) {
+          newAnswer.answerId = data.answerId
+        }
+        if (data.answerIds !== undefined) {
+          newAnswer.answerIds = data.answerIds
+        }
+        if (data.answer !== undefined) {
+          newAnswer.answer = data.answer
+        }
+        
         return {
           ...prev,
           [questionBankId]: newAnswer,
@@ -46,8 +55,32 @@ const ExamForm = memo(function ExamForm({
       : null
   }, [answers, currentQuestion])
 
+  // Wrap navigation handlers to prevent form submission
+  const handleNext = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    onNext()
+  }, [onNext])
+
+  const handlePrevious = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    onPrevious()
+  }, [onPrevious])
+
+  // Ensure submit only happens when submit button is clicked
+  const handleFormSubmit = useCallback((e: React.FormEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    // Only submit if we're on the last question
+    if (isLastQuestion) {
+      onSubmit(e)
+    }
+  }, [isLastQuestion, onSubmit])
+
   return (
-    <form onSubmit={onSubmit} className="space-y-6">
+    <form onSubmit={handleFormSubmit} className="space-y-6">
       {/* Question counter and progress */}
       <div className="flex items-center justify-between mb-4">
         <span className="text-sm font-medium text-gray-600">
@@ -75,19 +108,17 @@ const ExamForm = memo(function ExamForm({
       <div className="flex gap-3 pt-6 border-t">
         <button
           type="button"
-          onClick={onPrevious}
+          onClick={handlePrevious}
           disabled={isFirstQuestion || submitted || isSubmitting}
           className="px-4 py-2 bg-gray-300 hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed text-gray-800 rounded transition"
         >
           Previous
         </button>
-
         <div className="flex-1" />
-
         {!isLastQuestion ? (
           <button
             type="button"
-            onClick={onNext}
+            onClick={handleNext}
             disabled={submitted || isSubmitting}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded transition"
           >

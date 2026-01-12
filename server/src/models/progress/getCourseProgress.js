@@ -28,33 +28,27 @@ async function getCourseProgress(accountId, courseId) {
     },
   });
 
-  // Get all exam submissions for this course
-  const examSubmissions = await prisma.examSubmission.findMany({
-    where: {
-      AccountId: accountId,
-      Exam: {
-        ModuleItem: {
-          CourseModule: {
-            CourseId: courseId,
-          },
-        },
-      },
-    },
-    include: {
-      Exam: {
-        select: {
-          Id: true,
-        },
-      },
-    },
+  // Get all passed exam submissions for this course
+  const examsWithQuestions = await prisma.exam.findMany({
+    where: { ModuleItem: { CourseModule: { CourseId: courseId } }, DeletedAt: null },
+    include: { _count: { select: { ExamQuestion: true } } }
   });
+
+  const completedExams = [];
+  for (const exam of examsWithQuestions) {
+    const passingScore = Math.ceil(exam._count.ExamQuestion * 0.8);
+    const passed = await prisma.examSubmission.findFirst({
+      where: { AccountId: accountId, ExamId: exam.Id, Score: { gte: passingScore } }
+    });
+    if (passed) completedExams.push(exam.Id);
+  }
 
   return {
     enrollmentId: enrollment.Id,
     completedLessons: lessonProgress
       .filter(lp => lp.IsCompleted)
       .map(lp => lp.LessonId),
-    completedExams: examSubmissions.map(es => es.Exam.Id),
+    completedExams: completedExams,
   };
 }
 
