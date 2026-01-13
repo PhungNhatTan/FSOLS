@@ -5,17 +5,21 @@ import {
   productionUploadsDir,
 } from "../config/uploadPath.js";
 import { getMimeType } from "../utils/upload/mimeType.js";
+import { toPublicUrl } from "../utils/upload/toPublicUrl.js";
 
 export function buildDraftResource(courseId, file) {
+  const relativePath = `/uploads/draft/course-${courseId}/${file.filename}`;
+
   return {
     id: `draft_${Date.now()}_${Math.random().toString(36).slice(2)}`,
     name: file.originalname,
-    url: `/uploads/draft/course-${courseId}/${file.filename}`,
+    url: toPublicUrl(relativePath),
     size: file.size,
     type: file.mimetype,
     uploadedAt: new Date().toISOString(),
   };
 }
+
 
 export function listDraftResources(courseId) {
   const dir = path.join(draftUploadsDir, `course-${courseId}`);
@@ -25,10 +29,12 @@ export function listDraftResources(courseId) {
     const filePath = path.join(dir, filename);
     const stat = fs.statSync(filePath);
 
+    const relativePath = `/uploads/draft/course-${courseId}/${filename}`;
+
     return {
       id: `draft_${filename}`,
       name: filename,
-      url: `/uploads/draft/course-${courseId}/${filename}`,
+      url: toPublicUrl(relativePath),
       size: stat.size,
       type: getMimeType(filename),
       uploadedAt: stat.birthtime.toISOString(),
@@ -68,8 +74,8 @@ export function moveDraftToProduction(courseId) {
 
     moved.push({
       name: f,
-      draftUrl: `/uploads/draft/course-${courseId}/${f}`,
-      productionUrl: `/uploads/production/course-${courseId}/${f}`,
+      draftUrl: toPublicUrl(`/uploads/draft/course-${courseId}/${f}`),
+      productionUrl: toPublicUrl(`/uploads/production/course-${courseId}/${f}`),
     });
   }
 
