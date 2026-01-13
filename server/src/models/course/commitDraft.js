@@ -476,81 +476,87 @@ const commitDraftToDatabase = async (courseId, draft) => {
                 continue;
               }
 
-              if (rawQbId == null) {
-                // Auto-create a temp QB if content exists
-                if (qbPayload.questionText && qbPayload.type) {
-                  const qb = await tx.questionBank.create({
-                    data: {
-                      QuestionText: qbPayload.questionText,
-                      Type: mapQuestionType(qbPayload.type),
-                      Answer: qbPayload.answer ?? null,
-                      courseId,
-                      LessonId: qbPayload.lessonId ?? null,
-                    },
-                  });
-                  qbId = qb.Id;
-                } else {
-                  throw new Error("Draft exam question missing question bank identifier");
-                }
+              const qbPayload = q.questionBank;
+              if (!qbPayload) {
+                throw new Error("Draft exam question missing question bank data");
               }
 
               const rawQbId = qbPayload.id ?? q.questionBankId;
-              if (rawQbId == null) {
-                throw new Error("Draft exam question missing question bank identifier");
-              }
-
-              const qbIdIsTemp = isTempId(rawQbId);
-              const qbIdentifier = qbIdIsTemp ? rawQbId : String(rawQbId);
-
-              if (qbPayload.deleted) {
-                if (!qbIdIsTemp) {
-                  await softDelete(tx, "questionBank", { Id: qbIdentifier });
-                }
-                continue;
-              }
-
-              const questionType = mapQuestionType(qbPayload.type);
-              const qbBaseData = {
-                QuestionText: qbPayload.questionText,
-                Type: questionType,
-                Answer: qbPayload.answer ?? null,
-                courseId,
-                LessonId: qbPayload.lessonId ?? null,
-              };
-
               let qbId;
+              const questionType = mapQuestionType(qbPayload.type);
 
-              if (qbIdIsTemp) {
+              // --------------------------------------------------
+              // Auto-create QuestionBank if missing ID
+              // --------------------------------------------------
+              if (rawQbId == null) {
+                if (!qbPayload.questionText || !qbPayload.type) {
+                  throw new Error("Draft exam question missing question bank identifier");
+                }
+
                 const qb = await tx.questionBank.create({
-                  data: qbBaseData,
+                  data: {
+                    QuestionText: qbPayload.questionText,
+                    Type: mapQuestionType(qbPayload.type),
+                    Answer: qbPayload.answer ?? null,
+                    courseId,
+                    LessonId: qbPayload.lessonId ?? null,
+                  },
                 });
+
                 qbId = qb.Id;
               } else {
-                const qb = await safeUpsert(
-                  tx,
-                  "questionBank",
-                  { Id: qbIdentifier },
-                  qbBaseData,
-                  {
-                    ...qbBaseData,
-                    DeletedAt: null,
-                  },
-                  "string"
-                );
+                const qbIdIsTemp = isTempId(rawQbId);
+                const qbIdentifier = qbIdIsTemp ? rawQbId : String(rawQbId);
 
-                qbId = qb.Id;
-              }
+                if (qbPayload.deleted) {
+                  if (!qbIdIsTemp) {
+                    await softDelete(tx, "questionBank", { Id: qbIdentifier });
+                  }
+                  if (!isTempId(q.id)) {
+                    await softDelete(tx, "examQuestion", { Id: q.id });
+                  }
+                  continue;
+                }
 
-              if (questionType !== "Essay") {
-                await syncExamAnswers(tx, qbId, qbPayload.answers ?? []);
-              } else if (qbPayload.answers?.length) {
-                for (const answer of qbPayload.answers) {
-                  if (answer?.id && !isTempId(answer.id)) {
-                    await softDelete(tx, "examAnswer", { Id: answer.id });
+                const qbBaseData = {
+                  QuestionText: qbPayload.questionText,
+                  Type: questionType,
+                  Answer: qbPayload.answer ?? null,
+                  courseId,
+                  LessonId: qbPayload.lessonId ?? null,
+                };
+
+                if (qbIdIsTemp) {
+                  const qb = await tx.questionBank.create({
+                    data: qbBaseData,
+                  });
+                  qbId = qb.Id;
+                } else {
+                  const qb = await safeUpsert(
+                    tx,
+                    "questionBank",
+                    { Id: qbIdentifier },
+                    qbBaseData,
+                    { ...qbBaseData, DeletedAt: null },
+                    "string"
+                  );
+                  qbId = qb.Id;
+                }
+
+                if (questionType !== "Essay") {
+                  await syncExamAnswers(tx, qbId, qbPayload.answers ?? []);
+                } else if (qbPayload.answers?.length) {
+                  for (const answer of qbPayload.answers) {
+                    if (answer?.id && !isTempId(answer.id)) {
+                      await softDelete(tx, "examAnswer", { Id: answer.id });
+                    }
                   }
                 }
               }
 
+              // --------------------------------------------------
+              // Link question to exam
+              // --------------------------------------------------
               if (isTempId(q.id)) {
                 await tx.examQuestion.create({
                   data: {
