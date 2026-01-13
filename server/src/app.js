@@ -61,6 +61,9 @@ app.use("/uploads", express.static(uploadsDir, {
   }
 }));
 
+app.use("/uploads/draft", express.static(draftUploadsDir));
+app.use("/uploads/production", express.static(productionUploadsDir));
+
 app.use(routes);
 
 // Error handler for upload errors

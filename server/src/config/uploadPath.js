@@ -15,3 +15,9 @@ export const productionUploadsDir = path.join(baseUploadsDir, "production");
     fs.mkdirSync(dir, { recursive: true });
   }
 });
+
+/* 🔍 TEMP DEBUG LOG — REMOVE AFTER CONFIRMATION */
+console.log("📁 Upload paths:");
+console.log("Base:", baseUploadsDir);
+console.log("Draft:", draftUploadsDir);
+console.log("Production:", productionUploadsDir);
