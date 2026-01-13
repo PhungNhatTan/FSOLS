@@ -85,7 +85,7 @@ export const uploadDocument = multer({
 // Helper to get file URL
 export const getFileUrl = (filename, type) => {
   const folder = type === "Video" ? "videos" : "documents";
-  return `/uploads/${folder}/${filename}`;
+  return `${process.env.SERVER_URL}/uploads/${folder}/${filename}`;
 };
 
 export { uploadsDir };
