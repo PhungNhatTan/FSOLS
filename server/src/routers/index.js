@@ -31,7 +31,7 @@ import courseRouteModerator from "./moderator/courseRoute.js"
 
 // file upload route import
 import draftResourceRoute from "./draftResourceRoute.js"
-import uploadRoute from "./uploadRoute.js"
+// import uploadRoute from "./uploadRoute.js"
 
 const router = Router()
 
@@ -69,6 +69,6 @@ router.use("/api/manage/course", draftResourceRoute)
 router.use("/api/moderator/course", courseRouteModerator)
 
 // file upload
-router.use("/api/upload", uploadRoute)
+// router.use("/api/upload", uploadRoute)
 
 export default router

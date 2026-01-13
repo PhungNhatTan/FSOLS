@@ -15,7 +15,7 @@ app.use(
 app.use(express.json());
 
 // Serve uploaded files with correct MIME types
-app.use("/uploads", express.static(uploadsDir, {
+app.use("/uploads", express.static(baseUploadsDir, {
   setHeaders: (res, path) => {
     // Set correct MIME types for video files
     if (path.endsWith('.mp4')) {

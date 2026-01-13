@@ -5,7 +5,7 @@ import { authorize } from '../../middleware/role.js';
 
 const router = express.Router();
 
-router.post('/', authenticate, authorize(["Mentor"]), lessonController.create);
+// router.post('/', authenticate, authorize(["Mentor"]), lessonController.create);
 router.delete('/:id', authenticate, authorize(["Mentor"]), lessonController.remove);
 
 export default router;
