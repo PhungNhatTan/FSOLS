@@ -445,7 +445,7 @@ model ExamQuestion {
 model ExamAnswer {
   Id String @id @default(cuid())
 
-  AnswerText String @db.Text
+  AnswerText String
 
   IsCorrect Boolean @default(false)
 
@@ -489,7 +489,7 @@ model StudentAnswer {
   AnswerId String?
 
   // for essay
-  Answer String? @db.Text
+  Answer String?
 
   IsCorrect      Boolean? // snapshot at submission time
   Score          Int? // snapshot at submission time
