@@ -476,9 +476,22 @@ const commitDraftToDatabase = async (courseId, draft) => {
                 continue;
               }
 
-              const qbPayload = q.questionBank;
-              if (!qbPayload) {
-                throw new Error("Draft exam question missing question bank data");
+              if (rawQbId == null) {
+                // Auto-create a temp QB if content exists
+                if (qbPayload.questionText && qbPayload.type) {
+                  const qb = await tx.questionBank.create({
+                    data: {
+                      QuestionText: qbPayload.questionText,
+                      Type: mapQuestionType(qbPayload.type),
+                      Answer: qbPayload.answer ?? null,
+                      courseId,
+                      LessonId: qbPayload.lessonId ?? null,
+                    },
+                  });
+                  qbId = qb.Id;
+                } else {
+                  throw new Error("Draft exam question missing question bank identifier");
+                }
               }
 
               const rawQbId = qbPayload.id ?? q.questionBankId;
