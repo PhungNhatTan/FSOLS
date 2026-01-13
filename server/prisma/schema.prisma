@@ -406,11 +406,11 @@ model QuestionBank {
   LessonId     String?
   CourseLesson CourseLesson? @relation(fields: [LessonId], references: [Id])
 
-  QuestionText String
+  QuestionText String @db.Text
   Type         QuestionType @default(MCQ)
 
   // for Essay
-  Answer String?
+  Answer String? @db.Text
 
   // for MCQ Fill and TrueFalse
   ExamAnswer   ExamAnswer[]
@@ -445,7 +445,7 @@ model ExamQuestion {
 model ExamAnswer {
   Id String @id @default(cuid())
 
-  AnswerText String
+  AnswerText String @db.Text
 
   IsCorrect Boolean @default(false)
 
@@ -489,7 +489,7 @@ model StudentAnswer {
   AnswerId String?
 
   // for essay
-  Answer String?
+  Answer String? @db.Text
 
   IsCorrect      Boolean? // snapshot at submission time
   Score          Int? // snapshot at submission time
