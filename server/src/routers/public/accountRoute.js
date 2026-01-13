@@ -8,6 +8,6 @@ const router = Router()
 router.post("/register", accountController.register)
 router.post("/login", accountController.authentication)
 router.post("/create-with-role", accountController.createAccountWithRole)
-router.get("/all", authenticate, authorize(["admin"]), accountController.getAll)
+router.get("/all", authenticate, authorize(["Admin"]), accountController.getAll)
 
 export default router
