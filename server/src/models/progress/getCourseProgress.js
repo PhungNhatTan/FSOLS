@@ -1,55 +1,51 @@
 import prisma from "../../prismaClient.js";
 
 async function getCourseProgress(accountId, courseId) {
-  // Get or create enrollment
-  let enrollment = await prisma.courseEnroll.findFirst({
-    where: {
-      AccountId: accountId,
-      CourseId: courseId,
-      DeletedAt: null,
-    },
-  });
+  return await prisma.$transaction(async (tx) => {
+    let enrollment = await tx.courseEnroll.findFirst({
+      where: { AccountId: accountId, CourseId: courseId, DeletedAt: null },
+    });
 
-  if (!enrollment) {
-    // Auto-enroll user when they start studying
-    enrollment = await prisma.courseEnroll.create({
-      data: {
-        AccountId: accountId,
-        CourseId: courseId,
-        Status: 'InProgress',
+    if (!enrollment) {
+      enrollment = await tx.courseEnroll.create({
+        data: { AccountId: accountId, CourseId: courseId, Status: 'InProgress' },
+      });
+    }
+
+    const lessonProgress = await tx.lessonProgress.findMany({
+      where: { CourseEnrollId: enrollment.Id, IsCompleted: true },
+      select: { LessonId: true },
+    });
+
+    const exams = await tx.exam.findMany({
+      where: {
+        ModuleItem: { CourseModule: { CourseId: courseId } },
+        DeletedAt: null,
       },
+      include: { _count: { select: { ExamQuestion: true } } },
     });
-  }
 
-  // Get all lesson progress
-  const lessonProgress = await prisma.lessonProgress.findMany({
-    where: {
-      CourseEnrollId: enrollment.Id,
-    },
-  });
-
-  // Get all passed exam submissions for this course
-  const examsWithQuestions = await prisma.exam.findMany({
-    where: { ModuleItem: { CourseModule: { CourseId: courseId } }, DeletedAt: null },
-    include: { _count: { select: { ExamQuestion: true } } }
-  });
-
-  const completedExams = [];
-  for (const exam of examsWithQuestions) {
-    const passingScore = Math.ceil(exam._count.ExamQuestion * 0.8);
-    const passed = await prisma.examSubmission.findFirst({
-      where: { AccountId: accountId, ExamId: exam.Id, Score: { gte: passingScore } }
+    const submissions = await tx.examSubmission.findMany({
+      where: { AccountId: accountId },
+      select: { ExamId: true, Score: true },
     });
-    if (passed) completedExams.push(exam.Id);
-  }
 
-  return {
-    enrollmentId: enrollment.Id,
-    completedLessons: lessonProgress
-      .filter(lp => lp.IsCompleted)
-      .map(lp => lp.LessonId),
-    completedExams: completedExams,
-  };
+    const completedExams = exams
+      .filter(e =>
+        submissions.some(s =>
+          s.ExamId === e.Id &&
+          s.Score >= Math.ceil(e._count.ExamQuestion * 0.8)
+        )
+      )
+      .map(e => e.Id);
+
+    return {
+      enrollmentId: enrollment.Id,
+      completedLessons: lessonProgress.map(l => l.LessonId),
+      completedExams,
+    };
+  });
 }
+
 
 export default getCourseProgress;
