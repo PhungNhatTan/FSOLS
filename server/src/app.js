@@ -1,8 +1,7 @@
 import express from "express";
 import routes from "./routers/index.js";
 import cors from "cors";
-import { uploadsDir } from "./middleware/upload.js";
-import { draftUploadsDir, productionUploadsDir } from "./config/uploadPath.js";
+import { baseUploadsDir } from "./config/uploadPath.js";
 
 const app = express();
 
@@ -62,8 +61,16 @@ app.use("/uploads", express.static(uploadsDir, {
   }
 }));
 
-app.use("/uploads/draft", express.static(draftUploadsDir));
-app.use("/uploads/production", express.static(productionUploadsDir));
+app.use(
+  "/uploads",
+  express.static(baseUploadsDir, {
+    setHeaders: (res) => {
+      res.setHeader("Cache-Control", "public, max-age=31536000");
+    },
+  })
+);
+
+console.log("📁 Upload root:", baseUploadsDir);
 
 app.use(routes);
 
