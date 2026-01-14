@@ -52,3 +52,33 @@ export async function getLatestValidOtp({ accountIdentifierId }) {
     orderBy: { CreatedAt: "desc" },
   });
 }
+
+export async function createResetPasswordOtp({ accountIdentifierId }) {
+  const ttlMinutes = getIntEnv("OTP_TTL_MINUTES", 10);
+  const code = generateSixDigitCode();
+  const codeHash = await bcrypt.hash(code, 10);
+  const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000);
+
+  await prisma.otpToken.create({
+    data: {
+      Purpose: OtpPurpose.ResetPassword,
+      CodeHash: codeHash,
+      ExpiresAt: expiresAt,
+      AccountIdentifierId: accountIdentifierId,
+    },
+  });
+
+  return { code, expiresAt };
+}
+
+export async function getLatestValidResetPasswordOtp({ accountIdentifierId }) {
+  return prisma.otpToken.findFirst({
+    where: {
+      AccountIdentifierId: accountIdentifierId,
+      Purpose: OtpPurpose.ResetPassword,
+      ConsumedAt: null,
+      ExpiresAt: { gt: new Date() },
+    },
+    orderBy: { CreatedAt: "desc" },
+  });
+}

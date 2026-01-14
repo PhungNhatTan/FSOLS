@@ -46,6 +46,8 @@ import AdminLayout from "./layout/AdminLayout"
 import RootRedirect from "./components/RootRedirect"
 import HomePage from "./pages/public/HomePage"
 import { CourseStudyPage } from "./pages"
+import ForgotPasswordPage from "./pages/public/ForgotPasswordPage"
+import ResetPasswordPage from "./pages/public/ResetPasswordPage"
 
 export default function App() {
   return (
@@ -136,7 +138,8 @@ export default function App() {
 
           {/* Certificate */}
           <Route path="/certificate/:accountId/:certificateId" element={<CertificatePage />} />
-
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           {/* 404 */}
           <Route path="*" element={<h1 className="p-6 text-red-500">404 Not Found</h1>} />
         </Routes>

@@ -35,6 +35,16 @@ export async function resendEmailOtp(email: string): Promise<AuthResponse> {
   return res.data;
 }
 
+export async function requestPasswordReset(email: string): Promise<AuthResponse & { expiresAt?: string }> {
+  const res = await client.post<AuthResponse & { expiresAt?: string }>("/account/forgot-password", { email });
+  return res.data;
+}
+
+export async function resetPassword(payload: { email: string; code: string; newPassword: string }): Promise<AuthResponse> {
+  const res = await client.post<AuthResponse>("/account/reset-password", payload);
+  return res.data;
+}
+
 export function getErrorMessage(err: unknown): string {
   if (isAxiosError(err)) return err.response?.data?.message || err.message;
   return "Server error";

@@ -6,16 +6,25 @@ import { avatarUpload } from "../../middleware/avatarUpload.js";
 
 const router = Router();
 
+const AUTHENTICATED_ROLES = ["Student", "Mentor", "Moderator", "Admin"];
+
 router.post("/register", accountController.register);
 router.post("/verify-email", accountController.verifyEmail);
 router.post("/resend-email-otp", accountController.resendEmailOtp);
 
+// Forgot password (OTP sent via email)
+router.post("/forgot-password", accountController.requestPasswordReset);
+router.post("/reset-password", accountController.resetPassword);
+
 router.post("/login", accountController.authentication);
-router.post("/create-with-role", accountController.createAccountWithRole);
 
-const AUTHENTICATED_ROLES = ["Student", "Mentor", "Moderator", "Admin"];
+router.post(
+  "/create-with-role",
+  authenticate,
+  authorize(["Admin"]),
+  accountController.createAccountWithRole
+);
 
-// Profile (self) - available to any authenticated role
 router.get("/me", authenticate, authorize(AUTHENTICATED_ROLES), accountController.getMe);
 router.patch("/me", authenticate, authorize(AUTHENTICATED_ROLES), accountController.updateMe);
 
@@ -26,4 +35,5 @@ router.post(
   avatarUpload,
   accountController.uploadAvatar
 );
+
 export default router;

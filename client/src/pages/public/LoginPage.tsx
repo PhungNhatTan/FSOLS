@@ -1,5 +1,5 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { login, getErrorMessage } from "../../api/auth";
 import type { LoginData, AuthResponse } from "../../types/auth";
 
@@ -30,6 +30,7 @@ export default function LoginPage() {
   return (
     <div className="p-6 max-w-sm mx-auto">
       <h2 className="text-xl font-bold mb-4 text-center">Login</h2>
+
       <form onSubmit={handleSubmit} className="space-y-3">
         <input
           required
@@ -39,6 +40,7 @@ export default function LoginPage() {
           value={form.identifier}
           onChange={handleChange}
         />
+
         <input
           required
           className="border p-2 w-full"
@@ -48,6 +50,7 @@ export default function LoginPage() {
           value={form.password}
           onChange={handleChange}
         />
+
         <button
           type="submit"
           disabled={!form.identifier || !form.password}
@@ -55,7 +58,18 @@ export default function LoginPage() {
         >
           Login
         </button>
+
+        {/* Forgot password link */}
+        <div className="text-right">
+          <Link
+            to={`/forgot-password?email=${encodeURIComponent(form.identifier || "")}`}
+            className="text-sm text-blue-600 hover:underline"
+          >
+            Forgot password?
+          </Link>
+        </div>
       </form>
+
       {message && <p className="mt-3 text-sm text-center">{message}</p>}
     </div>
   );
