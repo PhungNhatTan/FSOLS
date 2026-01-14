@@ -13,17 +13,17 @@ router.post("/resend-email-otp", accountController.resendEmailOtp);
 router.post("/login", accountController.authentication);
 router.post("/create-with-role", accountController.createAccountWithRole);
 
-// Student profile (self)
-router.get("/me", authenticate, authorize(["Student"]), accountController.getMe);
-router.patch("/me", authenticate, authorize(["Student"]), accountController.updateMe);
+const AUTHENTICATED_ROLES = ["Student", "Mentor", "Moderator", "Admin"];
 
-// Avatar upload (Student self)
+// Profile (self) - available to any authenticated role
+router.get("/me", authenticate, authorize(AUTHENTICATED_ROLES), accountController.getMe);
+router.patch("/me", authenticate, authorize(AUTHENTICATED_ROLES), accountController.updateMe);
+
 router.post(
   "/me/avatar",
   authenticate,
-  authorize(["Student"]),
+  authorize(AUTHENTICATED_ROLES),
   avatarUpload,
   accountController.uploadAvatar
 );
-
 export default router;

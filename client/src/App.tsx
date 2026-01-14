@@ -71,7 +71,7 @@ export default function App() {
           <Route
             path="/profile"
             element={
-              <ProtectedRoute allowedRoles={["Student"]}>
+              <ProtectedRoute allowedRoles={["Student", "Mentor", "Moderator", "Admin"]}>
                 <ProfilePage />
               </ProtectedRoute>
             }
@@ -79,7 +79,7 @@ export default function App() {
           <Route
             path="/profile/edit"
             element={
-              <ProtectedRoute allowedRoles={["Student"]}>
+              <ProtectedRoute allowedRoles={["Student", "Mentor", "Moderator", "Admin"]}>
                 <EditProfilePage />
               </ProtectedRoute>
             }

@@ -31,12 +31,14 @@ export default function Navbar() {
             <Link to="/my-courses" className="hover:text-green-400">
               My Courses
             </Link>
-            <Link to="/profile" className="hover:text-green-400">
-              Profile
-            </Link>
+            
           </>
         )}
-
+        {user && (
+          <Link to="/profile" className="hover:text-green-400">
+            Profile
+          </Link>
+        )}
         {/* Mentor Dashboard */}
         {user && user.role === "Mentor" && (
           <Link to="/manage/dashboard" className="hover:text-green-400">
