@@ -70,8 +70,6 @@ app.use(
   })
 );
 
-console.log("📁 Upload root:", baseUploadsDir);
-
 app.use(routes);
 
 // Error handler for upload errors

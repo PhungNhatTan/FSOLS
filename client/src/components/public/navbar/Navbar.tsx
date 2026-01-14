@@ -27,9 +27,14 @@ export default function Navbar() {
         </Link>
 
         {user && user.role === "Student" && (
-          <Link to="/my-courses" className="hover:text-green-400">
-            My Courses
-          </Link>
+          <>
+            <Link to="/my-courses" className="hover:text-green-400">
+              My Courses
+            </Link>
+            <Link to="/profile" className="hover:text-green-400">
+              Profile
+            </Link>
+          </>
         )}
 
         {/* Mentor Dashboard */}

@@ -71,7 +71,6 @@ router.use("/api/manage/course", draftResourceRoute)
 
 router.use("/api/moderator/course", courseRouteModerator)
 
-
 // admin
 router.use("/api/admin/account", accountRoutesAdmin)
 // file upload

@@ -22,6 +22,8 @@ import UploadLessonPage from "./pages/mentor/UploadLessonPage"
 // Public Pages
 import CoursePage from "./pages/public/CoursePage"
 import MyCoursesPage from "./pages/public/MyCoursesPage"
+import ProfilePage from "./pages/public/ProfilePage"
+import EditProfilePage from "./pages/public/EditProfilePage"
 
 // Moderator Pages
 import DashboardManager from "./pages/moderator/Dashboard"
@@ -66,6 +68,22 @@ export default function App() {
           {/* Courses */}
           <Route path="/courses" element={<CoursePage />} />
           <Route path="/my-courses" element={<MyCoursesPage />} />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute allowedRoles={["Student"]}>
+                <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile/edit"
+            element={
+              <ProtectedRoute allowedRoles={["Student"]}>
+                <EditProfilePage />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/course/:id" element={<CourseDetailPage />} />
           <Route path="/course/:courseId/takingExam/:examId" element={<ExamPage />} />
           <Route path="/course-study/:id" element={<CourseStudyPage />} />
