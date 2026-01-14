@@ -56,6 +56,8 @@ model AccountIdentifier {
   AccountId String
   Account   Account @relation(fields: [AccountId], references: [Id])
 
+  otpTokens OtpToken[]
+
   @@unique([ProviderId, Identifier])
 }
 
@@ -65,6 +67,22 @@ model Provider {
   Enabled    Boolean             @default(true)
   Config     Json? // optional: store API keys, settings
   Identities AccountIdentifier[]
+}
+
+model OtpToken {
+  Id String @id @default(cuid())
+
+  Purpose    OtpPurpose
+  CodeHash   String
+  ExpiresAt  DateTime
+  ConsumedAt DateTime?
+  Attempts   Int        @default(0)
+  CreatedAt  DateTime   @default(now())
+
+  AccountIdentifierId String
+  AccountIdentifier   AccountIdentifier @relation(fields: [AccountIdentifierId], references: [Id])
+
+  @@index([AccountIdentifierId, Purpose, ConsumedAt, ExpiresAt])
 }
 
 model AccountRole {
@@ -445,7 +463,7 @@ model ExamQuestion {
 model ExamAnswer {
   Id String @id @default(cuid())
 
-  AnswerText String @db.Text
+  AnswerText String
 
   IsCorrect Boolean @default(false)
 
@@ -489,7 +507,7 @@ model StudentAnswer {
   AnswerId String?
 
   // for essay
-  Answer String? @db.Text
+  Answer String?
 
   IsCorrect      Boolean? // snapshot at submission time
   Score          Int? // snapshot at submission time
@@ -688,6 +706,11 @@ enum VerificationStatus {
 enum RequestType {
   New
   Update
+}
+
+enum OtpPurpose {
+  VerifyAccount
+  ResetPassword
 }
 
 // #endregion

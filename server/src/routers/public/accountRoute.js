@@ -1,13 +1,13 @@
-import { Router } from "express"
-import accountController from "../../controllers/account/index.js"
-import authenticate from "../../middleware/auth.js"
-import { authorize } from "../../middleware/role.js"
+import { Router } from "express";
+import accountController from "../../controllers/account/index.js";
 
-const router = Router()
+const router = Router();
 
-router.post("/register", accountController.register)
-router.post("/login", accountController.authentication)
-router.post("/create-with-role", accountController.createAccountWithRole)
-router.get("/all", authenticate, authorize(["Admin"]), accountController.getAll)
+router.post("/register", accountController.register);
+router.post("/verify-email", accountController.verifyEmail);
+router.post("/resend-email-otp", accountController.resendEmailOtp);
 
-export default router
+router.post("/login", accountController.authentication);
+router.post("/create-with-role", accountController.createAccountWithRole);
+
+export default router;

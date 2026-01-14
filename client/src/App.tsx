@@ -9,6 +9,7 @@ import LessonPage from "./components/public/lesson/LessonPage"
 import ExamPage from "./components/public/exam/ExamPage"
 import ExamDetailDisplay from "./components/public/exam/ExamDetailDisplay"
 import CertificatePage from "./pages/public/CertificatePage"
+import VerifyEmailPage from "./pages/public/VerifyEmailPage";
 
 // Mentor Pages
 import Dashboard from "./pages/mentor/Dashboard"
@@ -55,6 +56,7 @@ export default function App() {
           <Route path="/home" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
 
           {/* Lesson / Exam */}
           <Route path="/lesson/:id" element={<LessonPage />} />

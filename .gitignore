@@ -67,6 +67,8 @@ client/dist/
 *.local
 *.pid
 *.seed
+*.zip
+*.rar
 
 # -------------------------------
 # Placeholders

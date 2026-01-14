@@ -16,7 +16,7 @@ export interface Account {
 
 export const getAllAccounts = async (role?: string | null): Promise<Account[]> => {
   try {
-    const url = role ? `/account/all?role=${role}` : `/account/all`
+    const url = role ? `admin/account/all?role=${role}` : `admin/account/all`
     
     const response = await client.get(url)
     

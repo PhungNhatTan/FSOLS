@@ -17,6 +17,14 @@ async function main() {
   });
   console.log("Default provider:", provider.Name);
 
+
+  const emailProvider = await prisma.provider.upsert({
+    where: { Name: "email" },
+    update: {},
+    create: { Name: "email", Enabled: true },
+  });
+  console.log("Email provider:", emailProvider.Name);
+
   // 1.1️⃣ Categories
   const categories = [
     { Name: "Development", Slug: "development", Description: "Software development, web development, and programming." },

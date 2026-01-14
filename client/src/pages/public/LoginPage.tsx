@@ -1,11 +1,11 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { login } from "../../api/auth";
-import { type AuthData, type AuthResponse } from "../../types/auth";
+import { login, getErrorMessage } from "../../api/auth";
+import type { LoginData, AuthResponse } from "../../types/auth";
 
 export default function LoginPage() {
-  const [form, setForm] = useState<AuthData>({ username: "", password: "" });
-  const [message, setMessage] = useState<string>("");
+  const [form, setForm] = useState<LoginData>({ identifier: "", password: "" });
+  const [message, setMessage] = useState("");
   const navigate = useNavigate();
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) =>
@@ -18,14 +18,12 @@ export default function LoginPage() {
       if (result.token) {
         setMessage("Login successful!");
         const redirectPath = result.roles?.includes("Mentor") ? "/manage/dashboard" : "/";
-
-        setTimeout(() => navigate(redirectPath), 800);
+        setTimeout(() => navigate(redirectPath), 600);
       } else {
         setMessage(result.message || "Login failed");
       }
-    } catch (e) {
-      console.error(e);
-      setMessage("Server error. Try again later.");
+    } catch (err) {
+      setMessage(getErrorMessage(err));
     }
   };
 
@@ -36,9 +34,9 @@ export default function LoginPage() {
         <input
           required
           className="border p-2 w-full"
-          name="username"
-          placeholder="Username"
-          value={form.username}
+          name="identifier"
+          placeholder="Username or email"
+          value={form.identifier}
           onChange={handleChange}
         />
         <input
@@ -52,7 +50,7 @@ export default function LoginPage() {
         />
         <button
           type="submit"
-          disabled={!form.username || !form.password}
+          disabled={!form.identifier || !form.password}
           className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded w-full disabled:opacity-50"
         >
           Login

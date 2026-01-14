@@ -29,6 +29,9 @@ import moduleRouteManage from "./manage/moduleRoute.js"
 // moderator route import
 import courseRouteModerator from "./moderator/courseRoute.js"
 
+// admin route import
+import accountRoutesAdmin from "./manage/account.route.js"
+
 // file upload route import
 import draftResourceRoute from "./draftResourceRoute.js"
 // import uploadRoute from "./uploadRoute.js"
@@ -68,6 +71,9 @@ router.use("/api/manage/course", draftResourceRoute)
 
 router.use("/api/moderator/course", courseRouteModerator)
 
+
+// admin
+router.use("/api/admin/account", accountRoutesAdmin)
 // file upload
 // router.use("/api/upload", uploadRoute)
 

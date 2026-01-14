@@ -1,41 +1,51 @@
-// src/api/auth.ts
-import client from "../service/client"
-import type { AuthData, AuthResponse } from "../types/auth"
-import { setToken } from "../utils/auth"
-import { Account } from "./account"
+import client, { isAxiosError } from "../service/client";
+import type { AuthResponse, CreateAccountWithRoleData, CreateAccountWithRoleResponse, LoginData, RegisterData, VerifyEmailData } from "../types/auth";
+import { setToken } from "../utils/auth";
 
-export async function login(data: AuthData): Promise<AuthResponse> {
-  const res = await client.post<AuthResponse>("/account/login", data)
-  const auth = res.data
+export async function login(data: LoginData): Promise<AuthResponse> {
+  const res = await client.post<AuthResponse>("/account/login", data);
+  const auth = res.data;
 
   if (auth.token) {
-    setToken(auth.token)
-    if (auth.roles) localStorage.setItem("roles", JSON.stringify(auth.roles))
+    setToken(auth.token);
+    if (auth.roles) localStorage.setItem("roles", JSON.stringify(auth.roles));
   }
-
-  return auth
+  return auth;
 }
 
-export async function register(data: AuthData): Promise<AuthResponse> {
-  const res = await client.post<AuthResponse>("/account/register", data)
-  const auth = res.data
+export async function register(data: RegisterData): Promise<AuthResponse> {
+  const res = await client.post<AuthResponse>("/account/register", data);
+  return res.data;
+}
+
+export async function verifyEmail(data: VerifyEmailData): Promise<AuthResponse> {
+  const res = await client.post<AuthResponse>("/account/verify-email", data);
+  const auth = res.data;
 
   if (auth.token) {
-    setToken(auth.token)
-    if (auth.roles) localStorage.setItem("roles", JSON.stringify(auth.roles))
+    setToken(auth.token);
+    if (auth.roles) localStorage.setItem("roles", JSON.stringify(auth.roles));
   }
 
-  return auth
+  return auth;
 }
 
-export async function createAccountWithRole(data: {
-  username: string
-  displayName: string
-  password: string
-  role: "Mentor" | "Moderator" | "Admin"
-  email?: string
-  phone?: string
-}): Promise<Account> {
-  const res = await client.post("/account/create-with-role", data)
-  return res.data
+export async function resendEmailOtp(email: string): Promise<AuthResponse> {
+  const res = await client.post<AuthResponse>("/account/resend-email-otp", { email });
+  return res.data;
+}
+
+export function getErrorMessage(err: unknown): string {
+  if (isAxiosError(err)) return err.response?.data?.message || err.message;
+  return "Server error";
+}
+
+export async function createAccountWithRole(
+  data: CreateAccountWithRoleData
+): Promise<CreateAccountWithRoleResponse> {
+  const res = await client.post<CreateAccountWithRoleResponse>(
+    "/account/create-with-role",
+    data
+  );
+  return res.data;
 }
