@@ -9,6 +9,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const updateAuth = () => {
       const decoded = decodeToken();
+      console.log("JWT says:", decoded);
+      console.log("LocalStorage accountId:", localStorage.getItem("accountId"));
+
       if (!decoded) {
         setUser(null);
         setLoading(false);
@@ -33,7 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.addEventListener("storage", updateAuth);
     updateAuth();
 
-    
+
 
     return () => {
       window.removeEventListener("tokenChanged", updateAuth);

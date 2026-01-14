@@ -24,7 +24,6 @@ export const submit = async (data: { examId: number; answers: StudentAnswer[] })
   try {
     const submitData = {
       examId: data.examId,
-      accountId,
       answers: data.answers,
     }
 

@@ -3,7 +3,7 @@ import progressModels from '../../models/progress/index.js';
 export default async function getCourseProgress(req, res){
   try {
     const { courseId } = req.params;
-    const accountId = req.user.id;
+    const accountId = req.user.userId;
 
     const progress = await progressModels.getCourseProgress(
       accountId,

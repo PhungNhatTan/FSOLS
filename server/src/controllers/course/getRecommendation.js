@@ -2,7 +2,7 @@ import prisma from "../../prismaClient.js";
 import { calculateSimilarity } from '../../services/aiService.js';
 
 export default async function getRecommendations(req, res){
-  const userId = req.user.Id;
+  const userId = req.user.userId;
 
   // 1. Get User Interest Profile (Avg of enrolled course vectors)
   const enrollments = await prisma.courseEnroll.findMany({

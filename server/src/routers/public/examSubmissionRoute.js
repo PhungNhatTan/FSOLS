@@ -6,6 +6,6 @@ import authenticate from "../../middleware/auth.js";
 const router = Router();
 
 router.get("/:id", authenticate, authorize(["Admin", "Mentor", "Student"]), examSubmission.getDetailedExamResult);
-router.post("/submit", examSubmission.submitExam);
+router.post("/submit", authenticate, authorize(["Student"]), examSubmission.submitExam);
 
 export default router;

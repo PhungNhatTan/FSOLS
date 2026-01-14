@@ -8,6 +8,7 @@ import type { ExamData, StudentAnswer } from "../../../types"
 import ExamForm from "./ExamForm"
 import ExamHeader from "./ExamHeader"
 import QuestionNavigation from "./QuestionNavigation"
+import { getAccountId } from "../../../utils/auth"
 
 const PRESET_DURATION_MINUTES: Record<string, number> = {
   P_10: 10,
@@ -117,8 +118,10 @@ export default function ExamPage() {
         setMessage(`Submitted! Score: ${result.score}/${totalQuestions} (${percentage}%)`)
         setSubmitted(true)
 
+        const accountId = getAccountId() ?? "anonymous"
+        const examKey = examData.ExamId || examData.Id
         sessionStorage.setItem(
-          `exam_${examData.ExamId || examData.Id}_result`,
+          `exam_${examKey}_account_${accountId}_result`,
           JSON.stringify({
             score: result.score,
             total: totalQuestions,

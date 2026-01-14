@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react"
 import { Link, useParams, useNavigate } from "react-router-dom"
 import courseApi from "../../api/course"
-import type { CourseDetail, CourseModule } from "../../types/course"
+import type { CourseDetail, CourseModule, UserCertificateDetail } from "../../types/course"
 import type { Enrollment } from "../../types/enrollment"
 import EnrollButton from "../../components/public/course/EnrollButton"
 import { useAuth } from "../../hooks/useAuth"
+import certificateApi from "../../api/certificate"
 
 /* ----------------------------- Helpers: time rule ---------------------------- */
 
@@ -47,7 +48,7 @@ type CourseDetailExt = CourseDetail & {
   CourseModule?: CourseModule[]
   Lessons?: unknown
   Exams?: unknown
-  Certificate?: { Id: number }
+  Certificate?: { CertificateId: number }
   isCompleted?: boolean
 }
 
@@ -115,29 +116,56 @@ export default function CourseDetailPage() {
   const [course, setCourse] = useState<CourseDetailExt | null>(null)
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null)
   const [error, setError] = useState("")
+  const [userC, setUserCertificate] = useState<UserCertificateDetail | null>(null)
 
   useEffect(() => {
-    if (!id || !user?.accountId) return
-    ;(async () => {
+    if (!id || !user?.accountId) return;
+
+    (async () => {
       try {
-        console.log("Fetching course data...")
-        const courseData = await courseApi.getCourseWithCertificate(Number(id), user.accountId)
-        console.log("Fetched course data:", courseData)
-        setCourse(courseData)
+        console.log("Fetching course data...");
+        const courseData = await courseApi.getCourseWithCertificate(
+          Number(id),
+          user.accountId
+        );
+        setCourse(courseData);
 
-        console.log("Fetching enrollment data...")
-        const enrollmentResponse = await courseApi.getEnrollmentStatus(Number(id))
-        const enrollmentData = enrollmentResponse?.enrollment || null
-        console.log("Fetched enrollment data:", enrollmentData)
-        setEnrollment(enrollmentData)
+        console.log("Fetching enrollment data...");
+        const enrollmentResponse = await courseApi.getEnrollmentStatus(Number(id));
+        const enrollmentData = enrollmentResponse?.enrollment || null;
+        setEnrollment(enrollmentData);
 
-        setError("")
+        const certificateId = courseData?.Certificate?.CertificateId;
+
+
+        if (certificateId) {
+          try {
+            console.log("Fetch user certificate...");
+            const userCertificate = await certificateApi.getUserCertificate(
+              user.accountId,
+              certificateId.toString()
+            );
+            setUserCertificate(userCertificate);
+          } catch (err: unknown) {
+            if (isRecord(err) && isRecord(err.response) && err.response.status === 404) {
+              // ✅ EXPECTED: certificate not issued yet
+              console.log("Certificate not issued yet");
+              setUserCertificate(null);
+            } else {
+              throw err; // real error
+            }
+          }
+        } else {
+          setUserCertificate(null);
+        }
+
+        setError("");
       } catch (err) {
-        console.error("Error fetching course or enrollment data:", err)
-        setError("Failed to load course.")
+        console.error("Error fetching course or enrollment data:", err);
+        setError("Failed to load course.");
       }
-    })()
-  }, [id, user?.accountId])
+    })();
+  }, [id, user?.accountId]);
 
   const derived = useMemo(() => {
     if (!course) {
@@ -299,11 +327,10 @@ export default function CourseDetailPage() {
   }
 
   // Check if course is completed and has a certificate
-  const showCertificate = enrollment?.Status === "Completed" && course?.Certificate != null;
-
-  console.log("Enrollment Status:", enrollment?.Status);
-  console.log("Course Certificate:", course?.Certificate);
-  console.log("User Account ID:", user?.accountId);
+  const showCertificate =
+    enrollment?.Status === "Completed" &&
+    Boolean(course?.Certificate?.CertificateId) &&
+    Boolean(userC);
 
   if (!course && !error) {
     return (
@@ -324,11 +351,11 @@ export default function CourseDetailPage() {
           <div className="bg-white rounded-lg shadow-md p-6">
             <div className="mb-6">
               <h1 className="text-2xl font-bold mb-3">{course.Name}</h1>
-              
+
               {/* Action buttons */}
               <div className="mt-4 flex gap-3 flex-wrap">
                 <EnrollButton courseId={course.Id} />
-                
+
                 <button
                   onClick={handleStartCourse}
                   className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition flex items-center gap-2"
@@ -338,16 +365,16 @@ export default function CourseDetailPage() {
                 </button>
 
                 {/* NEW: View Certificate button */}
-                {user && showCertificate && course.Certificate && (
+                {user && showCertificate && course?.Certificate?.CertificateId && (
                   <Link
-                    to={`/certificate/${user.accountId}/${course.Certificate.Id}`}
-                    className="px-6 py-2 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg transition flex items-center gap-2"
+                    to={`/certificate/${user.accountId}/${course.Certificate.CertificateId}`}
+                    className="px-6 py-2 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg"
                   >
-                    <span>🏆</span>
-                    View Certificate
+                    🏆 View Certificate
                   </Link>
                 )}
               </div>
+
 
               {/* Completion status */}
               {enrollment?.Status === "Completed" && (

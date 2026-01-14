@@ -25,19 +25,25 @@ async function getCourseProgress(accountId, courseId) {
       include: { _count: { select: { ExamQuestion: true } } },
     });
 
+    const examIds = exams.map(e => e.Id);
+
     const submissions = await tx.examSubmission.findMany({
-      where: { AccountId: accountId },
+      where: {
+        AccountId: accountId,
+        ExamId: { in: examIds },
+      },
       select: { ExamId: true, Score: true },
     });
 
     const completedExams = exams
-      .filter(e =>
-        submissions.some(s =>
-          s.ExamId === e.Id &&
-          s.Score >= Math.ceil(e._count.ExamQuestion * 0.8)
-        )
-      )
-      .map(e => e.Id);
+      .filter(exam => {
+        const submission = submissions.find(s => s.ExamId === exam.Id);
+        if (!submission) return false;
+
+        const passScore = Math.ceil(exam._count.ExamQuestion * 0.8);
+        return submission.Score >= passScore;
+      })
+      .map(exam => exam.Id);
 
     return {
       enrollmentId: enrollment.Id,

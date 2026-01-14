@@ -6,7 +6,8 @@ async function completeCourse(accountId, courseId) {
     where: { AccountId: accountId, CourseId: courseId, DeletedAt: null }
   });
 
-  if (!enrollment || enrollment.Status === 'Completed') return { alreadyCompleted: true };
+  if (!enrollment) return { completed: false, notEnrolled: true };
+  if (enrollment.Status === 'Completed') return { alreadyCompleted: true };
 
   const isFinished = await checkCourseCompletion(accountId, courseId);
   if (!isFinished) return { completed: false };

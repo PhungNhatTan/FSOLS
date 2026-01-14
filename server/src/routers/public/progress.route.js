@@ -10,6 +10,9 @@ router.post('/lessons/:lessonId/complete', authenticate, progressController.mark
 
 router.get('/courses/:courseId/completed', authenticate, progressController.checkCourseCompletion);
 
+// Finalize course completion (updates enrollment + issues certificate when eligible)
+router.post('/courses/:courseId/complete', authenticate, progressController.completeCourse);
+
 router.get('/exams/:examId/completed', authenticate, progressController.checkExamCompletion);
 
 export default router;

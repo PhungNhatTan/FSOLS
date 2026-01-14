@@ -25,6 +25,7 @@ export default async function login(req, res) {
     const token = jwt.sign(
       {
         userId: account.Id,
+        accountId: account.Id,
         username: account.Username,
         roles,
       },

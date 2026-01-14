@@ -2,9 +2,10 @@
 
 import { Link, useNavigate } from "react-router-dom"
 import { useAuth } from "../../../hooks/useAuth"
+import { logout } from "../../../utils/auth"
 
 export default function Navbar() {
-  const { user, logout } = useAuth()
+  const { user } = useAuth()
   const navigate = useNavigate()
 
   const handleLogout = () => {

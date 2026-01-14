@@ -55,7 +55,7 @@ export interface CourseDetail extends Course {
   // Optional: returned by some endpoints. Useful for rendering an ordered timeline (module -> items).
   CourseModule?: CourseModule[]
   Certificate?: {
-    Id: number
+    CertificateId: number
     CertificateType: "Course" | "Specialization"
   }
 }
@@ -193,4 +193,28 @@ export interface FlattenedItem {
   moduleTitle: string;
   lessonId?: string;
   examId?: number;
+}
+
+export interface UserCertificateDetail {
+  CertificateId: string
+  IssuedAt: string
+  VerificationCode: string
+
+  Account: {
+    Id: string
+    DisplayName: string
+  }
+
+  Certificate: {
+    Id: number
+    CertificateType: "Course" | "Specialization"
+    Course?: {
+      Id: number
+      Name: string
+    }
+    Specialization?: {
+      Id: number
+      SpecializationName: string
+    }
+  }
 }

@@ -3,7 +3,7 @@ import progressModels from '../../models/progress/index.js';
 export default async function checkExamCompletion (req, res) {
   try {
     const { examId } = req.params;
-    const accountId = req.user.id;
+    const accountId = req.user.userId;
 
     const isCompleted = await progressModels.checkExamCompletion(
       accountId,

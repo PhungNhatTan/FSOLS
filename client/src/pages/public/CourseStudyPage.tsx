@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import CourseSidebar from "../../components/public/courseSidebar/CourseSidebar";
 import LessonViewer from "../../components/public/lesson/LessonViewer";
@@ -6,20 +6,43 @@ import ExamViewer from "../../components/public/exam/ExamViewer";
 import ExamDetailViewer from "../../components/public/exam/ExamDetailViewer";
 import http from "../../service/http";
 import type { CourseNavData, CourseModule, FlattenedItem } from "../../types/course";
+import { useAuth } from "../../hooks/useAuth";
+
 
 export default function CourseStudyPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const accountId = user?.accountId ?? null;
 
   const [courseData, setCourseData] = useState<CourseNavData | null>(null);
   const [currentItemId, setCurrentItemId] = useState<string | null>(null);
   const [completedItems, setCompletedItems] = useState<Set<string>>(new Set());
-  const [enrollmentId, setEnrollmentId] = useState<number | null>(null);
+  const [enrollmentId, setEnrollmentId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [takingExam, setTakingExam] = useState(false);
 
+  const completionAttemptRef = useRef<string | null>(null);
+
   // Load course data
+  const refreshProgress = useCallback(async () => {
+    if (!id) return null;
+    const progressRes = await http.get<{ enrollmentId: string; completedLessons: string[]; completedExams: number[] }>(
+      `/progress/courses/${id}`
+    );
+
+    const { enrollmentId: eId, completedLessons, completedExams } = progressRes.data;
+    setEnrollmentId(eId.toString());
+
+    const completed = new Set<string>();
+    completedLessons.forEach(lid => completed.add(`lesson-${lid}`));
+    completedExams.forEach(eid => completed.add(`exam-${eid}`));
+    setCompletedItems(completed);
+    return completed;
+  }, [id]);
+
+  // Load course data + progress (must reload when account changes)
   useEffect(() => {
     if (!id) {
       setError("Course not found");
@@ -27,22 +50,39 @@ export default function CourseStudyPage() {
       return;
     }
 
+    if (!accountId) {
+      setError("Please log in to study this course");
+      setLoading(false);
+      return;
+    }
+
+    // Reset state when switching accounts in the same tab
+    setCourseData(null);
+    setCurrentItemId(null);
+    setCompletedItems(new Set());
+    setEnrollmentId(null);
+    setTakingExam(false);
+    setLoading(true);
+    setError("");
+
     Promise.all([
       http.get<CourseNavData>(`/course/${id}`),
-      http.get<{ enrollmentId: number; completedLessons: number[]; completedExams: number[] }>(`/progress/courses/${id}`)
+      http.get<{ enrollmentId: string; completedLessons: string[]; completedExams: number[] }>(`/progress/courses/${id}`)
     ])
       .then(([courseRes, progressRes]) => {
         setCourseData(courseRes.data);
 
         const { enrollmentId: eId, completedLessons, completedExams } = progressRes.data;
-        setEnrollmentId(eId);
+        setEnrollmentId(eId.toString());
 
         const completed = new Set<string>();
         completedLessons.forEach(lid => completed.add(`lesson-${lid}`));
         completedExams.forEach(eid => completed.add(`exam-${eid}`));
         setCompletedItems(completed);
 
-        const savedProgress = localStorage.getItem(`course_${id}_last_item`);
+        const storageKey = `course_${id}_account_${accountId}_last_item`;
+        const savedProgress = localStorage.getItem(storageKey);
+
         const firstItem = flattenCourseItems(courseRes.data.CourseModule)[0];
 
         if (savedProgress) {
@@ -58,7 +98,7 @@ export default function CourseStudyPage() {
         setError("Failed to load course details");
       })
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, accountId]);
 
   const flattenedItems = courseData
     ? flattenCourseItems(courseData.CourseModule)
@@ -72,23 +112,58 @@ export default function CourseStudyPage() {
     flattenedItems.every(item => completedItems.has(item.id));
 
   useEffect(() => {
-    if (id && currentItemId) {
-      localStorage.setItem(`course_${id}_last_item`, currentItemId);
+    if (id && currentItemId && accountId) {
+      localStorage.setItem(
+        `course_${id}_account_${accountId}_last_item`,
+        currentItemId
+      );
     }
-  }, [id, currentItemId]);
+  }, [id, currentItemId, accountId]);
+
+  const finalizeCourseIfEligible = useCallback(async () => {
+    if (!id) return null;
+    try {
+      const res = await http.post(`/progress/courses/${id}/complete`);
+      return res.data;
+    } catch (err) {
+      console.error("Failed to finalize course:", err);
+      return null;
+    }
+  }, [id]);
+
+  // Auto-finalize when everything is completed (issues certificate if eligible)
+  useEffect(() => {
+    if (!id || !accountId) return;
+    if (!allItemsCompleted) return;
+
+    const key = `${id}::${accountId}`;
+    if (completionAttemptRef.current === key) return;
+    completionAttemptRef.current = key;
+
+    void finalizeCourseIfEligible();
+  }, [id, accountId, allItemsCompleted, finalizeCourseIfEligible]);
 
   // Mark current item as completed and move to next
   const handleComplete = useCallback(async () => {
     if (!currentItemId || !currentItem || !id) return;
 
     try {
-      if (currentItem.type === "Lesson" && enrollmentId) {
-        await http.post(`/progress/lessons/${currentItem.lessonId}/complete`, {
-          enrollmentId
-        });
+      if (currentItem.type === "Lesson") {
+        if (!enrollmentId) return;
+        await http.post(`/progress/lessons/${currentItem.lessonId}/complete`, { enrollmentId });
       }
 
-      setCompletedItems(prev => new Set(prev).add(currentItemId));
+      if (currentItem.type === "Exam") {
+        const examId = currentItem.examId;
+        const res = await http.get<{ completed: boolean }>(`/progress/exams/${examId}/completed`);
+        if (!res.data.completed) {
+          alert("Exam not passed yet. You need at least 80% to complete this item.");
+          return;
+        }
+      }
+
+      // Sync from server to avoid stale state across account switches
+      await refreshProgress();
 
       // Move to next item
       if (currentIndex < flattenedItems.length - 1) {
@@ -98,7 +173,7 @@ export default function CourseStudyPage() {
     } catch (err) {
       console.error("Failed to mark complete:", err);
     }
-  }, [currentItemId, currentItem, id, enrollmentId, currentIndex, flattenedItems]);
+  }, [currentItemId, currentItem, id, enrollmentId, currentIndex, flattenedItems, refreshProgress]);
 
   const handleStartExam = useCallback(() => {
     setTakingExam(true);
@@ -108,19 +183,31 @@ export default function CourseStudyPage() {
   const handleExamComplete = useCallback(async () => {
     if (!currentItemId || !currentItem || !id) return;
 
-    // Mark the exam as completed
-    setCompletedItems(prev => new Set(prev).add(currentItemId));
+    try {
+      const examId = currentItem.examId;
+      const res = await http.get<{ completed: boolean }>(`/progress/exams/${examId}/completed`);
 
-    // Exit exam taking mode
-    setTakingExam(false);
+      // Exit exam taking mode either way
+      setTakingExam(false);
 
-    // Optional: Auto-advance to next item after a short delay
-    setTimeout(() => {
-      if (currentIndex < flattenedItems.length - 1) {
-        setCurrentItemId(flattenedItems[currentIndex + 1].id);
+      if (!res.data.completed) {
+        alert("Exam submitted, but not passed. Please retake to reach 80%.");
+        await refreshProgress();
+        return;
       }
-    }, 2000);
-  }, [currentItemId, currentItem, id, currentIndex, flattenedItems]);
+
+      await refreshProgress();
+
+      setTimeout(() => {
+        if (currentIndex < flattenedItems.length - 1) {
+          setCurrentItemId(flattenedItems[currentIndex + 1].id);
+        }
+      }, 500);
+    } catch (err) {
+      console.error("Failed to sync exam completion:", err);
+      setTakingExam(false);
+    }
+  }, [currentItemId, currentItem, id, currentIndex, flattenedItems, refreshProgress]);
 
   const handlePrevious = () => {
     if (currentIndex > 0) {
@@ -142,11 +229,15 @@ export default function CourseStudyPage() {
   };
 
   // NEW: Handle course completion
-  const handleCompleteCourse = () => {
+  const handleCompleteCourse = async () => {
     if (allItemsCompleted) {
-      // You can add completion logic here (API call, show modal, etc.)
-      alert("Congratulations! You've completed the course!");
-      navigate(`/course/${id}`);
+      const result = await finalizeCourseIfEligible();
+      if (result?.completed || result?.alreadyCompleted) {
+        alert("Congratulations! You've completed the course and your certificate is now available.");
+        navigate(`/course/${id}`);
+      } else {
+        alert("Course completion requirements are not fully met yet (lessons/exams). Please review and try again.");
+      }
     }
   };
 
@@ -236,7 +327,6 @@ export default function CourseStudyPage() {
 
           {currentIndex === flattenedItems.length - 1 ? (
             <div className="flex gap-2">
-              {allItemsCompleted}
               <button
                 onClick={handleCompleteCourse}
                 disabled={!allItemsCompleted}

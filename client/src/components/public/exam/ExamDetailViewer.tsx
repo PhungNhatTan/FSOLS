@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from "react"
 import * as examApi from "../../../api/exam"
 import type { ExamDetailWithResult } from "../../../types/exam"
+import { getAccountId } from "../../../utils/auth"
+import { useAuth } from "../../../hooks/useAuth"
 
 const PRESET_DURATION_MINUTES: Record<string, number> = {
   P_10: 10,
@@ -42,6 +44,9 @@ export default function ExamDetailViewer({
   onStartExam,
   onComplete 
 }: ExamDetailViewerProps) {
+  const { user } = useAuth()
+  const accountId = user?.accountId ?? getAccountId() ?? "anonymous"
+
   const [data, setData] = useState<ExamDetailWithResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -57,7 +62,7 @@ export default function ExamDetailViewer({
       })
       .catch(() => setError("Failed to load exam"))
       .finally(() => setLoading(false))
-  }, [examId])
+  }, [examId, accountId])
 
   useEffect(() => {
     loadExamDetail()
@@ -65,15 +70,18 @@ export default function ExamDetailViewer({
 
   // Check session storage for recent submission
   useEffect(() => {
-    const storedResult = sessionStorage.getItem(`exam_${examId}_result`)
+    const storedResult = sessionStorage.getItem(`exam_${examId}_account_${accountId}_result`)
     if (storedResult) {
       try {
         setSessionScore(JSON.parse(storedResult))
       } catch (e) {
         console.error("Failed to parse stored result:", e)
+        setSessionScore(null)
       }
+    } else {
+      setSessionScore(null)
     }
-  }, [examId])
+  }, [examId, accountId])
 
   // Reload when coming back from taking exam (window regains focus)
   useEffect(() => {

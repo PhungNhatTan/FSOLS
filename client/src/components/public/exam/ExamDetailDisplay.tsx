@@ -2,9 +2,11 @@
 
 import { useParams, useNavigate } from "react-router-dom"
 import { useFetch } from "../../../hooks/useFetch"
+import { useAuth } from "../../../hooks/useAuth"
 import * as examApi from "../../../api/exam"
 import { useCallback, useEffect, useState } from "react"
 import type { ExamData } from "../../../types/exam"
+import { getAccountId } from "../../../utils/auth"
 
 const PRESET_DURATION_MINUTES: Record<string, number> = {
   P_10: 10,
@@ -34,25 +36,31 @@ export default function ExamDetailDisplay() {
   const navigate = useNavigate()
   const [sessionScore, setSessionScore] = useState<{ score: number; total: number } | null>(null)
 
+  const { user } = useAuth()
+  const accountId = user?.accountId ?? getAccountId() ?? "anonymous"
+
   const fetchExamData = useCallback(() => {
     if (!examId) return Promise.resolve(null)
     return examApi.getWithResult(Number(examId))
-  }, [examId])
+  }, [examId, accountId])
 
-  const { data, loading, error } = useFetch(fetchExamData, [examId])
+  const { data, loading, error } = useFetch(fetchExamData, [examId, accountId])
 
   useEffect(() => {
     if (examId) {
-      const storedResult = sessionStorage.getItem(`exam_${examId}_result`) // FIXED: Template string
+      const storedResult = sessionStorage.getItem(`exam_${examId}_account_${accountId}_result`)
       if (storedResult) {
         try {
           setSessionScore(JSON.parse(storedResult))
         } catch (e) {
           console.error("[v0] Failed to parse stored result:", e)
+          setSessionScore(null)
         }
+      } else {
+        setSessionScore(null)
       }
     }
-  }, [examId])
+  }, [examId, accountId])
 
   if (loading) return <p className="text-gray-500 italic">Loading exam...</p>
   if (error) return <p className="text-red-500 font-semibold">{error}</p>
