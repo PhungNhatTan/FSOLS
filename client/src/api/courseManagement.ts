@@ -352,7 +352,6 @@ export const courseManagementApi = {
       correctIndex?: number;
     }
   ): Promise<{ exam: UiExam }> {
-    console.log("[API] createQuestionAndAttach called with:", { examId, courseId, payload });
     try {
       const res = await client.post<ManageExamQuestionResponse>(`/manage/examQuestion`, {
         examId,
@@ -367,9 +366,7 @@ export const courseManagementApi = {
           })),
         },
       });
-      console.log("[API] Response received:", res.data);
       const exam = normalizeExamResponse(res.data);
-      console.log("[API] Normalized exam:", exam);
       return { exam: toUiExam(exam) };
     } catch (error) {
       console.error("[API] Error in createQuestionAndAttach:", error);
@@ -418,13 +415,11 @@ export const courseManagementApi = {
   /** Save draft to database */
   getDraft: async (courseId: number) => {
     const response = await client.get(`/manage/course/${courseId}/draft`);
-    console.log("Draft data received:", response.data);
     return response.data;
   },
 
   getVerificationDraft: async (courseId: number) => {
     const response = await client.get(`/manage/course/${courseId}/verification-draft`);
-    console.log("Verification draft data received:", response.data);
     return response.data;
   },
 

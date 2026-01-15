@@ -27,9 +27,6 @@ export const submit = async (data: { examId: number; answers: StudentAnswer[] })
       answers: data.answers,
     }
 
-    console.log("[v0] Submitting exam with data:", submitData)
-    console.log("[v0] Full JSON:", JSON.stringify(submitData, null, 2))
-
     const res = await client.post("/examSubmission/submit", submitData)
 
     return res.data

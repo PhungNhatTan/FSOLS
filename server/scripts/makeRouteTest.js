@@ -42,4 +42,3 @@ describe("${name} API", () => {
 `;
 
 fs.writeFileSync(`tests/${route}Route.test.js`, template.trim());
-console.log(`✅ Created tests/${route}Route.test.js`);

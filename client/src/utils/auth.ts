@@ -48,8 +48,6 @@ export function logout() {
     // ignore
   }
 
-  console.log(localStorage)
-
   Object.keys(localStorage)
     .filter(k => k.startsWith("course_"))
     .forEach(k => localStorage.removeItem(k))

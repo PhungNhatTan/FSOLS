@@ -9,8 +9,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const updateAuth = () => {
       const decoded = decodeToken();
-      console.log("JWT says:", decoded);
-      console.log("LocalStorage accountId:", localStorage.getItem("accountId"));
 
       if (!decoded) {
         setUser(null);
@@ -28,7 +26,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           role: decoded.roles?.[0] ?? "Student",
         });
       }
-      console.log("Decoded token:", decoded);
       setLoading(false);
     };
 

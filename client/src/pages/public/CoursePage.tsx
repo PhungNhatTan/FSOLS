@@ -18,7 +18,6 @@ export default function CoursePage() {
       const data = await courseApi.getAll()
       setCourses(data || [])
     } catch (err) {
-      console.log("[CoursePage] Error loading courses:", err)
       setError(`Failed to load courses: ${err instanceof Error ? err.message : "Unknown error"}`)
       setCourses([])
     } finally {

@@ -123,14 +123,12 @@ export default function CourseDetailPage() {
 
     (async () => {
       try {
-        console.log("Fetching course data...");
         const courseData = await courseApi.getCourseWithCertificate(
           Number(id),
           user.accountId
         );
         setCourse(courseData);
 
-        console.log("Fetching enrollment data...");
         const enrollmentResponse = await courseApi.getEnrollmentStatus(Number(id));
         const enrollmentData = enrollmentResponse?.enrollment || null;
         setEnrollment(enrollmentData);
@@ -140,7 +138,6 @@ export default function CourseDetailPage() {
 
         if (certificateId) {
           try {
-            console.log("Fetch user certificate...");
             const userCertificate = await certificateApi.getUserCertificate(
               user.accountId,
               certificateId.toString()
@@ -149,7 +146,6 @@ export default function CourseDetailPage() {
           } catch (err: unknown) {
             if (isRecord(err) && isRecord(err.response) && err.response.status === 404) {
               // ✅ EXPECTED: certificate not issued yet
-              console.log("Certificate not issued yet");
               setUserCertificate(null);
             } else {
               throw err; // real error

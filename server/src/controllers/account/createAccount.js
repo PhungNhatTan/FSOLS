@@ -65,9 +65,6 @@ export default async function register(req, res) {
     const { code, expiresAt } = await createEmailVerificationOtp({ accountIdentifierId: emailIdentity.Id });
 
     await sendEmailOtp({ to: cleanEmail, code, purpose: "Email verification" });
-    console.log("[OTP] sending to:", cleanEmail, "code:", code);
-    await sendEmailOtp({ to: cleanEmail, code, purpose: "Email verification" });
-    console.log("[OTP] sendEmailOtp done");
 
     return res.status(201).json({
       message: "Account created. Check email for OTP to activate.",

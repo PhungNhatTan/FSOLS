@@ -126,9 +126,6 @@ export default function CourseManagePage() {
           }
         }
 
-        console.log("Draft response:", draftResponse);
-        console.log("Structure response:", structure);
-
       } catch (err) {
         console.warn("Draft ignored, falling back to structure:", err);
       }

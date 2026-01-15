@@ -226,7 +226,6 @@ const CourseList: React.FC<Props> = ({ courses, onEdit, onDeleted, onManage }) =
   const handleDelete = async (id: number) => {
     if (!confirm("Are you sure you want to delete this course?")) return;
     try {
-      console.log("Delete course:", id);
       onDeleted?.(id);
     } catch (err) {
       console.error(err);

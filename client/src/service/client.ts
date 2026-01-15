@@ -45,7 +45,6 @@ client.interceptors.request.use((config) => {
 
   config.headers = headers;
 
-  console.log("[HTTP]", config.method?.toUpperCase(), getFullUrl(config), config.data);
   return config;
 });
 
@@ -54,7 +53,6 @@ client.interceptors.request.use((config) => {
 ================================ */
 client.interceptors.response.use(
   (response: AxiosResponse) => {
-    console.log("[HTTP]", response.status, getFullUrl(response.config));
     return response;
   },
   (error) => {
