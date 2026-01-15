@@ -1,7 +1,7 @@
 import bcrypt from "bcrypt";
 import prisma from "../../prismaClient.js";
 import { ensureAuthProviders } from "../../services/providerService.js";
-import { getLatestValidResetPasswordOtp, getOtpLimits } from "../../services/otpService.js";
+import { getOtpLimits } from "../../services/otpService.js";
 import { OtpPurpose } from "../../generated/prisma/index.js";
 
 function normalizeEmail(email) {
@@ -19,7 +19,11 @@ function isStrongEnoughPassword(password) {
 export default async function resetPassword(req, res) {
   try {
     const cleanEmail = normalizeEmail(req.body.email);
-    const cleanCode = String(req.body.code || "").trim();
+
+    // Accept common input variations and protect against numeric coercion.
+    const digits = String(req.body.code || "").replace(/\D/g, "");
+    const cleanCode = digits.length > 0 && digits.length <= 6 ? digits.padStart(6, "0") : "";
+
     const newPassword = String(req.body.newPassword || "");
 
     if (!cleanEmail || !cleanCode || !newPassword) {
@@ -42,19 +46,41 @@ export default async function resetPassword(req, res) {
       return res.status(404).json({ message: "Email not found" });
     }
 
-    const otp = await getLatestValidResetPasswordOtp({ accountIdentifierId: emailIdentity.Id });
-    if (!otp) {
+    // Robustness: accept any unexpired + unconsumed ResetPassword OTP
+    // (emails can arrive out of order if user requests multiple).
+    const candidates = await prisma.otpToken.findMany({
+      where: {
+        AccountIdentifierId: emailIdentity.Id,
+        Purpose: OtpPurpose.ResetPassword,
+        ConsumedAt: null,
+        ExpiresAt: { gt: new Date() },
+      },
+      orderBy: { CreatedAt: "desc" },
+      take: 5,
+    });
+
+    if (!candidates.length) {
       return res.status(400).json({ message: "OTP expired or not found. Please request a new code." });
     }
 
     const { maxAttempts } = getOtpLimits();
-    if (otp.Attempts >= maxAttempts) {
+    const allLocked = candidates.every((c) => c.Attempts >= maxAttempts);
+    if (allLocked) {
       return res.status(429).json({ message: "Too many attempts. Please request a new code." });
     }
 
-    const ok = await bcrypt.compare(cleanCode, otp.CodeHash);
-    if (!ok) {
-      await prisma.otpToken.update({ where: { Id: otp.Id }, data: { Attempts: { increment: 1 } } });
+    let matched = null;
+    for (const c of candidates) {
+      if (c.Attempts >= maxAttempts) continue;
+      const ok = await bcrypt.compare(cleanCode, c.CodeHash);
+      if (ok) {
+        matched = c;
+        break;
+      }
+    }
+
+    if (!matched) {
+      await prisma.otpToken.update({ where: { Id: candidates[0].Id }, data: { Attempts: { increment: 1 } } });
       return res.status(400).json({ message: "Invalid OTP" });
     }
 
@@ -76,7 +102,7 @@ export default async function resetPassword(req, res) {
         },
         data: { Secret: hashed },
       }),
-      // OTP xác minh email ownership -> coi như Verified luôn (hữu ích cho account admin tạo)
+      // Treat email ownership as verified (useful for admin-created accounts too)
       prisma.accountIdentifier.update({
         where: { Id: emailIdentity.Id },
         data: { Verified: true },

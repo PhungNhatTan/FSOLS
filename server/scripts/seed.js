@@ -317,18 +317,29 @@ async function seedCompletedCourseForStudent({ studentAccountId, courseName }) {
  * =========================
  */
 async function getOrCreateCourseModule(courseId, orderNo, title) {
-  const existing = await prisma.courseModule.findFirst({
+  // Prefer matching by Title first to avoid duplicates when OrderNo changes over time (e.g., 10/20 -> 1/2)
+  const byTitle = await prisma.courseModule.findFirst({
+    where: { CourseId: courseId, Title: title, DeletedAt: null },
+  })
+
+  if (byTitle) {
+    const data = {}
+    if (byTitle.OrderNo !== orderNo) data.OrderNo = orderNo
+    if (Object.keys(data).length) {
+      return prisma.courseModule.update({ where: { Id: byTitle.Id }, data })
+    }
+    return byTitle
+  }
+
+  const byOrder = await prisma.courseModule.findFirst({
     where: { CourseId: courseId, OrderNo: orderNo, DeletedAt: null },
   })
-  if (existing) {
-    // optional: keep title synced
-    if (existing.Title !== title) {
-      await prisma.courseModule.update({
-        where: { Id: existing.Id },
-        data: { Title: title },
-      })
+
+  if (byOrder) {
+    if (byOrder.Title !== title) {
+      return prisma.courseModule.update({ where: { Id: byOrder.Id }, data: { Title: title } })
     }
-    return existing
+    return byOrder
   }
 
   return prisma.courseModule.create({
@@ -393,48 +404,33 @@ async function ensureCertificate(courseId) {
  * QUIZ / FINAL EXAM on module (put at END)
  * =========================
  */
-async function addQuizToModule({
-  courseName,
-  moduleOrderNo, // 10 / 20
+/**
+ * =========================
+ * QUIZ / FINAL EXAM helpers (idempotent)
+ * =========================
+ * Exams are attached to a NEW ModuleItem placed at the END of a module.
+ * This implementation is robust regardless of your module OrderNo scheme (1/2, 10/20, etc).
+ */
+async function createExamAtEndOfModule({
+  courseModuleId,
   mentorAccountId,
-  quizTitle = null,
-  description = "Quick quiz for this module.",
-  durationCustom = DEFAULT_QUIZ_MINUTES,
+  title,
+  description,
+  durationCustom,
 }) {
-  const course = await prisma.course.findFirst({
-    where: { Name: courseName, DeletedAt: null },
-  })
-  if (!course) {
-    log(`[Quiz] Course not found: ${courseName}`)
-    return
-  }
-
-  const module = await prisma.courseModule.findFirst({
-    where: { CourseId: course.Id, OrderNo: moduleOrderNo, DeletedAt: null },
-  })
-  if (!module) {
-    log(`[Quiz] Module not found: Course=${courseName}, OrderNo=${moduleOrderNo}`)
-    return
-  }
-
-  const title = quizTitle ?? `Module ${moduleOrderNo} Quiz`
-
-  // avoid duplicates: same title in same module
+  // Prevent duplicates by title within a module
   const existed = await prisma.exam.findFirst({
     where: {
       Title: title,
       DeletedAt: null,
-      ModuleItem: { is: { CourseModuleId: module.Id } },
+      ModuleItem: { is: { CourseModuleId: courseModuleId } },
     },
   })
-  if (existed) {
-    log(`[Quiz] Already exists -> skip: ${title}`)
-    return
-  }
+  if (existed) return existed
 
-  // put at end: max ModuleItem.OrderNo + 10
+  // Put at end: max ModuleItem.OrderNo + 10
   const maxOrder = await prisma.moduleItem.aggregate({
-    where: { CourseModuleId: module.Id },
+    where: { CourseModuleId: courseModuleId },
     _max: { OrderNo: true },
   })
   const lastOrderNo = (maxOrder._max.OrderNo ?? 0) + 10
@@ -442,11 +438,11 @@ async function addQuizToModule({
   const moduleItem = await prisma.moduleItem.create({
     data: {
       OrderNo: lastOrderNo,
-      CourseModule: { connect: { Id: module.Id } },
+      CourseModule: { connect: { Id: courseModuleId } },
     },
   })
 
-  await prisma.exam.create({
+  const created = await prisma.exam.create({
     data: {
       Title: title,
       Description: description,
@@ -456,69 +452,67 @@ async function addQuizToModule({
     },
   })
 
-  log(`[Quiz] Created "${title}" in Module ${moduleOrderNo} (ModuleItem.OrderNo=${lastOrderNo})`)
+  log(`[Exam] Created "${title}" (CourseModuleId=${courseModuleId}, ModuleItem.OrderNo=${lastOrderNo})`)
+  return created
 }
 
-async function addFinalExamToModule({
-  courseName,
-  moduleOrderNo, // usually module cuối: 20
+async function ensureModuleQuiz({
+  courseModuleId,
+  moduleIndex,
+  mentorAccountId,
+  description = "Quick quiz for this module.",
+  durationCustom = DEFAULT_QUIZ_MINUTES,
+}) {
+  // If an older seed already created a quiz with a different title (e.g., "Module 10 Quiz"),
+  // keep it and do not create a duplicate.
+  const existingQuiz = await prisma.exam.findFirst({
+    where: {
+      DeletedAt: null,
+      ModuleItem: { is: { CourseModuleId: courseModuleId } },
+      Title: { contains: "Quiz" },
+    },
+  })
+  if (existingQuiz) {
+    log(`[Quiz] Already exists -> skip: ${existingQuiz.Title}`)
+    return existingQuiz
+  }
+
+  const title = `Module ${moduleIndex} Quiz`
+  return createExamAtEndOfModule({
+    courseModuleId,
+    mentorAccountId,
+    title,
+    description,
+    durationCustom,
+  })
+}
+
+async function ensureFinalExam({
+  courseModuleId,
   mentorAccountId,
   title = "Final Exam",
   description = "Complete all lessons and module quizzes, then take the final exam to receive your certificate.",
   durationCustom = DEFAULT_FINAL_MINUTES,
 }) {
-  const course = await prisma.course.findFirst({
-    where: { Name: courseName, DeletedAt: null },
-  })
-  if (!course) {
-    log(`[Final] Course not found: ${courseName}`)
-    return
-  }
-
-  const module = await prisma.courseModule.findFirst({
-    where: { CourseId: course.Id, OrderNo: moduleOrderNo, DeletedAt: null },
-  })
-  if (!module) {
-    log(`[Final] Module not found: Course=${courseName}, OrderNo=${moduleOrderNo}`)
-    return
-  }
-
-  const existed = await prisma.exam.findFirst({
+  const existingFinal = await prisma.exam.findFirst({
     where: {
-      Title: title,
       DeletedAt: null,
-      ModuleItem: { is: { CourseModuleId: module.Id } },
+      ModuleItem: { is: { CourseModuleId: courseModuleId } },
+      OR: [{ Title: title }, { Title: { contains: "Final" } }],
     },
   })
-  if (existed) {
-    log(`[Final] Already exists -> skip: ${title}`)
-    return
+  if (existingFinal) {
+    log(`[Final] Already exists -> skip: ${existingFinal.Title}`)
+    return existingFinal
   }
 
-  const maxOrder = await prisma.moduleItem.aggregate({
-    where: { CourseModuleId: module.Id },
-    _max: { OrderNo: true },
+  return createExamAtEndOfModule({
+    courseModuleId,
+    mentorAccountId,
+    title,
+    description,
+    durationCustom,
   })
-  const lastOrderNo = (maxOrder._max.OrderNo ?? 0) + 10
-
-  const moduleItem = await prisma.moduleItem.create({
-    data: {
-      OrderNo: lastOrderNo,
-      CourseModule: { connect: { Id: module.Id } },
-    },
-  })
-
-  await prisma.exam.create({
-    data: {
-      Title: title,
-      Description: description,
-      ModuleItem: { connect: { Id: moduleItem.Id } },
-      CreatedBy: { connect: { AccountId: mentorAccountId } },
-      DurationCustom: durationCustom,
-    },
-  })
-
-  log(`[Final] Created "${title}" in Module ${moduleOrderNo} (ModuleItem.OrderNo=${lastOrderNo})`)
 }
 
 /**
@@ -571,11 +565,14 @@ async function ensureCourseTimeline(courseName, mentorAccountId) {
     return
   }
 
-  log(`\n[Timeline] Ensure timeline for: ${courseName} (CourseId=${course.Id})`)
+  log(`
+[Timeline] Ensure timeline for: ${courseName} (CourseId=${course.Id})`)
 
-  // ensure modules + lessons
+  // Ensure modules + lessons
+  const ensuredModules = []
   for (const m of MODULES) {
     const mod = await getOrCreateCourseModule(course.Id, m.orderNo, m.title)
+    ensuredModules.push(mod)
 
     for (const l of m.lessons) {
       const item = await getOrCreateModuleItem(mod.Id, l.orderNo)
@@ -583,31 +580,27 @@ async function ensureCourseTimeline(courseName, mentorAccountId) {
     }
   }
 
-  // ensure certificate
+  // Ensure certificate
   await ensureCertificate(course.Id)
 
-  // ensure quizzes (đặt ở cuối module)
-  await addQuizToModule({
-    courseName,
-    moduleOrderNo: 10,
-    mentorAccountId,
-    durationCustom: DEFAULT_QUIZ_MINUTES,
-  })
+  // Ensure quizzes (one per module, placed at the end)
+  for (let i = 0; i < ensuredModules.length; i++) {
+    await ensureModuleQuiz({
+      courseModuleId: ensuredModules[i].Id,
+      moduleIndex: i + 1,
+      mentorAccountId,
+      durationCustom: DEFAULT_QUIZ_MINUTES,
+    })
+  }
 
-  await addQuizToModule({
-    courseName,
-    moduleOrderNo: 20,
-    mentorAccountId,
-    durationCustom: DEFAULT_QUIZ_MINUTES,
-  })
-
-  // ensure final exam (đặt ở cuối module 20)
-  await addFinalExamToModule({
-    courseName,
-    moduleOrderNo: 20,
-    mentorAccountId,
-    durationCustom: DEFAULT_FINAL_MINUTES,
-  })
+  // Ensure final exam (placed at the end of the last module)
+  if (ensuredModules.length) {
+    await ensureFinalExam({
+      courseModuleId: ensuredModules[ensuredModules.length - 1].Id,
+      mentorAccountId,
+      durationCustom: DEFAULT_FINAL_MINUTES,
+    })
+  }
 
   if (NORMALIZE_MODULE_ORDER_TO_1_2) {
     await normalizeCourseModulesOrderTo1_2(courseName)
