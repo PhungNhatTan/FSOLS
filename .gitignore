@@ -18,9 +18,6 @@ build/
 
 # Prisma
 server/src/generated/prisma/**
-!server/src/generated/prisma/schema.prisma
-!server/src/generated/prisma/migrations/
-!server/src/generated/prisma/migrations/**
 
 # Local database files
 *.db

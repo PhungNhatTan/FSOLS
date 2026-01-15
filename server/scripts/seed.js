@@ -1,4 +1,5 @@
 // scripts/seed.js
+// Dev seed script (idempotent)
 import prisma from "../src/prismaClient.js"
 import bcrypt from "bcrypt"
 
@@ -9,26 +10,26 @@ import bcrypt from "bcrypt"
  */
 const TARGET_COURSE_NAME = "Node.js Backend Development"
 
-// ✅ Module OrderNo hiện đang là 10 / 20 (đúng như UI bạn chụp)
+// ✅ Module OrderNo
 const MODULES = [
   {
-    orderNo: 10,
+    orderNo: 1,
     title: "Module 1: Fundamentals",
     lessons: [
-      { orderNo: 10, title: "Lesson 1: Overview & Setup", type: "Video" },
-      { orderNo: 20, title: "Lesson 2: Core Concepts", type: "Video" },
-      { orderNo: 30, title: "Lesson 3: Basics Recap", type: "Video" },
+      { orderNo: 1, title: "Lesson 1: Overview & Setup", type: "Video" },
+      { orderNo: 2, title: "Lesson 2: Core Concepts", type: "Video" },
+      { orderNo: 3, title: "Lesson 3: Basics Recap", type: "Video" },
     ],
   },
   {
-    orderNo: 20,
+    orderNo: 2,
     title: "Module 2: Building Features",
     lessons: [
-      { orderNo: 10, title: "Lesson 1: Routing & Controllers", type: "Video" },
-      { orderNo: 20, title: "Lesson 2: Database Integration", type: "Video" },
-      { orderNo: 30, title: "Lesson 3: Auth & Security Basics", type: "Video" },
-      { orderNo: 40, title: "Lesson 4: Validation & Errors", type: "Video" },
-      { orderNo: 50, title: "Lesson 5: Deployment Intro", type: "Video" },
+      { orderNo: 1, title: "Lesson 1: Routing & Controllers", type: "Video" },
+      { orderNo: 2, title: "Lesson 2: Database Integration", type: "Video" },
+      { orderNo: 3, title: "Lesson 3: Auth & Security Basics", type: "Video" },
+      { orderNo: 4, title: "Lesson 4: Validation & Errors", type: "Video" },
+      { orderNo: 5, title: "Lesson 5: Deployment Intro", type: "Video" },
     ],
   },
 ]
@@ -37,7 +38,7 @@ const DEFAULT_QUIZ_MINUTES = 10
 const DEFAULT_FINAL_MINUTES = 30
 
 // Nếu bạn muốn đổi Module 10/20 -> 1/2 trong DB thì bật true (không khuyến nghị nếu bạn đang rely 10/20)
-const NORMALIZE_MODULE_ORDER_TO_1_2 = false
+const NORMALIZE_MODULE_ORDER_TO_1_2 = true
 
 /**
  * =========================
@@ -46,71 +47,141 @@ const NORMALIZE_MODULE_ORDER_TO_1_2 = false
  */
 const log = (...args) => console.log(...args)
 
-async function upsertUsernameProvider() {
-  return prisma.provider.upsert({
+async function ensureAuthProviders() {
+  const usernameProvider = await prisma.provider.upsert({
     where: { Name: "username" },
     update: {},
     create: { Name: "username", Enabled: true },
   })
+
+  const emailProvider = await prisma.provider.upsert({
+    where: { Name: "email" },
+    update: {},
+    create: { Name: "email", Enabled: true },
+  })
+
+  return { usernameProvider, emailProvider }
 }
 
-async function ensureAccount({ username, displayName, password, role, providerId }) {
-  const hashedPassword = await bcrypt.hash(password, 10)
+function normalizeEmail(email) {
+  return String(email || "").trim().toLowerCase()
+}
 
-  let account = await prisma.account.findFirst({
-    where: { Username: username },
-  })
+function buildSyntheticEmail(username) {
+  const base = String(username || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "")
+    .replace(/[^a-z0-9._+-]/g, "")
+  return `${base}@fsols.local`
+}
+
+async function ensureAccount({ username, displayName, password, role, email, providers }) {
+  const { usernameProvider, emailProvider } = providers
+  const hashedPassword = await bcrypt.hash(password, 10)
+  const cleanUsername = String(username || "").trim()
+  const cleanDisplayName = String(displayName || cleanUsername).trim()
+  const cleanEmail = normalizeEmail(email) || buildSyntheticEmail(cleanUsername)
+
+  let account = await prisma.account.findUnique({ where: { Username: cleanUsername } })
 
   if (!account) {
     account = await prisma.account.create({
       data: {
-        Username: username,
-        DisplayName: displayName,
-        AccountIdentifier: {
-          create: {
-            Identifier: username,
-            Secret: hashedPassword,
-            Provider: { connect: { Id: providerId } },
-          },
-        },
+        Username: cleanUsername,
+        DisplayName: cleanDisplayName,
       },
     })
-    log(`Created account: ${username} (${role || "Student"})`)
+    log(`Created account: ${cleanUsername} (${role || "Student"})`)
   } else {
-    log(`Account "${username}" already exists, using existing...`)
+    // keep display name in sync for dev
+    if (account.DisplayName !== cleanDisplayName) {
+      account = await prisma.account.update({
+        where: { Id: account.Id },
+        data: { DisplayName: cleanDisplayName },
+      })
+    }
+    log(`Account "${cleanUsername}" already exists, using existing...`)
+  }
+
+  // Ensure username identity (Verified so login works immediately in dev)
+  const usernameIdentity = await prisma.accountIdentifier.findUnique({
+    where: {
+      ProviderId_Identifier: {
+        ProviderId: usernameProvider.Id,
+        Identifier: cleanUsername,
+      },
+    },
+  })
+  if (!usernameIdentity) {
+    await prisma.accountIdentifier.create({
+      data: {
+        AccountId: account.Id,
+        ProviderId: usernameProvider.Id,
+        Identifier: cleanUsername,
+        Secret: hashedPassword,
+        Verified: true,
+      },
+    })
+  } else if (usernameIdentity.AccountId === account.Id) {
+    await prisma.accountIdentifier.update({
+      where: { Id: usernameIdentity.Id },
+      data: { Secret: hashedPassword, Verified: true },
+    })
+  } else {
+    log(`[WARN] Username identity "${cleanUsername}" is linked to another account. Skipping.`)
+  }
+
+  // Ensure email identity (Verified so login works immediately in dev)
+  const emailIdentity = await prisma.accountIdentifier.findUnique({
+    where: {
+      ProviderId_Identifier: {
+        ProviderId: emailProvider.Id,
+        Identifier: cleanEmail,
+      },
+    },
+  })
+  if (!emailIdentity) {
+    await prisma.accountIdentifier.create({
+      data: {
+        AccountId: account.Id,
+        ProviderId: emailProvider.Id,
+        Identifier: cleanEmail,
+        Secret: hashedPassword,
+        Verified: true,
+      },
+    })
+  } else if (emailIdentity.AccountId === account.Id) {
+    await prisma.accountIdentifier.update({
+      where: { Id: emailIdentity.Id },
+      data: { Secret: hashedPassword, Verified: true },
+    })
+  } else {
+    log(`[WARN] Email identity "${cleanEmail}" is linked to another account. Skipping.`)
   }
 
   if (role) {
-    const existingRole = await prisma.accountRole.findFirst({
+    // AccountRole has AccountId as PK => 1 role per account
+    await prisma.accountRole.upsert({
       where: { AccountId: account.Id },
+      update: { Role: role },
+      create: { AccountId: account.Id, Role: role },
     })
 
-    if (!existingRole) {
-      await prisma.accountRole.create({
-        data: { AccountId: account.Id, Role: role },
-      })
-    }
-
     if (role === "Mentor") {
-      const existingMentor = await prisma.mentor.findFirst({
+      await prisma.mentor.upsert({
         where: { AccountId: account.Id },
+        update: { Name: cleanDisplayName, Email: email ? cleanEmail : null },
+        create: { AccountId: account.Id, Name: cleanDisplayName, Email: email ? cleanEmail : null },
       })
-      if (!existingMentor) {
-        await prisma.mentor.create({
-          data: { AccountId: account.Id, Name: displayName },
-        })
-      }
     }
 
     if (role === "Admin") {
-      const existingAdmin = await prisma.admin.findFirst({
+      await prisma.admin.upsert({
         where: { AccountId: account.Id },
+        update: {},
+        create: { AccountId: account.Id },
       })
-      if (!existingAdmin) {
-        await prisma.admin.create({
-          data: { AccountId: account.Id },
-        })
-      }
     }
   }
 
@@ -120,7 +191,7 @@ async function ensureAccount({ username, displayName, password, role, providerId
 async function upsertCategory({ Name, Slug, Description }) {
   return prisma.category.upsert({
     where: { Slug },
-    update: {},
+    update: { Name, Description },
     create: { Name, Slug, Description },
   })
 }
@@ -131,8 +202,18 @@ async function ensureCourse({ Name, Description, CategoryId, mentorAccountId }) 
   })
 
   if (existing) {
-    log("Course already exists:", Name)
-    return existing
+    const updated = await prisma.course.update({
+      where: { Id: existing.Id },
+      data: {
+        Description,
+        LastUpdated: new Date(),
+        PublishedAt: existing.PublishedAt ?? new Date(),
+        ...(mentorAccountId ? { CreatedBy: { connect: { AccountId: mentorAccountId } } } : {}),
+        ...(CategoryId ? { Category: { connect: { Id: CategoryId } } } : {}),
+      },
+    })
+    log("Course already exists (synced):", Name)
+    return updated
   }
 
   const created = await prisma.course.create({
@@ -147,6 +228,87 @@ async function ensureCourse({ Name, Description, CategoryId, mentorAccountId }) 
 
   log("Course created:", created.Name, "with ID:", created.Id)
   return created
+}
+
+/**
+ * =========================
+ * DEMO ENROLLMENT + CERTIFICATE (idempotent)
+ * =========================
+ * This helps you test:
+ * - Profile certificate list
+ * - Completed course state in UI
+ */
+async function seedCompletedCourseForStudent({ studentAccountId, courseName }) {
+  const course = await prisma.course.findFirst({
+    where: { Name: courseName, DeletedAt: null },
+  })
+
+  if (!course) {
+    log(`[Demo] Course not found: ${courseName}`)
+    return
+  }
+
+  // Ensure certificate template exists
+  const cert = await ensureCertificate(course.Id)
+
+  // Ensure enrollment exists
+  let enroll = await prisma.courseEnroll.findFirst({
+    where: { AccountId: studentAccountId, CourseId: course.Id, DeletedAt: null },
+    orderBy: { CreatedAt: "desc" },
+  })
+
+  if (!enroll) {
+    const enrolledAt = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    const completedAt = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
+    enroll = await prisma.courseEnroll.create({
+      data: {
+        AccountId: studentAccountId,
+        CourseId: course.Id,
+        Status: "Completed",
+        EnrolledAt: enrolledAt,
+        CompletedAt: completedAt,
+      },
+    })
+  } else if (enroll.Status !== "Completed") {
+    enroll = await prisma.courseEnroll.update({
+      where: { Id: enroll.Id },
+      data: { Status: "Completed", CompletedAt: new Date() },
+    })
+  }
+
+  // Mark all lessons completed for this enrollment
+  const lessons = await prisma.courseLesson.findMany({
+    where: {
+      DeletedAt: null,
+      ModuleItem: { is: { CourseModule: { is: { CourseId: course.Id } } } },
+    },
+    select: { Id: true },
+  })
+
+  if (lessons.length) {
+    await prisma.lessonProgress.createMany({
+      data: lessons.map((l) => ({
+        AccountId: studentAccountId,
+        CourseEnrollId: enroll.Id,
+        LessonId: l.Id,
+        IsCompleted: true,
+        CompletedAt: new Date(),
+      })),
+      skipDuplicates: true,
+    })
+  }
+
+  // Ensure user certificate exists
+  const existingUserCert = await prisma.userCertificate.findFirst({
+    where: { AccountId: studentAccountId, CertificateId: cert.Id },
+  })
+  if (!existingUserCert) {
+    await prisma.userCertificate.create({
+      data: { AccountId: studentAccountId, CertificateId: cert.Id },
+    })
+  }
+
+  log(`[Demo] Student completed "${courseName}" and received a certificate.`)
 }
 
 /**
@@ -594,8 +756,8 @@ async function seedQuestionsForExams() {
 async function main() {
   log("Starting seed...")
 
-  const provider = await upsertUsernameProvider()
-  log("Provider created:", provider.Name)
+  const providers = await ensureAuthProviders()
+  log("Providers ensured:", providers.usernameProvider.Name, "/", providers.emailProvider.Name)
 
   // Accounts
   await ensureAccount({
@@ -603,7 +765,8 @@ async function main() {
     displayName: "Admin User",
     password: "admin123",
     role: "Admin",
-    providerId: provider.Id,
+    email: "admin@fsols.local",
+    providers,
   })
 
   const mentorAccount = await ensureAccount({
@@ -611,15 +774,26 @@ async function main() {
     displayName: "Test Mentor",
     password: "mentor123",
     role: "Mentor",
-    providerId: provider.Id,
+    email: "mentor@fsols.local",
+    providers,
   })
 
   await ensureAccount({
+    username: "moderator",
+    displayName: "Test Moderator",
+    password: "moderator123",
+    role: "Moderator",
+    email: "moderator@fsols.local",
+    providers,
+  })
+
+  const studentAccount = await ensureAccount({
     username: "student",
     displayName: "Test Student",
     password: "student123",
     role: null,
-    providerId: provider.Id,
+    email: "student@fsols.local",
+    providers,
   })
 
   // Categories
@@ -683,6 +857,12 @@ async function main() {
   // Ensure questions for exams
   await seedQuestionsForExams()
 
+  // Demo: mark student as completed the target course + issue certificate
+  await seedCompletedCourseForStudent({
+    studentAccountId: studentAccount.Id,
+    courseName: TARGET_COURSE_NAME,
+  })
+
   const allCourses = await prisma.course.findMany({
     where: { PublishedAt: { not: null }, DeletedAt: null },
   })
@@ -692,6 +872,7 @@ async function main() {
   log("\n=== TEST ACCOUNTS ===")
   log("Admin:   username: admin   | password: admin123")
   log("Mentor:  username: mentor  | password: mentor123")
+  log("Mod:     username: moderator | password: moderator123")
   log("Student: username: student | password: student123")
 }
 
