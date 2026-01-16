@@ -23,6 +23,14 @@ export interface Enrollment {
 export interface EnrollmentStatusResponse {
   isEnrolled: boolean
   enrollment: Enrollment | null
+
+  // New: course time-limit / cooldown metadata (may be null)
+  expiresAt?: string | null
+  secondsRemaining?: number | null
+  canEnrollAt?: string | null
+  cooldownSecondsRemaining?: number | null
+  studyWindowMinutes?: number
+  reenrollCooldownMinutes?: number
 }
 
 /**

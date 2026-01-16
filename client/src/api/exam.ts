@@ -33,13 +33,26 @@ export const submit = async (data: { examId: number; answers: StudentAnswer[] })
   } catch (error: unknown) {
     let errorMsg = "Submission failed";
 
+    // Preserve server error code/metadata so callers can handle course time-limit locks.
+    let errorCode: string | undefined
+    let secondsUntilCanEnroll: number | undefined
+    let canEnrollAt: string | undefined
+
     if (isAxiosError(error)) {
       console.error("[v0] Exam submission error:", error.response?.data || error.message);
       errorMsg = error.response?.data?.error || error.response?.data?.message || error.message || errorMsg;
+
+      errorCode = error.response?.data?.code
+      secondsUntilCanEnroll = error.response?.data?.secondsUntilCanEnroll
+      canEnrollAt = error.response?.data?.canEnrollAt
     } else if (error instanceof Error) {
       errorMsg = error.message;
     }
 
-    throw new Error(errorMsg);
+    const e: any = new Error(errorMsg)
+    if (errorCode) e.code = errorCode
+    if (typeof secondsUntilCanEnroll === "number") e.secondsUntilCanEnroll = secondsUntilCanEnroll
+    if (canEnrollAt) e.canEnrollAt = canEnrollAt
+    throw e
   }
 }

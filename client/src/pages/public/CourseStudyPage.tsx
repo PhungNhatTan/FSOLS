@@ -8,6 +8,39 @@ import http from "../../service/http";
 import type { CourseNavData, CourseModule, FlattenedItem } from "../../types/course";
 import { useAuth } from "../../hooks/useAuth";
 
+type CourseProgressResponse = {
+  enrollmentId: string
+  completedLessons: string[]
+  completedExams: number[]
+  timeLimit?: {
+    expiresAt: string | null
+    secondsRemaining: number | null
+    studyWindowMinutes?: number
+    reenrollCooldownMinutes?: number
+  }
+}
+
+const formatDurationHMS = (totalSeconds: number): string => {
+  const s = Math.max(0, Math.trunc(totalSeconds))
+  const hh = Math.floor(s / 3600)
+  const mm = Math.floor((s % 3600) / 60)
+  const ss = s % 60
+  const pad = (x: number) => String(x).padStart(2, "0")
+  return `${pad(hh)}:${pad(mm)}:${pad(ss)}`
+}
+
+const getApiError = (err: unknown): { status?: number; message?: string; code?: string; secondsUntilCanEnroll?: number } => {
+  const anyErr = err as any
+  const status = anyErr?.response?.status
+  const data = anyErr?.response?.data
+  return {
+    status,
+    message: data?.message || data?.error || anyErr?.message,
+    code: data?.code,
+    secondsUntilCanEnroll: data?.secondsUntilCanEnroll,
+  }
+}
+
 
 export default function CourseStudyPage() {
   const { id } = useParams<{ id: string }>();
@@ -23,12 +56,24 @@ export default function CourseStudyPage() {
   const [error, setError] = useState("");
   const [takingExam, setTakingExam] = useState(false);
 
+  const [courseExpiresAt, setCourseExpiresAt] = useState<Date | null>(null)
+  const [courseTimeLeft, setCourseTimeLeft] = useState<number | null>(null)
+  const expiryHandledRef = useRef(false)
+
   const completionAttemptRef = useRef<string | null>(null);
+
+  const redirectWithNotice = useCallback(
+    (noticeMsg: string) => {
+      if (!id) return
+      navigate(`/course/${id}`, { state: { notice: noticeMsg } })
+    },
+    [id, navigate]
+  )
 
   // Load course data
   const refreshProgress = useCallback(async () => {
     if (!id) return null;
-    const progressRes = await http.get<{ enrollmentId: string; completedLessons: string[]; completedExams: number[] }>(
+    const progressRes = await http.get<CourseProgressResponse>(
       `/progress/courses/${id}`
     );
 
@@ -39,6 +84,12 @@ export default function CourseStudyPage() {
     completedLessons.forEach(lid => completed.add(`lesson-${lid}`));
     completedExams.forEach(eid => completed.add(`exam-${eid}`));
     setCompletedItems(completed);
+
+    const expIso = progressRes.data?.timeLimit?.expiresAt ?? null
+    const exp = expIso ? new Date(expIso) : null
+    setCourseExpiresAt(exp)
+    setCourseTimeLeft(exp ? Math.ceil((exp.getTime() - Date.now()) / 1000) : null)
+    expiryHandledRef.current = false
     return completed;
   }, [id]);
 
@@ -51,9 +102,9 @@ export default function CourseStudyPage() {
     }
 
     if (!accountId) {
-      setError("Please log in to study this course");
-      setLoading(false);
-      return;
+      // Require authentication (route is public).
+      navigate("/login", { state: { from: `/course-study/${id}` } })
+      return
     }
 
     // Reset state when switching accounts in the same tab
@@ -67,7 +118,7 @@ export default function CourseStudyPage() {
 
     Promise.all([
       http.get<CourseNavData>(`/course/${id}`),
-      http.get<{ enrollmentId: string; completedLessons: string[]; completedExams: number[] }>(`/progress/courses/${id}`)
+      http.get<CourseProgressResponse>(`/progress/courses/${id}`)
     ])
       .then(([courseRes, progressRes]) => {
         setCourseData(courseRes.data);
@@ -79,6 +130,12 @@ export default function CourseStudyPage() {
         completedLessons.forEach(lid => completed.add(`lesson-${lid}`));
         completedExams.forEach(eid => completed.add(`exam-${eid}`));
         setCompletedItems(completed);
+
+        const expIso = progressRes.data?.timeLimit?.expiresAt ?? null
+        const exp = expIso ? new Date(expIso) : null
+        setCourseExpiresAt(exp)
+        setCourseTimeLeft(exp ? Math.ceil((exp.getTime() - Date.now()) / 1000) : null)
+        expiryHandledRef.current = false
 
         const storageKey = `course_${id}_account_${accountId}_last_item`;
         const savedProgress = localStorage.getItem(storageKey);
@@ -95,10 +152,52 @@ export default function CourseStudyPage() {
       })
       .catch((err) => {
         console.error("Failed to load course or progress:", err);
-        setError("Failed to load course details");
+
+        const apiErr = getApiError(err)
+        if (apiErr.status === 401) {
+          navigate("/login", { state: { from: `/course-study/${id}` } })
+          return
+        }
+        if (apiErr.code === "COURSE_TIME_EXPIRED") {
+          redirectWithNotice(apiErr.message || "You can't study this course after the time limit.")
+          return
+        }
+        if (apiErr.code === "NOT_ENROLLED") {
+          redirectWithNotice(apiErr.message || "You must enroll in this course before studying.")
+          return
+        }
+
+        setError(apiErr.message || "Failed to load course details")
       })
       .finally(() => setLoading(false));
   }, [id, accountId]);
+
+  // Local countdown for the course time-limit. When it reaches 0, re-check with the server to force the kick.
+  useEffect(() => {
+    if (!courseExpiresAt) {
+      setCourseTimeLeft(null)
+      return
+    }
+
+    const t = setInterval(async () => {
+      const left = Math.ceil((courseExpiresAt.getTime() - Date.now()) / 1000)
+      setCourseTimeLeft(left)
+
+      if (left <= 0 && !expiryHandledRef.current) {
+        expiryHandledRef.current = true
+        try {
+          await refreshProgress()
+        } catch (err) {
+          const apiErr = getApiError(err)
+          if (apiErr.code === "COURSE_TIME_EXPIRED") {
+            redirectWithNotice(apiErr.message || "You can't study this course after the time limit.")
+          }
+        }
+      }
+    }, 1000)
+
+    return () => clearInterval(t)
+  }, [courseExpiresAt, refreshProgress, redirectWithNotice])
 
   const flattenedItems = courseData
     ? flattenCourseItems(courseData.CourseModule)
@@ -172,6 +271,15 @@ export default function CourseStudyPage() {
       }
     } catch (err) {
       console.error("Failed to mark complete:", err);
+      const apiErr = getApiError(err)
+      if (apiErr.code === "COURSE_TIME_EXPIRED") {
+        redirectWithNotice(apiErr.message || "You can't study this course after the time limit.")
+        return
+      }
+      if (apiErr.code === "NOT_ENROLLED") {
+        redirectWithNotice(apiErr.message || "You must enroll in this course before studying.")
+        return
+      }
     }
   }, [currentItemId, currentItem, id, enrollmentId, currentIndex, flattenedItems, refreshProgress]);
 
@@ -206,6 +314,11 @@ export default function CourseStudyPage() {
     } catch (err) {
       console.error("Failed to sync exam completion:", err);
       setTakingExam(false);
+
+      const apiErr = getApiError(err)
+      if (apiErr.code === "COURSE_TIME_EXPIRED") {
+        redirectWithNotice(apiErr.message || "You can't study this course after the time limit.")
+      }
     }
   }, [currentItemId, currentItem, id, currentIndex, flattenedItems, refreshProgress]);
 
@@ -287,6 +400,12 @@ export default function CourseStudyPage() {
       />
 
       <div className="flex-1 flex flex-col overflow-hidden">
+        {courseTimeLeft !== null && courseTimeLeft > 0 && (
+          <div className="border-b bg-amber-50 px-4 py-2 text-sm text-amber-800 flex items-center justify-between">
+            <span className="font-medium">Course time left:</span>
+            <span className="font-mono">{formatDurationHMS(courseTimeLeft)}</span>
+          </div>
+        )}
         <div className="flex-1 overflow-y-auto bg-white">
           {currentItem?.type === "Lesson" ? (
             <LessonViewer
@@ -298,6 +417,7 @@ export default function CourseStudyPage() {
               <ExamViewer
                 examId={currentItem.examId!}
                 onComplete={handleExamComplete}
+                onBlocked={(msg) => redirectWithNotice(msg)}
               />
             ) : (
               <ExamDetailViewer

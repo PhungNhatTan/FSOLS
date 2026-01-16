@@ -49,9 +49,10 @@ const getDurationMinutes = (examData: ExamData): number => {
 interface ExamViewerProps {
   examId: number;
   onComplete?: () => void; // NEW: Callback when exam is completed
+  onBlocked?: (notice: string) => void; // NEW: Time-limit / enrollment lock
 }
 
-export default function ExamViewer({ examId, onComplete }: ExamViewerProps) {
+export default function ExamViewer({ examId, onComplete, onBlocked }: ExamViewerProps) {
   const [examData, setExamData] = useState<ExamData | null>(null);
   const [answers, setAnswers] = useState<Record<string, StudentAnswer>>({});
   const [message, setMessage] = useState("");
@@ -141,14 +142,22 @@ export default function ExamViewer({ examId, onComplete }: ExamViewerProps) {
           }, 2000);
         }
       } catch (err) {
+        const anyErr = err as any
         const errorMessage = err instanceof Error ? err.message : "Failed to submit exam";
+
+        // If the course time-limit expired while taking the exam, kick back to the course page.
+        if (anyErr?.code === "COURSE_TIME_EXPIRED" && onBlocked) {
+          setIsSubmitting(false)
+          onBlocked(errorMessage)
+          return
+        }
         console.error("Submit error:", errorMessage);
         setMessageType("error");
         setMessage(`${errorMessage}. Please check your connection and try again.`);
         setIsSubmitting(false);
       }
     },
-    [examData, answers, submitted, isSubmitting, onComplete]
+    [examData, answers, submitted, isSubmitting, onComplete, onBlocked]
   );
 
   const handleNextQuestion = () => {
