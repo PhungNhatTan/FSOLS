@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import lesson from "../../../api/lesson";
 import type { LessonDetail } from "../../../types";
+import { resolveUploadUrl } from "../../../utils/url";
 
 // Constants
 const OFFICE_VIEWER_EXTENSIONS = new Set(["doc", "docx", "ppt", "pptx", "xls", "xlsx"]);
@@ -10,160 +11,173 @@ interface MediaResource {
   type: "video" | "document" | "html" | "none";
   url: string | null;
   embedUrl?: string | null;
+  nameHint?: string | null;
 }
 
 interface LessonViewerProps {
   lessonId: string;
-  onComplete?: () => void; // NEW: Callback when lesson is completed
+  onComplete?: () => void; // Callback when lesson is completed
 }
 
 // Utilities
-const getFileExtension = (url: string): string => {
-  const clean = url.split(/[?#]/)[0];
+const getFileExtension = (value: string): string => {
+  const clean = value.split(/[?#]/)[0];
   const idx = clean.lastIndexOf(".");
   if (idx === -1) return "";
   return clean.slice(idx + 1).toLowerCase();
 };
 
-const getDocumentEmbedUrl = (url: string): string => {
-  const ext = getFileExtension(url);
-  
-  if (ext === "pdf") return url;
-  
-  if (OFFICE_VIEWER_EXTENSIONS.has(ext)) {
-    const isLocal = window.location.hostname === 'localhost' || 
-                    window.location.hostname === '127.0.0.1';
-    
-    if (isLocal) {
-      return url;
-    }
-    
-    return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`;
-  }
-  
-  return url;
+const isLocalHost = () => {
+  const h = window.location.hostname;
+  return h === "localhost" || h === "127.0.0.1";
 };
 
 // Video extensions
 const VIDEO_EXTENSIONS = new Set([
-  "mp4", "webm", "ogg", "mov", "avi", "mkv", "m4v", "3gp"
+  "mp4", "webm", "ogg", "mov", "avi", "mkv", "m4v", "3gp",
 ]);
 
 // Document extensions
 const DOCUMENT_EXTENSIONS = new Set([
-  "pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx"
+  "pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx",
 ]);
 
-const detectMediaType = (url: string): "video" | "document" | "unknown" => {
-  const ext = getFileExtension(url);
-  
-  if (VIDEO_EXTENSIONS.has(ext)) {
-    return "video";
-  }
-  
-  if (DOCUMENT_EXTENSIONS.has(ext)) {
-    return "document";
-  }
-  
+const getExtension = (url: string, nameHint?: string | null): string =>
+  getFileExtension(url) || (nameHint ? getFileExtension(nameHint) : "");
+
+const detectMediaType = (
+  url: string,
+  nameHint?: string | null,
+  lessonTypeHint?: string | null
+): "video" | "document" | "unknown" => {
+  const ext = getExtension(url, nameHint);
+  if (VIDEO_EXTENSIONS.has(ext)) return "video";
+  if (DOCUMENT_EXTENSIONS.has(ext)) return "document";
+
+  // Critical fallback: Drive URLs often have no extension.
+  // Use LessonType when available.
+  const lt = (lessonTypeHint ?? "").toLowerCase();
+  if (lt.includes("video")) return "video";
+  if (lt.includes("document") || lt.includes("doc")) return "document";
+
   return "unknown";
 };
 
+const getDocumentEmbedUrl = (url: string, nameHint?: string | null): string => {
+  const ext = getExtension(url, nameHint);
+
+  // PDFs can be embedded directly
+  if (ext === "pdf") return url;
+
+  // Office files: use Office Online viewer when not local
+  if (OFFICE_VIEWER_EXTENSIONS.has(ext)) {
+    if (isLocalHost()) return url;
+    return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`;
+  }
+
+  return url;
+};
+
 const getLessonMedia = (lessonData: LessonDetail): MediaResource => {
-  // Priority 1: Check LessonResources array (new approach - multiple resources)
+  const resolveUrl = (url: string) => resolveUploadUrl(url) ?? url;
+
+  // Priority 1: LessonResources array (when the API returns multiple resources)
   if (lessonData.LessonResources && lessonData.LessonResources.length > 0) {
-    // Sort by OrderNo if available, otherwise use first resource
     const sortedResources = [...lessonData.LessonResources].sort((a, b) => {
       const orderA = a.OrderNo ?? 0;
       const orderB = b.OrderNo ?? 0;
       return orderA - orderB;
     });
-    
-    // Get the primary resource (first one)
+
     const primaryResource = sortedResources[0];
-    
-    if (primaryResource.Url) {
-      const mediaType = detectMediaType(primaryResource.Url);
-      
+    const nameHint = primaryResource?.Name ?? null;
+
+    if (primaryResource?.Url) {
+      const url = resolveUrl(primaryResource.Url);
+      const mediaType = detectMediaType(url, nameHint, lessonData.LessonType);
+
       if (mediaType === "video") {
-        return { type: "video", url: primaryResource.Url };
+        return { type: "video", url, nameHint };
       }
-      
+
       if (mediaType === "document") {
         return {
           type: "document",
-          url: primaryResource.Url,
-          embedUrl: getDocumentEmbedUrl(primaryResource.Url)
+          url,
+          nameHint,
+          embedUrl: getDocumentEmbedUrl(url, nameHint),
         };
       }
     }
   }
-  
-  // Priority 2: Check single Resource object (transitional approach)
-  if (lessonData.Resource && lessonData.Resource.Url) {
-    const mediaType = detectMediaType(lessonData.Resource.Url);
-    
+
+  // Priority 2: single Resource object (this is what your public /lesson/:id returns today)
+  if (lessonData.Resource?.Url) {
+    const nameHint = lessonData.Resource?.Name ?? null;
+    const url = resolveUrl(lessonData.Resource.Url);
+    const mediaType = detectMediaType(url, nameHint, lessonData.LessonType);
+
     if (mediaType === "video") {
-      return { type: "video", url: lessonData.Resource.Url };
+      return { type: "video", url, nameHint };
     }
-    
+
     if (mediaType === "document") {
       return {
         type: "document",
-        url: lessonData.Resource.Url,
-        embedUrl: getDocumentEmbedUrl(lessonData.Resource.Url)
+        url,
+        nameHint,
+        embedUrl: getDocumentEmbedUrl(url, nameHint),
       };
     }
   }
-  
-  // Legacy Priority 3: ContentUrl (if exists)
+
+  // Priority 3: ContentUrl (legacy/compat)
   if (lessonData.ContentUrl) {
-    const mediaType = detectMediaType(lessonData.ContentUrl);
-    
+    const nameHint = lessonData.Resource?.Name ?? null;
+    const url = resolveUrl(lessonData.ContentUrl);
+    const mediaType = detectMediaType(url, nameHint, lessonData.LessonType);
+
     if (mediaType === "video") {
-      return { type: "video", url: lessonData.ContentUrl };
+      return { type: "video", url, nameHint };
     }
-    
+
     if (mediaType === "document") {
       return {
         type: "document",
-        url: lessonData.ContentUrl,
-        embedUrl: getDocumentEmbedUrl(lessonData.ContentUrl)
+        url,
+        nameHint,
+        embedUrl: getDocumentEmbedUrl(url, nameHint),
       };
     }
   }
-  
-  // Legacy Priority 4: Check VideoUrl (auto-detect it's a video)
+
+  // Priority 4: deprecated fields
   if (lessonData.VideoUrl) {
-    return { type: "video", url: lessonData.VideoUrl };
+    const url = resolveUrl(lessonData.VideoUrl);
+    return { type: "video", url };
   }
-  
-  // Legacy Priority 5: Check DocUrl (auto-detect if it's video or document)
+
   if (lessonData.DocUrl) {
-    const mediaType = detectMediaType(lessonData.DocUrl);
-    
-    if (mediaType === "video") {
-      return { type: "video", url: lessonData.DocUrl };
-    }
-    
+    const url = resolveUrl(lessonData.DocUrl);
     // Default to document for DocUrl
     return {
       type: "document",
-      url: lessonData.DocUrl,
-      embedUrl: getDocumentEmbedUrl(lessonData.DocUrl)
+      url,
+      embedUrl: getDocumentEmbedUrl(url),
     };
   }
-  
-  // Priority 6: HTML content
+
+  // Priority 5: HTML content
   if (lessonData.Content) {
     return { type: "html", url: null };
   }
-  
+
   return { type: "none", url: null };
 };
 
-// ==============================================================
+// ============================================================== 
 // LESSON MEDIA VIEWER COMPONENT
-// ==============================================================
+// ============================================================== 
 
 interface LessonMediaViewerProps {
   lessonData: LessonDetail;
@@ -171,7 +185,7 @@ interface LessonMediaViewerProps {
 
 function LessonMediaViewer({ lessonData }: LessonMediaViewerProps) {
   const media = useMemo(() => getLessonMedia(lessonData), [lessonData]);
-  
+
   if (media.type === "video") {
     return (
       <div className="space-y-3">
@@ -182,10 +196,10 @@ function LessonMediaViewer({ lessonData }: LessonMediaViewerProps) {
           className="w-full max-h-[70vh] rounded-lg bg-black"
           preload="metadata"
         />
-        <a 
-          href={media.url!} 
-          target="_blank" 
-          rel="noreferrer" 
+        <a
+          href={media.url!}
+          target="_blank"
+          rel="noreferrer"
           className="text-sm text-blue-600 hover:underline"
         >
           Open video in new tab
@@ -193,12 +207,12 @@ function LessonMediaViewer({ lessonData }: LessonMediaViewerProps) {
       </div>
     );
   }
-  
+
   if (media.type === "document") {
-    const ext = getFileExtension(media.url!);
-    const isPDF = ext === "pdf";
-    const canEmbed = isPDF || !OFFICE_VIEWER_EXTENSIONS.has(ext);
-    
+    const ext = getExtension(media.url!, media.nameHint);
+    const isOffice = OFFICE_VIEWER_EXTENSIONS.has(ext);
+    const canEmbed = !isOffice || !isLocalHost();
+
     return (
       <div className="space-y-3">
         {canEmbed ? (
@@ -213,7 +227,7 @@ function LessonMediaViewer({ lessonData }: LessonMediaViewerProps) {
             <p className="text-gray-600 mb-4">
               This document format requires downloading to view locally.
             </p>
-            <a 
+            <a
               href={media.url!}
               download
               className="inline-block px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
@@ -222,10 +236,10 @@ function LessonMediaViewer({ lessonData }: LessonMediaViewerProps) {
             </a>
           </div>
         )}
-        <a 
-          href={media.url!} 
-          target="_blank" 
-          rel="noreferrer" 
+        <a
+          href={media.url!}
+          target="_blank"
+          rel="noreferrer"
           className="text-sm text-blue-600 hover:underline"
         >
           Open document in new tab
@@ -233,24 +247,22 @@ function LessonMediaViewer({ lessonData }: LessonMediaViewerProps) {
       </div>
     );
   }
-  
+
   if (media.type === "html") {
     return (
-      <div 
-        className="prose max-w-none" 
-        dangerouslySetInnerHTML={{ __html: lessonData.Content! }} 
+      <div
+        className="prose max-w-none"
+        dangerouslySetInnerHTML={{ __html: lessonData.Content! }}
       />
     );
   }
-  
-  return (
-    <p className="text-gray-500">Lesson content is not available.</p>
-  );
+
+  return <p className="text-gray-500">Lesson content is not available.</p>;
 }
 
-// ==============================================================
+// ============================================================== 
 // MAIN LESSON VIEWER COMPONENT
-// ==============================================================
+// ============================================================== 
 
 export default function LessonViewer({ lessonId, onComplete }: LessonViewerProps) {
   const [lessonData, setLessonData] = useState<LessonDetail | null>(null);
@@ -295,10 +307,9 @@ export default function LessonViewer({ lessonId, onComplete }: LessonViewerProps
             Type: {lessonData.LessonType}
           </p>
         </div>
-        
+
         <LessonMediaViewer lessonData={lessonData} />
 
-        {/* NEW: Complete button - only shown if onComplete callback is provided */}
         {onComplete && (
           <div className="pt-4 border-t">
             <button

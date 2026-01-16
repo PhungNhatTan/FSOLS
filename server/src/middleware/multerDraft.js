@@ -2,11 +2,14 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { draftUploadsDir } from "../config/uploadPath.js";
+import { getTempUploadDir, isDriveEnabled } from "../services/googleDriveService.js";
 
 export const draftStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     const courseId = req.params.courseId;
-    const dir = path.join(draftUploadsDir, `course-${courseId}`);
+    const dir = isDriveEnabled()
+      ? getTempUploadDir("draft", `course-${courseId}`)
+      : path.join(draftUploadsDir, `course-${courseId}`);
 
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });

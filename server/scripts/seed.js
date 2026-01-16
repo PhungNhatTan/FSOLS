@@ -37,7 +37,6 @@ const MODULES = [
 const DEFAULT_QUIZ_MINUTES = 10
 const DEFAULT_FINAL_MINUTES = 30
 
-// Nếu bạn muốn đổi Module 10/20 -> 1/2 trong DB thì bật true (không khuyến nghị nếu bạn đang rely 10/20)
 const NORMALIZE_MODULE_ORDER_TO_1_2 = true
 
 /**

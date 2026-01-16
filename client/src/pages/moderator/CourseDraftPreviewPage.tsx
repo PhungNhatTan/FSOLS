@@ -17,6 +17,7 @@ import {
 import { Card } from "../../components/manage/ui/Card";
 import { Btn } from "../../components/manage/ui/Btn";
 import { Modal } from "../../components/manage/ui/Modal";
+import { resolveUploadUrl } from "../../utils/url";
 
 // Read-only components
 function ReadOnlyModuleCard({
@@ -121,15 +122,16 @@ function ResourcePreview({ resource }: { resource: { name: string; url?: string;
   const [videoError, setVideoError] = useState(false);
 
   if (!resource.url) return null;
-  const type = getFileType(resource.url);
+  const resolvedUrl = resolveUploadUrl(resource.url) ?? resource.url;
+  const type = getFileType(resolvedUrl);
 
   const handleDownload = async (e: React.MouseEvent) => {
     e.preventDefault();
-    if (!resource.url) return;
+    if (!resolvedUrl) return;
 
     setDownloading(true);
     try {
-      const response = await fetch(resource.url);
+      const response = await fetch(resolvedUrl);
       if (!response.ok) throw new Error('Network response was not ok');
       const blob = await response.blob();
       const blobUrl = window.URL.createObjectURL(blob);
@@ -143,7 +145,7 @@ function ResourcePreview({ resource }: { resource: { name: string; url?: string;
       window.URL.revokeObjectURL(blobUrl);
     } catch (error) {
       console.error('Download failed:', error);
-      window.open(resource.url, '_blank');
+      window.open(resolvedUrl, '_blank');
     } finally {
       setDownloading(false);
     }
@@ -163,7 +165,7 @@ function ResourcePreview({ resource }: { resource: { name: string; url?: string;
   };
 
   if (type === 'video') {
-    const mimeType = getMimeType(resource.url);
+    const mimeType = getMimeType(resolvedUrl);
 
     return (
       <div className="mt-2">
@@ -185,7 +187,7 @@ function ResourcePreview({ resource }: { resource: { name: string; url?: string;
             onError={() => setVideoError(true)}
             preload="metadata"
           >
-            <source src={resource.url} type={mimeType} />
+            <source src={resolvedUrl} type={mimeType} />
             Your browser does not support the video tag.
           </video>
         )}
@@ -196,7 +198,7 @@ function ResourcePreview({ resource }: { resource: { name: string; url?: string;
   if (type === 'pdf') {
     return (
       <div className="mt-2 h-96 w-full border rounded-lg overflow-hidden">
-        <iframe src={resource.url} className="w-full h-full" title={resource.name} />
+        <iframe src={resolvedUrl} className="w-full h-full" title={resource.name} />
       </div>
     );
   }
@@ -204,13 +206,13 @@ function ResourcePreview({ resource }: { resource: { name: string; url?: string;
   if (type === 'image') {
     return (
       <div className="mt-2">
-        <img src={resource.url} alt={resource.name} className="max-w-full rounded-lg border" />
+        <img src={resolvedUrl} alt={resource.name} className="max-w-full rounded-lg border" />
       </div>
     );
   }
 
   if (type === 'office') {
-    if (isLocalUrl(resource.url)) {
+    if (isLocalUrl(resolvedUrl)) {
       return (
         <div className="mt-2 p-8 border rounded-lg bg-slate-50 text-center">
           <p className="text-slate-500 text-sm mb-2">Preview is not available for local files.</p>
@@ -228,7 +230,7 @@ function ResourcePreview({ resource }: { resource: { name: string; url?: string;
     return (
       <div className="mt-2 h-96 w-full border rounded-lg overflow-hidden">
         <iframe
-          src={`https://docs.google.com/gview?url=${encodeURIComponent(resource.url)}&embedded=true`}
+          src={`https://docs.google.com/gview?url=${encodeURIComponent(resolvedUrl)}&embedded=true`}
           className="w-full h-full"
           title={resource.name}
         />
@@ -263,7 +265,7 @@ function ReadOnlyLessonDetail({ lesson }: { lesson: Lesson }) {
                     <div className="flex-1 min-w-0">
                       <a
                         className="text-indigo-600 hover:underline text-sm font-medium block truncate"
-                        href={r.url}
+                        href={resolveUploadUrl(r.url) ?? r.url}
                         target="_blank"
                         rel="noreferrer"
                       >

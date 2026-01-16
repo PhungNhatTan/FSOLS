@@ -2,6 +2,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { productionUploadsDir } from "../config/uploadPath.js";
+import { getTempUploadDir, isDriveEnabled } from "../services/googleDriveService.js";
 
 export const avatarDir = path.join(productionUploadsDir, "avatars");
 
@@ -18,7 +19,11 @@ const MIME_TO_EXT = {
 
 const storage = multer.diskStorage({
   destination: (req, _file, cb) => {
-    cb(null, avatarDir);
+    if (isDriveEnabled()) {
+      cb(null, getTempUploadDir("avatars"));
+    } else {
+      cb(null, avatarDir);
+    }
   },
   filename: (req, file, cb) => {
     const accountId = req.user?.accountId || req.user?.userId || "unknown";

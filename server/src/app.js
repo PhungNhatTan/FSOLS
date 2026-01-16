@@ -2,21 +2,43 @@ import express from "express";
 import routes from "./routers/index.js";
 import cors from "cors";
 import { baseUploadsDir } from "./config/uploadPath.js";
+import uploadsProxyRoute from "./routers/uploadsProxyRoute.js";
+import { isDriveEnabled } from "./services/googleDriveService.js";
 
 const app = express();
 
+// CORS
+// - In production, set CLIENT_URL to your deployed client origin (e.g. https://your-app.vercel.app)
+//   or a comma-separated allowlist.
+// - For media streaming (Range/206), we expose Content-Range/Accept-Ranges headers.
+const clientAllowList = String(process.env.CLIENT_URL || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: (origin, cb) => {
+      // Allow non-browser requests (no Origin) and, if no allowlist is configured, allow all.
+      if (!origin) return cb(null, true);
+      if (clientAllowList.length === 0) return cb(null, true);
+      return cb(null, clientAllowList.includes(origin));
+    },
     credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization", "Range"],
+    exposedHeaders: ["Content-Range", "Accept-Ranges", "Content-Type"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    maxAge: 86400,
   })
 );
 
 app.use(express.json());
 
-// Serve uploaded files with correct MIME types
-app.use("/uploads", express.static(baseUploadsDir, {
-  setHeaders: (res, path) => {
+// Serve uploaded files (legacy local) and, when enabled, fall back to Google Drive streaming.
+app.use(
+  "/uploads",
+  express.static(baseUploadsDir, {
+    setHeaders: (res, path) => {
     // Set correct MIME types for video files
     if (path.endsWith('.mp4')) {
       res.setHeader('Content-Type', 'video/mp4');
@@ -58,17 +80,17 @@ app.use("/uploads", express.static(baseUploadsDir, {
     
     // Set cache control for better performance
     res.setHeader('Cache-Control', 'public, max-age=31536000');
-  }
-}));
 
-app.use(
-  "/uploads",
-  express.static(baseUploadsDir, {
-    setHeaders: (res) => {
-      res.setHeader("Cache-Control", "public, max-age=31536000");
+      // Additional header for ranges (videos) for some proxies.
+      res.setHeader("Accept-Ranges", "bytes");
     },
   })
 );
+
+// When Drive is enabled, any /uploads/... misses from the filesystem are streamed from Drive.
+if (isDriveEnabled()) {
+  app.use("/uploads", uploadsProxyRoute);
+}
 
 app.use(routes);
 

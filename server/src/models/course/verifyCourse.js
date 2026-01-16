@@ -13,7 +13,7 @@ export default async function verifyCourse(id) {
 
     if (courseData && courseData.Draft) {
         // 1. Move resources from draft to production
-        const movedFiles = moveDraftToProduction(courseId);
+        const movedFiles = await moveDraftToProduction(courseId);
         
         // 2. Update URLs in the draft object
         let draftString = JSON.stringify(courseData.Draft);
@@ -56,7 +56,7 @@ export default async function verifyCourse(id) {
     
     // Cleanup draft resources after successful commit
     if (courseData && courseData.Draft) {
-        cleanupDraft(courseId);
+        await cleanupDraft(courseId);
     }
 
     return { success: true };

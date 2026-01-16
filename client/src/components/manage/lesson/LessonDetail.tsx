@@ -4,6 +4,7 @@ import { Card } from "../ui/Card";
 import { Modal } from "../ui/Modal";
 import type { UiLessonLocal as Lesson, Resource } from "../../../types/manage";
 import { courseManagementApi, type DraftResource } from "../../../api/courseManagement";
+import { resolveUploadUrl } from "../../../utils/url";
 
 interface ResourceUploadDialogProps {
   courseId: number;
@@ -181,12 +182,13 @@ export function LessonDetail({
 
     const handleViewResource = (resource: Resource) => {
         if (!resource.url) return;
+        const resolvedUrl = resolveUploadUrl(resource.url) ?? resource.url;
         const type = inferResourceType(resource);
         if (!type) {
-            window.open(resource.url, "_blank", "noopener,noreferrer");
+            window.open(resolvedUrl, "_blank", "noopener,noreferrer");
             return;
         }
-        setPreviewResource(resource);
+        setPreviewResource({ ...resource, url: resolvedUrl });
         setPreviewType(type);
         setPreviewError(false);
     };
@@ -376,7 +378,7 @@ export function LessonDetail({
                                                 {r.url && (
                                                     <a
                                                         className="text-xs text-indigo-600 hover:underline"
-                                                        href={r.url}
+                                                        href={resolveUploadUrl(r.url) ?? r.url}
                                                         target="_blank"
                                                         rel="noreferrer"
                                                     >
