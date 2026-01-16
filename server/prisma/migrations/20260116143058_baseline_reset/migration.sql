@@ -37,6 +37,21 @@ CREATE TABLE `Provider` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
+CREATE TABLE `OtpToken` (
+    `Id` VARCHAR(191) NOT NULL,
+    `Purpose` ENUM('VerifyAccount', 'ResetPassword') NOT NULL,
+    `CodeHash` VARCHAR(191) NOT NULL,
+    `ExpiresAt` DATETIME(3) NOT NULL,
+    `ConsumedAt` DATETIME(3) NULL,
+    `Attempts` INTEGER NOT NULL DEFAULT 0,
+    `CreatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `AccountIdentifierId` VARCHAR(191) NOT NULL,
+
+    INDEX `OtpToken_AccountIdentifierId_Purpose_ConsumedAt_ExpiresAt_idx`(`AccountIdentifierId`, `Purpose`, `ConsumedAt`, `ExpiresAt`),
+    PRIMARY KEY (`Id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
 CREATE TABLE `AccountRole` (
     `AccountId` VARCHAR(191) NOT NULL,
     `Role` ENUM('Mentor', 'Admin', 'Moderator') NOT NULL,
@@ -218,6 +233,16 @@ CREATE TABLE `CourseSkill` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
+CREATE TABLE `CourseEmbedding` (
+    `Id` INTEGER NOT NULL AUTO_INCREMENT,
+    `CourseId` INTEGER NOT NULL,
+    `Vector` JSON NOT NULL,
+
+    UNIQUE INDEX `CourseEmbedding_CourseId_key`(`CourseId`),
+    PRIMARY KEY (`Id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
 CREATE TABLE `CourseEnroll` (
     `Id` INTEGER NOT NULL AUTO_INCREMENT,
     `AccountId` VARCHAR(191) NOT NULL,
@@ -242,6 +267,7 @@ CREATE TABLE `LessonProgress` (
     `CompletedAt` DATETIME(3) NULL,
     `CreatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
+    UNIQUE INDEX `LessonProgress_AccountId_CourseEnrollId_LessonId_key`(`AccountId`, `CourseEnrollId`, `LessonId`),
     PRIMARY KEY (`Id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -264,9 +290,9 @@ CREATE TABLE `Exam` (
 CREATE TABLE `QuestionBank` (
     `Id` VARCHAR(191) NOT NULL,
     `LessonId` VARCHAR(191) NULL,
-    `QuestionText` VARCHAR(191) NOT NULL,
+    `QuestionText` TEXT NOT NULL,
     `Type` ENUM('MCQ', 'Fill', 'Essay', 'TF') NOT NULL DEFAULT 'MCQ',
-    `Answer` VARCHAR(191) NULL,
+    `Answer` TEXT NULL,
     `courseId` INTEGER NULL,
     `CreatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `DeletedAt` DATETIME(3) NULL,
@@ -424,6 +450,9 @@ ALTER TABLE `AccountIdentifier` ADD CONSTRAINT `AccountIdentifier_ProviderId_fke
 ALTER TABLE `AccountIdentifier` ADD CONSTRAINT `AccountIdentifier_AccountId_fkey` FOREIGN KEY (`AccountId`) REFERENCES `Account`(`Id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE `OtpToken` ADD CONSTRAINT `OtpToken_AccountIdentifierId_fkey` FOREIGN KEY (`AccountIdentifierId`) REFERENCES `AccountIdentifier`(`Id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE `AccountRole` ADD CONSTRAINT `AccountRole_AccountId_fkey` FOREIGN KEY (`AccountId`) REFERENCES `Account`(`Id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -479,6 +508,9 @@ ALTER TABLE `LessonResource` ADD CONSTRAINT `LessonResource_LessonId_fkey` FOREI
 
 -- AddForeignKey
 ALTER TABLE `CourseSkill` ADD CONSTRAINT `CourseSkill_CourseId_fkey` FOREIGN KEY (`CourseId`) REFERENCES `Course`(`Id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `CourseEmbedding` ADD CONSTRAINT `CourseEmbedding_CourseId_fkey` FOREIGN KEY (`CourseId`) REFERENCES `Course`(`Id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `CourseEnroll` ADD CONSTRAINT `CourseEnroll_AccountId_fkey` FOREIGN KEY (`AccountId`) REFERENCES `Account`(`Id`) ON DELETE RESTRICT ON UPDATE CASCADE;
