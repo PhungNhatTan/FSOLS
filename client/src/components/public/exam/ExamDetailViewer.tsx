@@ -50,7 +50,29 @@ export default function ExamDetailViewer({
   const [data, setData] = useState<ExamDetailWithResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [eligibility, setEligibility] = useState<examApi.ExamEligibility | null>(null)
+  const [eligibilityLoading, setEligibilityLoading] = useState(true)
+  const [eligibilityError, setEligibilityError] = useState("")
   const [sessionScore, setSessionScore] = useState<{ score: number; total: number } | null>(null)
+
+  const loadEligibility = useCallback(() => {
+    setEligibilityLoading(true)
+    setEligibilityError("")
+    examApi
+      .checkEligibility(examId)
+      .then((res) => setEligibility(res))
+      .catch((e: any) => {
+        // If the user isn't authenticated, keep the button disabled and show a clear message.
+        if (e?.code === "UNAUTHENTICATED") {
+          setEligibility({ allowed: false, code: "UNAUTHENTICATED", message: "Please sign in to take this exam." })
+          return
+        }
+        // Do not hard-fail the page for eligibility checks; just allow starting and rely on backend gating.
+        setEligibility(null)
+        setEligibilityError(e?.message || "Unable to check exam eligibility")
+      })
+      .finally(() => setEligibilityLoading(false))
+  }, [examId])
 
   const loadExamDetail = useCallback(() => {
     setLoading(true)
@@ -67,6 +89,10 @@ export default function ExamDetailViewer({
   useEffect(() => {
     loadExamDetail()
   }, [loadExamDetail])
+
+  useEffect(() => {
+    loadEligibility()
+  }, [loadEligibility])
 
   // Check session storage for recent submission
   useEffect(() => {
@@ -88,11 +114,12 @@ export default function ExamDetailViewer({
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         loadExamDetail()
+        loadEligibility()
       }
     }
     document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
-  }, [loadExamDetail])
+  }, [loadExamDetail, loadEligibility])
 
   if (loading) {
     return <p className="text-gray-500 italic p-6">Loading exam...</p>
@@ -117,6 +144,15 @@ export default function ExamDetailViewer({
 
   const durationMinutes = getDurationMinutes(exam)
   const durationDisplay = durationMinutes > 0 ? `${durationMinutes} minutes` : "No limit"
+
+  const isBlockedByPrereq = eligibility?.allowed === false && eligibility?.code === "EXAM_PREREQUISITES_NOT_MET"
+  const isBlockedUnauth = eligibility?.allowed === false && eligibility?.code === "UNAUTHENTICATED"
+  const canStartExam = !eligibilityLoading && !isBlockedByPrereq && !isBlockedUnauth
+
+  const handleStartClick = () => {
+    if (!canStartExam) return
+    onStartExam()
+  }
 
   return (
     <div className="p-6 max-w-3xl mx-auto">
@@ -151,12 +187,41 @@ export default function ExamDetailViewer({
           </div>
         )}
 
+        {/* Final exam prerequisite gating (block at exam detail screen) */}
+        {isBlockedByPrereq && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+            <p className="text-red-700 font-semibold mb-1">You must pass all module exams before taking the final exam.</p>
+            {Array.isArray(eligibility?.missingExams) && eligibility.missingExams.length > 0 && (
+              <div className="text-sm text-red-700 mt-2">
+                <p className="font-semibold mb-1">Missing exams:</p>
+                <ul className="list-disc pl-5 space-y-1">
+                  {eligibility.missingExams.map((x) => (
+                    <li key={x.Id}>
+                      {x.Title || `Exam #${x.Id}`}
+                      {typeof x.passingScore === "number" && typeof x.questionCount === "number"
+                        ? ` (need ${x.passingScore}/${x.questionCount})`
+                        : ""}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
+        {eligibilityError && !isBlockedByPrereq && (
+          <p className="text-sm text-gray-500 mb-3">{eligibilityError}</p>
+        )}
+
         <div className="flex gap-3 flex-wrap">
           <button
-            onClick={onStartExam}
-            className="px-6 py-2 text-white rounded font-medium transition bg-blue-600 hover:bg-blue-700"
+            onClick={handleStartClick}
+            disabled={!canStartExam}
+            className={`px-6 py-2 text-white rounded font-medium transition ${
+              canStartExam ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-400 cursor-not-allowed"
+            }`}
           >
-            {!hasAttempted ? "Take Exam" : "Retake Exam"}
+            {eligibilityLoading ? "Checking..." : !hasAttempted ? "Take Exam" : "Retake Exam"}
           </button>
 
           {/* Mark as complete button (only if passed) */}

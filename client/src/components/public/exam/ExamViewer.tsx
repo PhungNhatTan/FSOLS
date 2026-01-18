@@ -97,7 +97,10 @@ export default function ExamViewer({ examId, onComplete, onBlocked }: ExamViewer
         setTimeLeft(durationInSeconds > 0 ? durationInSeconds : 0);
         setError("");
       })
-      .catch(() => setError("Failed to load exam"))
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : "Failed to load exam";
+        setError(msg);
+      })
       .finally(() => setLoading(false));
   }, [examId]);
 

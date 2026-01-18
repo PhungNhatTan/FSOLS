@@ -82,6 +82,20 @@ export default async function submitExam(req, res) {
       })
     }
 
+    // Enforce: must pass all module exams before taking the final course exam.
+    const eligibility = await progressModels.checkFinalExamEligibility(accountId, Number(examId))
+    if (!eligibility.allowed && eligibility.reason === 'PREREQ_NOT_MET') {
+      return res.status(403).json({
+        message: 'You must pass all module exams before taking the final exam.',
+        code: 'EXAM_PREREQUISITES_NOT_MET',
+        missingExams: eligibility.missingExams,
+        finalExamId: eligibility.finalExamId,
+      })
+    }
+    if (!eligibility.allowed && eligibility.reason === 'INVALID_EXAM_OR_COURSE') {
+      return res.status(400).json({ error: 'Invalid exam' })
+    }
+
     // Create submission only after enrollment checks.
     const submission = await examSubmissionModel.create(examId, accountId)
 

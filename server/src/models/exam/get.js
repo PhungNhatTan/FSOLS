@@ -1,7 +1,7 @@
 import prisma from "../../prismaClient.js";
 
 export default async function get(id) {
-    return prisma.Exam.findUnique({
+    return prisma.exam.findUnique({
         where:{ 
             Id: id,
             DeletedAt: null,
