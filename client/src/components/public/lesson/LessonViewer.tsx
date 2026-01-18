@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import lesson from "../../../api/lesson";
 import type { LessonDetail } from "../../../types";
 import { resolveUploadUrl } from "../../../utils/url";
+import DocumentToWebRenderer from "./DocumentToWebRenderer";
 
 // NOTE:
 // - This viewer must NOT use legacy CourseLesson fields (LessonType/VideoUrl/DocUrl/ContentUrl).
@@ -281,38 +282,16 @@ function LessonMediaViewer({ lessonData }: { lessonData: LessonDetail }) {
   }
 
   if (media.kind === "document") {
-    const ext = getExtension(media.url!, media.nameHint);
-    const isOffice = OFFICE_VIEWER_EXTENSIONS.has(ext);
-    const canEmbed = !isOffice || !isLocalHost();
-    const embedUrl = media.embedUrl ?? getDocumentEmbedUrl(media.url!, media.nameHint);
-
     return (
       <div className="space-y-3">
-        {canEmbed ? (
-          <iframe
-            src={embedUrl}
-            title="Lesson document"
-            className="w-full h-[80vh] rounded-lg border"
-            allow="clipboard-read; clipboard-write"
-          />
-        ) : (
-          <div className="border rounded-lg p-8 text-center bg-gray-50">
-            <p className="text-gray-600 mb-4">This document format requires downloading to view locally.</p>
-            <a
-              href={media.url!}
-              download
-              className="inline-block px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-              Download Document
-            </a>
-          </div>
-        )}
+        <DocumentToWebRenderer url={media.url!} nameHint={media.nameHint ?? null} />
         <a href={media.url!} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:underline">
           Open document in new tab
         </a>
       </div>
     );
   }
+
 
   if (media.kind === "html") {
     (() => {
