@@ -16,6 +16,7 @@ import examQuestionRoute from "./public/examQuestionRoute.js"
 import examSubmissionRoute from "./public/examSubmissionRoute.js"
 import enrollmentRoute from "./public/enrollmentRoute.js"
 import progressRoute from "./public/progress.route.js"
+import aiRoute from "./public/aiRoute.js"
 
 // manage route import
 import certificateRoutesManage from "./manage/certificateRoute.js"
@@ -55,6 +56,7 @@ router.use("/api/examQuestion", examQuestionRoute)
 router.use("/api/examSubmission", examSubmissionRoute)
 router.use("/api/enrollment", enrollmentRoute)
 router.use("/api/progress", progressRoute)
+router.use("/api/ai", aiRoute)
 
 // manage
 
