@@ -13,6 +13,7 @@ build/
 
 # Environment files
 .env
+.env.production
 .env.*       # For different environments like .env.development, .env.production
 !.env.example  # Keep example env file
 *env.drive.example
