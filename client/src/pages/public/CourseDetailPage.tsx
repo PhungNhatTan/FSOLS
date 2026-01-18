@@ -7,6 +7,7 @@ import EnrollButton from "../../components/public/course/EnrollButton"
 import { useAuth } from "../../hooks/useAuth"
 import certificateApi from "../../api/certificate"
 
+import { iconForMediaKind, inferLessonKindFromResources, type MediaKind, type ResourceLike } from "../../utils/mediaKind"
 /* ----------------------------- Helpers: time rule ---------------------------- */
 
 const formatMinutes = (minutes: number): string => {
@@ -18,11 +19,15 @@ const formatMinutes = (minutes: number): string => {
   return `${h}h ${mm}m`
 }
 
-const estimateLessonMinutesByType = (lessonType?: string): number => {
-  const t = (lessonType ?? "").toLowerCase()
-  if (t.includes("video")) return 10
-  if (t.includes("doc") || t.includes("pdf") || t.includes("document")) return 8
-  return 7
+const estimateLessonMinutesByKind = (kind?: MediaKind): number => {
+  switch (kind) {
+    case "video":
+      return 10
+    case "document":
+      return 8
+    default:
+      return 7
+  }
 }
 
 const estimateExamMinutes = (title: string, durationMinutes: number | null): number => {
@@ -34,7 +39,7 @@ const estimateExamMinutes = (title: string, durationMinutes: number | null): num
 
 /* ----------------------------- Safe parsing utils ---------------------------- */
 
-type SimpleLesson = { id: string | number; title: string; to: string; lessonType?: string }
+type SimpleLesson = { id: string | number; title: string; to: string; kind: MediaKind }
 type SimpleExam = { id: number; title: string; to: string; durationMinutes: number | null }
 type DerivedModule = {
   key: string
@@ -81,10 +86,25 @@ const toNumberId = (id: string | number | null): number | null => {
   return null
 }
 
-const pickLessonType = (lessonObj: unknown): string | undefined => {
-  if (!isRecord(lessonObj)) return undefined
-  const v = lessonObj["LessonType"] ?? lessonObj["lessonType"]
-  return typeof v === "string" ? v : undefined
+const pickLessonResources = (lessonObj: unknown): ResourceLike[] => {
+  if (!isRecord(lessonObj)) return []
+  const raw =
+    lessonObj["lessonResources"] ??
+    lessonObj["LessonResources"] ??
+    lessonObj["resources"] ??
+    lessonObj["Resources"]
+  const arr = asUnknownArray(raw)
+  return arr
+    .map((r) => {
+      if (!isRecord(r)) return null
+      const name = r["Name"] ?? r["name"]
+      const url = r["Url"] ?? r["url"]
+      return {
+        Name: typeof name === "string" ? name : null,
+        Url: typeof url === "string" ? url : null,
+      }
+    })
+    .filter(Boolean) as ResourceLike[]
 }
 
 const pickDurationMinutes = (examObj: unknown): number | null => {
@@ -195,7 +215,7 @@ export default function CourseDetailPage() {
               id: lessonId ?? `m${m.OrderNo}-l${lessonIdx}`,
               title: pickTitle(lessonObj, `Lesson ${lessonIdx}`),
               to: lessonId != null ? `/lesson/${lessonId}` : "#",
-              lessonType: pickLessonType(lessonObj),
+              kind: inferLessonKindFromResources(pickLessonResources(lessonObj)),
             })
           })
         })
@@ -247,7 +267,7 @@ export default function CourseDetailPage() {
               id: lessonId ?? `m${i + 1}-l${lessonIdx}`,
               title: pickTitle(lessonObj, `Lesson ${lessonIdx}`),
               to: lessonId != null ? `/lesson/${lessonId}` : "#",
-              lessonType: pickLessonType(lessonObj),
+              kind: inferLessonKindFromResources(pickLessonResources(lessonObj)),
             })
           })
         })
@@ -305,7 +325,7 @@ export default function CourseDetailPage() {
   const moduleMinutesMap = useMemo(() => {
     const map: Record<string, number> = {}
     derived.modules.forEach((m) => {
-      const lessonMinutes = m.lessons.reduce((sum, l) => sum + estimateLessonMinutesByType(l.lessonType), 0)
+      const lessonMinutes = m.lessons.reduce((sum, l) => sum + estimateLessonMinutesByKind(l.kind), 0)
       const examMinutes = m.exams.reduce((sum, e) => sum + estimateExamMinutes(e.title, e.durationMinutes), 0)
       map[m.key] = lessonMinutes + examMinutes
     })
@@ -425,7 +445,7 @@ export default function CourseDetailPage() {
                                 <li key={String(l.id)} className="flex items-start gap-2 min-w-0">
                                   <span className="mt-0.5 text-gray-500">{i + 1}.</span>
                                   <Link to={l.to} className="text-gray-800 hover:underline truncate">
-                                    📹 {l.title}
+                                    {iconForMediaKind(l.kind)} {l.title}
                                   </Link>
                                 </li>
                               ))}
