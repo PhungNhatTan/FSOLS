@@ -5,7 +5,7 @@ import Navbar from "./components/public/navbar/Navbar"
 // Public Pages
 import LoginPage from "./pages/public/LoginPage"
 import RegisterPage from "./pages/public/RegisterPage"
-import LessonPage from "./components/public/lesson/LessonPage"
+// import LessonPage from "./components/public/lesson/LessonPage"
 import ExamPage from "./components/public/exam/ExamPage"
 import ExamDetailDisplay from "./components/public/exam/ExamDetailDisplay"
 import CertificatePage from "./pages/public/CertificatePage"
@@ -63,7 +63,7 @@ export default function App() {
           <Route path="/verify-email" element={<VerifyEmailPage />} />
 
           {/* Lesson / Exam */}
-          <Route path="/lesson/:id" element={<LessonPage />} />
+          {/* <Route path="/lesson/:id" element={<LessonPage />} /> */}
           <Route path="/exam-detail/:examId" element={<ExamDetailDisplay />} />
           <Route path="/exam/:examId" element={<ExamPage />} />
 
