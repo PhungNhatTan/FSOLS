@@ -1,5 +1,4 @@
-import { JSX, useEffect, useMemo, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useState, useEffect, useMemo } from "react";
 import lesson from "../../../api/lesson";
 import type { LessonDetail } from "../../../types";
 import { resolveUploadUrl } from "../../../utils/url";
@@ -15,6 +14,11 @@ interface MediaResource {
   nameHint?: string | null;
 }
 
+interface LessonViewerProps {
+  lessonId: string;
+  onComplete?: () => void; // Callback when lesson is completed
+}
+
 // Utilities
 const getFileExtension = (value: string): string => {
   const clean = value.split(/[?#]/)[0];
@@ -28,8 +32,28 @@ const isLocalHost = () => {
   return h === "localhost" || h === "127.0.0.1";
 };
 
+// Video extensions
+const VIDEO_EXTENSIONS = new Set([
+  "mp4", "webm", "ogg", "mov", "avi", "mkv", "m4v", "3gp",
+]);
+
+// Document extensions
+const DOCUMENT_EXTENSIONS = new Set([
+  "pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx",
+]);
+
 const getExtension = (url: string, nameHint?: string | null): string =>
   getFileExtension(url) || (nameHint ? getFileExtension(nameHint) : "");
+
+const detectMediaType = (
+  url: string,
+  nameHint?: string | null
+): "video" | "document" | "unknown" => {
+  const ext = getExtension(url, nameHint);
+  if (VIDEO_EXTENSIONS.has(ext)) return "video";
+  if (DOCUMENT_EXTENSIONS.has(ext)) return "document";
+  return "unknown";
+};
 
 const getDocumentEmbedUrl = (url: string, nameHint?: string | null): string => {
   const ext = getExtension(url, nameHint);
@@ -37,7 +61,7 @@ const getDocumentEmbedUrl = (url: string, nameHint?: string | null): string => {
   // PDFs can be embedded directly
   if (ext === "pdf") return url;
 
-  // For Office files: use Office Online viewer when not local
+  // Office files: use Office Online viewer when not local
   if (OFFICE_VIEWER_EXTENSIONS.has(ext)) {
     if (isLocalHost()) return url;
     return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`;
@@ -46,29 +70,56 @@ const getDocumentEmbedUrl = (url: string, nameHint?: string | null): string => {
   return url;
 };
 
-// Determine media type and URLs from lesson data
 const getLessonMedia = (lessonData: LessonDetail): MediaResource => {
-  const normalizedType = (lessonData.LessonType ?? "").toLowerCase();
-  const isVideoLesson = normalizedType.includes("video");
-  const nameHint = lessonData.Resource?.Name ?? null;
+  const resolveUrl = (url: string) => resolveUploadUrl(url) ?? url;
 
-  // Priority: ContentUrl > type-specific URL
-  const resourceUrl =
-    lessonData.ContentUrl ?? (isVideoLesson ? lessonData.VideoUrl : lessonData.DocUrl);
+  // Priority 1: LessonResources array (when API returns multiple resources)
+  if (lessonData.LessonResources && lessonData.LessonResources.length > 0) {
+    const sorted = [...lessonData.LessonResources].sort((a, b) => {
+      const orderA = a.OrderNo ?? 0;
+      const orderB = b.OrderNo ?? 0;
+      return orderA - orderB;
+    });
 
-  if (resourceUrl) {
-    const resolvedUrl = resolveUploadUrl(resourceUrl) ?? resourceUrl;
-    if (isVideoLesson) {
-      return { type: "video", url: resolvedUrl, nameHint };
+    const primary = sorted[0];
+    const nameHint = primary?.Name ?? null;
+
+    if (primary?.Url) {
+      const url = resolveUrl(primary.Url);
+      const mediaType = detectMediaType(url, nameHint);
+
+      if (mediaType === "video") return { type: "video", url, nameHint };
+
+      if (mediaType === "document") {
+        return {
+          type: "document",
+          url,
+          nameHint,
+          embedUrl: getDocumentEmbedUrl(url, nameHint),
+        };
+      }
     }
-    return {
-      type: "document",
-      url: resolvedUrl,
-      nameHint,
-      embedUrl: getDocumentEmbedUrl(resolvedUrl, nameHint),
-    };
   }
 
+  // Priority 2: single Resource object
+  if (lessonData.Resource?.Url) {
+    const nameHint = lessonData.Resource?.Name ?? null;
+    const url = resolveUrl(lessonData.Resource.Url);
+    const mediaType = detectMediaType(url, nameHint);
+
+    if (mediaType === "video") return { type: "video", url, nameHint };
+
+    if (mediaType === "document") {
+      return {
+        type: "document",
+        url,
+        nameHint,
+        embedUrl: getDocumentEmbedUrl(url, nameHint),
+      };
+    }
+  }
+
+  // Priority 3: HTML content (optional)
   if (lessonData.Content) {
     return { type: "html", url: null };
   }
@@ -76,16 +127,15 @@ const getLessonMedia = (lessonData: LessonDetail): MediaResource => {
   return { type: "none", url: null };
 };
 
-// ============================================================== 
+// ==============================================================
 // LESSON MEDIA VIEWER COMPONENT
-// Handles rendering of both video and document content
-// ============================================================== 
+// ==============================================================
 
 interface LessonMediaViewerProps {
   lessonData: LessonDetail;
 }
 
-function LessonMediaViewer({ lessonData }: LessonMediaViewerProps): JSX.Element {
+function LessonMediaViewer({ lessonData }: LessonMediaViewerProps) {
   const media = useMemo(() => getLessonMedia(lessonData), [lessonData]);
 
   if (media.type === "video") {
@@ -152,67 +202,65 @@ function LessonMediaViewer({ lessonData }: LessonMediaViewerProps): JSX.Element 
 
   if (media.type === "html") {
     return (
-      <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: lessonData.Content! }} />
+      <div
+        className="prose max-w-none"
+        dangerouslySetInnerHTML={{ __html: lessonData.Content! }}
+      />
     );
   }
 
   return <p className="text-gray-500">Lesson content is not available.</p>;
 }
 
-// ============================================================== 
-// MAIN LESSON PAGE COMPONENT
-// Handles data fetching and page layout
-// ============================================================== 
+// ==============================================================
+// MAIN LESSON VIEWER COMPONENT
+// ==============================================================
 
-export default function LessonPage() {
-  const { id } = useParams<{ id: string }>();
+export default function LessonViewer({ lessonId, onComplete }: LessonViewerProps) {
   const [lessonData, setLessonData] = useState<LessonDetail | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const normalizedId = id?.trim();
-    if (!normalizedId) {
+    if (!lessonId) {
       setError("Lesson not found");
       setLoading(false);
       return;
     }
 
     lesson
-      .getById(normalizedId)
+      .getById(lessonId)
       .then((data) => {
         setLessonData(data);
         setError("");
       })
       .catch(() => setError("Failed to load lesson"))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [lessonId]);
 
-  if (error) {
-    return <p className="text-red-500">{error}</p>;
-  }
-
-  if (loading) {
-    return <p className="text-gray-500 italic">Loading...</p>;
-  }
-
-  if (!lessonData) {
-    return null;
-  }
+  if (error) return <p className="text-red-500 p-6">{error}</p>;
+  if (loading) return <p className="text-gray-500 italic p-6">Loading...</p>;
+  if (!lessonData) return null;
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <Link to="/courses" className="text-blue-600 hover:underline mb-4 block">
-        ← Back to Courses
-      </Link>
-
       <div className="bg-white rounded-lg shadow p-6 space-y-4">
         <div>
           <h1 className="text-2xl font-bold mb-2">{lessonData.Title}</h1>
-          <p className="italic text-sm text-gray-500">Type: {lessonData.LessonType}</p>
         </div>
 
         <LessonMediaViewer lessonData={lessonData} />
+
+        {onComplete && (
+          <div className="pt-4 border-t">
+            <button
+              onClick={onComplete}
+              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium"
+            >
+              ✓ Mark as Complete & Continue
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

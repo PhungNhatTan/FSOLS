@@ -47,19 +47,11 @@ const getExtension = (url: string, nameHint?: string | null): string =>
 
 const detectMediaType = (
   url: string,
-  nameHint?: string | null,
-  lessonTypeHint?: string | null
+  nameHint?: string | null
 ): "video" | "document" | "unknown" => {
   const ext = getExtension(url, nameHint);
   if (VIDEO_EXTENSIONS.has(ext)) return "video";
   if (DOCUMENT_EXTENSIONS.has(ext)) return "document";
-
-  // Critical fallback: Drive URLs often have no extension.
-  // Use LessonType when available.
-  const lt = (lessonTypeHint ?? "").toLowerCase();
-  if (lt.includes("video")) return "video";
-  if (lt.includes("document") || lt.includes("doc")) return "document";
-
   return "unknown";
 };
 
@@ -81,24 +73,22 @@ const getDocumentEmbedUrl = (url: string, nameHint?: string | null): string => {
 const getLessonMedia = (lessonData: LessonDetail): MediaResource => {
   const resolveUrl = (url: string) => resolveUploadUrl(url) ?? url;
 
-  // Priority 1: LessonResources array (when the API returns multiple resources)
+  // Priority 1: LessonResources array (when API returns multiple resources)
   if (lessonData.LessonResources && lessonData.LessonResources.length > 0) {
-    const sortedResources = [...lessonData.LessonResources].sort((a, b) => {
+    const sorted = [...lessonData.LessonResources].sort((a, b) => {
       const orderA = a.OrderNo ?? 0;
       const orderB = b.OrderNo ?? 0;
       return orderA - orderB;
     });
 
-    const primaryResource = sortedResources[0];
-    const nameHint = primaryResource?.Name ?? null;
+    const primary = sorted[0];
+    const nameHint = primary?.Name ?? null;
 
-    if (primaryResource?.Url) {
-      const url = resolveUrl(primaryResource.Url);
-      const mediaType = detectMediaType(url, nameHint, lessonData.LessonType);
+    if (primary?.Url) {
+      const url = resolveUrl(primary.Url);
+      const mediaType = detectMediaType(url, nameHint);
 
-      if (mediaType === "video") {
-        return { type: "video", url, nameHint };
-      }
+      if (mediaType === "video") return { type: "video", url, nameHint };
 
       if (mediaType === "document") {
         return {
@@ -111,15 +101,13 @@ const getLessonMedia = (lessonData: LessonDetail): MediaResource => {
     }
   }
 
-  // Priority 2: single Resource object (this is what your public /lesson/:id returns today)
+  // Priority 2: single Resource object
   if (lessonData.Resource?.Url) {
     const nameHint = lessonData.Resource?.Name ?? null;
     const url = resolveUrl(lessonData.Resource.Url);
-    const mediaType = detectMediaType(url, nameHint, lessonData.LessonType);
+    const mediaType = detectMediaType(url, nameHint);
 
-    if (mediaType === "video") {
-      return { type: "video", url, nameHint };
-    }
+    if (mediaType === "video") return { type: "video", url, nameHint };
 
     if (mediaType === "document") {
       return {
@@ -131,43 +119,7 @@ const getLessonMedia = (lessonData: LessonDetail): MediaResource => {
     }
   }
 
-  // Priority 3: ContentUrl (legacy/compat)
-  if (lessonData.ContentUrl) {
-    const nameHint = lessonData.Resource?.Name ?? null;
-    const url = resolveUrl(lessonData.ContentUrl);
-    const mediaType = detectMediaType(url, nameHint, lessonData.LessonType);
-
-    if (mediaType === "video") {
-      return { type: "video", url, nameHint };
-    }
-
-    if (mediaType === "document") {
-      return {
-        type: "document",
-        url,
-        nameHint,
-        embedUrl: getDocumentEmbedUrl(url, nameHint),
-      };
-    }
-  }
-
-  // Priority 4: deprecated fields
-  if (lessonData.VideoUrl) {
-    const url = resolveUrl(lessonData.VideoUrl);
-    return { type: "video", url };
-  }
-
-  if (lessonData.DocUrl) {
-    const url = resolveUrl(lessonData.DocUrl);
-    // Default to document for DocUrl
-    return {
-      type: "document",
-      url,
-      embedUrl: getDocumentEmbedUrl(url),
-    };
-  }
-
-  // Priority 5: HTML content
+  // Priority 3: HTML content (optional)
   if (lessonData.Content) {
     return { type: "html", url: null };
   }
@@ -175,9 +127,9 @@ const getLessonMedia = (lessonData: LessonDetail): MediaResource => {
   return { type: "none", url: null };
 };
 
-// ============================================================== 
+// ==============================================================
 // LESSON MEDIA VIEWER COMPONENT
-// ============================================================== 
+// ==============================================================
 
 interface LessonMediaViewerProps {
   lessonData: LessonDetail;
@@ -260,9 +212,9 @@ function LessonMediaViewer({ lessonData }: LessonMediaViewerProps) {
   return <p className="text-gray-500">Lesson content is not available.</p>;
 }
 
-// ============================================================== 
+// ==============================================================
 // MAIN LESSON VIEWER COMPONENT
-// ============================================================== 
+// ==============================================================
 
 export default function LessonViewer({ lessonId, onComplete }: LessonViewerProps) {
   const [lessonData, setLessonData] = useState<LessonDetail | null>(null);
@@ -286,26 +238,15 @@ export default function LessonViewer({ lessonId, onComplete }: LessonViewerProps
       .finally(() => setLoading(false));
   }, [lessonId]);
 
-  if (error) {
-    return <p className="text-red-500 p-6">{error}</p>;
-  }
-
-  if (loading) {
-    return <p className="text-gray-500 italic p-6">Loading...</p>;
-  }
-
-  if (!lessonData) {
-    return null;
-  }
+  if (error) return <p className="text-red-500 p-6">{error}</p>;
+  if (loading) return <p className="text-gray-500 italic p-6">Loading...</p>;
+  if (!lessonData) return null;
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <div className="bg-white rounded-lg shadow p-6 space-y-4">
         <div>
           <h1 className="text-2xl font-bold mb-2">{lessonData.Title}</h1>
-          <p className="italic text-sm text-gray-500">
-            Type: {lessonData.LessonType}
-          </p>
         </div>
 
         <LessonMediaViewer lessonData={lessonData} />

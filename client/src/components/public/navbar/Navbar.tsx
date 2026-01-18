@@ -55,11 +55,11 @@ export default function Navbar() {
 
         {user ? (
           <>
-            {(user.role === "Mentor" || user.role === "Admin") && (
+            {/* {(user.role === "Mentor" || user.role === "Admin") && (
               <Link to="/manage/lesson/upload" className="hover:text-green-400">
                 Upload Lesson
               </Link>
-            )}
+            )} */}
 
             <span className="text-gray-300 text-sm">
               Hello, <b>{user.username}</b> ({user.role})
