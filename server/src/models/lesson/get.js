@@ -6,46 +6,40 @@ export default async function get(id) {
         select: {
             Id: true,
             Title: true,
-            LessonType: true,
-            VideoUrl: true,  // Keep for backward compatibility
-            DocUrl: true,    // Keep for backward compatibility
-            lessonResources: {  // Note: lowercase 'l' and plural
+            // IMPORTANT:
+            // LessonType / VideoUrl / DocUrl are legacy fields and must not be used.
+            // All file links are served via LessonResource.
+            lessonResources: {
                 select: {
                     Id: true,
-                    Name: true,      // Changed from ResourceName
-                    Url: true,       // Changed from ResourceUrl
+                    Name: true,
+                    Url: true,
                     OrderNo: true,
                 },
                 orderBy: {
-                    OrderNo: 'asc',  // Order by OrderNo to get primary resource first
+                    OrderNo: 'asc',
                 },
             },
         },
     });
     
     if (!lesson) return null;
-    
-    // Get the first resource (assuming one resource per lesson or ordered by OrderNo)
-    const primaryResource = lesson.lessonResources?.[0];
-    
-    // Primary: Use lessonResources if available
-    // Fallback: Use deprecated VideoUrl/DocUrl for old data
-    const resourceUrl = primaryResource?.Url || 
-                       (lesson.LessonType === 'Video' ? lesson.VideoUrl : lesson.DocUrl);
-    
+
+    const resources = lesson.lessonResources ?? [];
+    const primary = resources[0] ?? null;
+
     return {
         Id: lesson.Id,
         Title: lesson.Title,
-        LessonType: lesson.LessonType,
-        ContentUrl: resourceUrl,
-        // Include resource details if available
-        Resource: primaryResource ? {
-            Id: primaryResource.Id,
-            Name: primaryResource.Name,
-            Url: primaryResource.Url,
-        } : null,
-        // Keep deprecated fields for backward compatibility during migration
-        VideoUrl: lesson.VideoUrl,
-        DocUrl: lesson.DocUrl,
+        // Standardized casing for the client
+        LessonResources: resources.map((r) => ({
+            Id: r.Id,
+            Name: r.Name,
+            Url: r.Url,
+            OrderNo: r.OrderNo,
+        })),
+        Resource: primary
+            ? { Id: primary.Id, Name: primary.Name, Url: primary.Url, OrderNo: primary.OrderNo }
+            : null,
     };
 }

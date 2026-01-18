@@ -1,25 +1,29 @@
 export interface LessonResource {
-  Id: string | number;
+  Id: number;
   Name: string;
   Url: string;
   OrderNo?: number | null;
 }
 
 export interface LessonSummary {
-  Id: string | number;
+  Id: number;
   Title: string;
 }
 
-/**
- * LessonResource is the single source of truth for lesson file links.
- * Legacy CourseLesson fields (LessonType/VideoUrl/DocUrl/ContentUrl) must not be used.
- */
 export interface LessonDetail extends LessonSummary {
+  // Primary fields used by the app
   LessonResources?: LessonResource[] | null;
   Resource?: LessonResource | null;
-
-  // Optional rich-text content if your backend supports it.
   Content?: string;
+
+  /**
+   * LEGACY (DO NOT USE): These fields exist in CourseLesson table for older data.
+   * All file links must be driven by LessonResource.
+   */
+  LessonType?: string;
+  ContentUrl?: string | null;
+  VideoUrl?: string;
+  DocUrl?: string;
 }
 
 export interface Lesson {
@@ -27,6 +31,19 @@ export interface Lesson {
   Title: string;
   Resource?: LessonResource | null;
 
-  // Optional rich-text content if your backend supports it.
+  // Legacy (DO NOT USE)
+  LessonType?: string;
+  ContentUrl?: string | null;
+  VideoUrl?: string;
+  DocUrl?: string;
   Content?: string;
 }
+
+export interface CreateLessonData {
+  Title: string;
+  LessonType: "Video" | "Document";
+  CourseModuleId?: number;
+  OrderNo?: number;
+  file: File;
+}
+
