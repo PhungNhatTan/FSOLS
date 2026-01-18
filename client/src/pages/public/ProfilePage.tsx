@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { getMyProfile, type MyProfile } from "../../api/profile";
 import certificateApi, { type MyCertificateListItem } from "../../api/certificate";
+import { resolveUploadUrl } from "../../utils/url";
 
 function formatDate(iso: string) {
   try {
@@ -98,7 +99,7 @@ export default function ProfilePage() {
             <div className="flex gap-5 items-start">
               {profile.AvatarUrl ? (
                 <img
-                  src={profile.AvatarUrl}
+                  src={resolveUploadUrl(profile.AvatarUrl) ?? String(profile.AvatarUrl)}
                   alt="Avatar"
                   className="w-20 h-20 rounded-full object-cover border"
                 />
@@ -131,9 +132,8 @@ export default function ProfilePage() {
                     </div>
                     {profile.Email && (
                       <div
-                        className={`mt-1 text-xs ${
-                          profile.EmailVerified ? "text-green-700" : "text-orange-700"
-                        }`}
+                        className={`mt-1 text-xs ${profile.EmailVerified ? "text-green-700" : "text-orange-700"
+                          }`}
                       >
                         {profile.EmailVerified ? "Verified" : "Not verified"}
                       </div>
