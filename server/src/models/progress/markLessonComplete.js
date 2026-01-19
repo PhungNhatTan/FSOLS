@@ -1,18 +1,51 @@
-// models/progress/markLessonComplete.js
-import prisma from "../../prismaClient.js";
+import prisma from '../../prismaClient.js'
+import {
+  computeEnrollmentTimeState,
+  formatDurationHMS,
+  getCourseTimeConfig,
+} from '../../utils/courseTimeLimit.js'
 
 async function markLessonComplete(accountId, enrollmentId, lessonId) {
-  // ✅ Authorization + existence in ONE query
+  const now = new Date()
+  const cfg = getCourseTimeConfig()
+
+  // Authorization + existence
   const enrollment = await prisma.courseEnroll.findFirst({
     where: {
       Id: enrollmentId,
       AccountId: accountId,
-      DeletedAt: null
-    }
-  });
+      DeletedAt: null,
+    },
+  })
 
   if (!enrollment) {
-    throw new Error("Enrollment not found or unauthorized");
+    const err = new Error('Enrollment not found or unauthorized')
+    err.statusCode = 403
+    err.code = 'NOT_ENROLLED'
+    throw err
+  }
+
+  const st = computeEnrollmentTimeState(enrollment, now, cfg)
+
+  // Enforce time limit (except Completed).
+  if (!st.isCompleted && st.hasLimit && st.isExpired) {
+    await prisma.courseEnroll.update({
+      where: { Id: enrollment.Id },
+      data: { DeletedAt: st.expiresAt },
+    })
+
+    const err = new Error(
+      `You can't study this course after the time limit. You can enroll again in ${formatDurationHMS(
+        st.cooldownSecondsRemaining
+      )}.`
+    )
+    err.statusCode = 403
+    err.code = 'COURSE_TIME_EXPIRED'
+    err.meta = {
+      canEnrollAt: st.canEnrollAt ? st.canEnrollAt.toISOString() : null,
+      secondsUntilCanEnroll: st.cooldownSecondsRemaining,
+    }
+    throw err
   }
 
   return prisma.lessonProgress.upsert({
@@ -20,21 +53,21 @@ async function markLessonComplete(accountId, enrollmentId, lessonId) {
       AccountId_CourseEnrollId_LessonId: {
         AccountId: accountId,
         CourseEnrollId: enrollment.Id,
-        LessonId: lessonId
-      }
+        LessonId: lessonId,
+      },
     },
     update: {
       IsCompleted: true,
-      CompletedAt: new Date()
+      CompletedAt: new Date(),
     },
     create: {
       AccountId: accountId,
       CourseEnrollId: enrollment.Id,
       LessonId: lessonId,
       IsCompleted: true,
-      CompletedAt: new Date()
-    }
-  });
+      CompletedAt: new Date(),
+    },
+  })
 }
 
-export default markLessonComplete;
+export default markLessonComplete

@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react"
-import { Link, useParams, useNavigate } from "react-router-dom"
+import { Link, useParams, useNavigate, useLocation } from "react-router-dom"
 import courseApi from "../../api/course"
 import type { CourseDetail, CourseModule, UserCertificateDetail } from "../../types/course"
 import type { Enrollment } from "../../types/enrollment"
 import EnrollButton from "../../components/public/course/EnrollButton"
 import { useAuth } from "../../hooks/useAuth"
 import certificateApi from "../../api/certificate"
+import enrollmentApi from "../../api/enrollment"
 
 import { iconForMediaKind, inferLessonKindFromResources, type MediaKind, type ResourceLike } from "../../utils/mediaKind"
 /* ----------------------------- Helpers: time rule ---------------------------- */
@@ -19,15 +20,20 @@ const formatMinutes = (minutes: number): string => {
   return `${h}h ${mm}m`
 }
 
-const estimateLessonMinutesByKind = (kind?: MediaKind): number => {
-  switch (kind) {
-    case "video":
-      return 10
-    case "document":
-      return 8
-    default:
-      return 7
-  }
+const formatDurationHMS = (totalSeconds: number): string => {
+  const s = Math.max(0, Math.trunc(totalSeconds))
+  const hh = Math.floor(s / 3600)
+  const mm = Math.floor((s % 3600) / 60)
+  const ss = s % 60
+  const pad = (x: number) => String(x).padStart(2, "0")
+  return `${pad(hh)}:${pad(mm)}:${pad(ss)}`
+}
+
+const estimateLessonMinutesByType = (lessonType?: string): number => {
+  const t = (lessonType ?? "").toLowerCase()
+  if (t.includes("video")) return 10
+  if (t.includes("doc") || t.includes("pdf") || t.includes("document")) return 8
+  return 7
 }
 
 const estimateExamMinutes = (title: string, durationMinutes: number | null): number => {
@@ -132,11 +138,24 @@ const getExamRaw = (item: unknown): unknown => (isRecord(item) ? item["Exam"] : 
 export default function CourseDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const { user } = useAuth()
   const [course, setCourse] = useState<CourseDetailExt | null>(null)
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null)
   const [error, setError] = useState("")
+  const [notice, setNotice] = useState<string>("")
   const [userC, setUserCertificate] = useState<UserCertificateDetail | null>(null)
+
+  // Surface notice passed from CourseStudyPage (e.g., time expired).
+  useEffect(() => {
+    const st = (location.state as { notice?: string } | null) ?? null
+    if (st?.notice) {
+      setNotice(st.notice)
+      // Clear the state to avoid showing the same notice on back/forward navigations.
+      navigate(location.pathname, { replace: true, state: null })
+    }
+    
+  }, [location.key])
 
   useEffect(() => {
     if (!id || !user?.accountId) return;
@@ -325,7 +344,7 @@ export default function CourseDetailPage() {
   const moduleMinutesMap = useMemo(() => {
     const map: Record<string, number> = {}
     derived.modules.forEach((m) => {
-      const lessonMinutes = m.lessons.reduce((sum, l) => sum + estimateLessonMinutesByKind(l.kind), 0)
+      const lessonMinutes = m.lessons.reduce((sum, l) => sum + estimateLessonMinutesByType(l.kind), 0)
       const examMinutes = m.exams.reduce((sum, e) => sum + estimateExamMinutes(e.title, e.durationMinutes), 0)
       map[m.key] = lessonMinutes + examMinutes
     })
@@ -336,9 +355,37 @@ export default function CourseDetailPage() {
     return derived.modules.reduce((sum, m) => sum + (moduleMinutesMap[m.key] ?? 0), 0)
   }, [derived.modules, moduleMinutesMap])
 
-  const handleStartCourse = () => {
-    if (course?.Id) {
-      navigate(`/course-study/${course.Id}`)
+  const handleStartCourse = async () => {
+    if (!course?.Id) return
+
+    // Require authentication.
+    if (!user) {
+      navigate("/login", { state: { from: `/course/${course.Id}` } })
+      return
+    }
+
+    try {
+      const st = await enrollmentApi.getStatus(course.Id)
+
+      if (st.isEnrolled) {
+        navigate(`/course-study/${course.Id}`)
+        return
+      }
+
+      // Cooldown active (cannot re-enroll yet)
+      const cooldown = st.cooldownSecondsRemaining ?? null
+      if (cooldown && cooldown > 0) {
+        setNotice(
+          `You can't study this course after the time limit. You can enroll again in ${formatDurationHMS(cooldown)}.`
+        )
+        return
+      }
+
+      // Not enrolled at all
+      setNotice("You must enroll in this course before studying.")
+    } catch (err) {
+      console.error("Failed to check enrollment status:", err)
+      setNotice("Unable to start course right now. Please try again.")
     }
   }
 
@@ -362,6 +409,19 @@ export default function CourseDetailPage() {
     <div className="flex">
       <div className="p-6 max-w-4xl mx-auto flex-1">
         {error && <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">{error}</div>}
+        {notice && (
+          <div className="mb-4 p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded flex items-start justify-between gap-3">
+            <span className="text-sm">{notice}</span>
+            <button
+              type="button"
+              onClick={() => setNotice("")}
+              className="text-amber-800/70 hover:text-amber-900 text-lg leading-none"
+              aria-label="Dismiss notice"
+            >
+              ×
+            </button>
+          </div>
+        )}
 
         {course && (
           <div className="bg-white rounded-lg shadow-md p-6">

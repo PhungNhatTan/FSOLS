@@ -5,6 +5,7 @@ export interface Enrollment {
   Status: "Enrolled" | "InProgress" | "Completed"
   EnrolledAt: string
   CompletedAt: string | null
+  DeletedAt?: string | null
 }
 
 export interface EnrollmentWithCourse extends Enrollment {
@@ -22,6 +23,14 @@ export interface EnrollmentWithCourse extends Enrollment {
 }
 
 export interface EnrollmentResponse {
-  isEnrolled: boolean;
-  enrollment: Enrollment | null;
+  isEnrolled: boolean
+  enrollment: Enrollment | null
+
+  // Optional: time-limit / cooldown metadata (server provides these)
+  expiresAt?: string | null
+  secondsRemaining?: number | null
+  canEnrollAt?: string | null
+  cooldownSecondsRemaining?: number | null
+  studyWindowMinutes?: number
+  reenrollCooldownMinutes?: number
 }

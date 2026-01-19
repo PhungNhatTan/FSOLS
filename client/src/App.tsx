@@ -1,6 +1,7 @@
 // src/App.tsx
-import { HashRouter as Router, Routes, Route } from "react-router-dom"
+import { HashRouter as Router, Routes, Route, useLocation } from "react-router-dom"
 import Navbar from "./components/public/navbar/Navbar"
+import AIChatWidget from "./components/ai/AIChatWidget"
 
 // Public Pages
 import LoginPage from "./pages/public/LoginPage"
@@ -38,6 +39,7 @@ import AccountsPage from "./pages/admin/AccountsPage"
 // Auth
 import ProtectedRoute from "./components/ProtectedRoute"
 import { AuthProvider } from "./context/authProvider"
+import { useAuth } from "./hooks/useAuth"
 
 // Layouts and Helpers
 import ModeratorLayout from "./layout/ModeratorLayout"
@@ -49,12 +51,19 @@ import { CourseStudyPage } from "./pages"
 import ForgotPasswordPage from "./pages/public/ForgotPasswordPage"
 import ResetPasswordPage from "./pages/public/ResetPasswordPage"
 
-export default function App() {
+function AppShell() {
+  const location = useLocation()
+  const { user } = useAuth()
+
+  // Hide AI chatbox on login page (and keep it behind auth)
+  const showChat = Boolean(user) && !location.pathname.startsWith("/login")
+
   return (
-    <Router>
-      <AuthProvider>
-        <Navbar />
-        <Routes>
+    <>
+      <Navbar />
+      {showChat ? <AIChatWidget /> : null}
+
+      <Routes>
           {/* Public */}
           <Route path="/" element={<RootRedirect />} />
           <Route path="/home" element={<HomePage />} />
@@ -142,7 +151,16 @@ export default function App() {
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           {/* 404 */}
           <Route path="*" element={<h1 className="p-6 text-red-500">404 Not Found</h1>} />
-        </Routes>
+      </Routes>
+    </>
+  )
+}
+
+export default function App() {
+  return (
+    <Router>
+      <AuthProvider>
+        <AppShell />
       </AuthProvider>
     </Router>
   )
