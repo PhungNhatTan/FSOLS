@@ -54,12 +54,12 @@ const normalizeHistory = (history = []) => {
 export const generateChatReply = async ({ message, history }) => {
   const client = getGeminiClient();
 
-  const modelName = process.env.GEMINI_CHAT_MODEL || "gemini-1.5-flash";
+  const modelName = process.env.GEMINI_CHAT_MODEL || "gemini-2.5-flash";
   const model = client.getGenerativeModel({
     model: modelName,
     generationConfig: {
       temperature: 0.4,
-      maxOutputTokens: 512,
+      maxOutputTokens: 2048,
     },
   });
 
