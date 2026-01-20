@@ -137,6 +137,7 @@ export type DraftJson = {
           // After publish: /uploads/production/course-X/file.mp4
           size?: number;        // File size in bytes
           type?: string;        // MIME type
+          estimatedMinutes?: number | null; // Mentor-adjustable per-resource estimate
           deleted: boolean;
         }[];
       };

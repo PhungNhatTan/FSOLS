@@ -395,7 +395,7 @@ export function ModuleCard({
                                                 {entry.type === "lesson" ? "📖" : "📝"} {entry.item.title}
                                             </div>
                                             <div className="text-xs text-slate-500 mt-1">
-                                                {entry.type === "lesson" ? "Lesson" : "Exam"} • Order: {entry.order}
+                                                {entry.type === "lesson" ? "Lesson" : "Exam"} • Order: {entry.order} • Est.: {entry.item.estimatedTimeMinutes ?? "—"} min
                                             </div>
                                         </div>
                                     </div>

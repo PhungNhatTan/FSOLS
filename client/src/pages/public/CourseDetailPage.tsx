@@ -539,7 +539,7 @@ export default function CourseDetailPage() {
               )}
 
               <div className="mt-5 p-4 rounded-lg border border-gray-200 bg-gray-50">
-                <div className="font-semibold mb-1">Final Exam (for Certificate)</div>
+                <div className="font-semibold mb-1">Final Exam</div>
                 {derived.finalExam ? (
                   <div className="text-sm text-gray-700">
                     Finish all lessons and module quizzes, then take the final exam to receive your certificate:{" "}

@@ -75,6 +75,92 @@ function mapQuestionType(rawType) {
   return mapped; // <-- STRING, matches Prisma enum
 }
 
+
+const DURATION_PRESET_MINUTES = {
+  P_15: 15,
+  P_30: 30,
+  P_60: 60,
+  P_90: 90,
+  P_120: 120,
+};
+
+const normalizeMinutes = (value) => {
+  if (value === null || value === undefined || value === "") return null;
+  const n = typeof value === "string" ? Number(value) : value;
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.floor(n);
+};
+
+const inferResourceMinutes = (res) => {
+  const name = String(res?.name ?? "");
+  const url = String(res?.url ?? "");
+  const clean = (url.split(/[?#]/)[0] || name).toLowerCase();
+  const ext = (clean.split(".").pop() || "").toLowerCase();
+
+  const sizeBytes = typeof res?.size === "number" && res.size > 0 ? res.size : null;
+
+  const isVideo = ["mp4", "webm", "ogg", "ogv", "mov", "m4v", "avi", "mkv"].includes(ext);
+  const isPdf = ext === "pdf";
+  const isOffice = ["doc", "docx", "ppt", "pptx", "xls", "xlsx"].includes(ext);
+  const isImage = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"].includes(ext);
+
+  // Baselines + rough scaling by file size (when available)
+  if (isVideo) {
+    if (sizeBytes) {
+      // Rough: ~25MB ~= 10 minutes
+      const mins = Math.round((sizeBytes / (25 * 1024 * 1024)) * 10);
+      return Math.min(Math.max(mins, 5), 180);
+    }
+    return 10;
+  }
+
+  if (isPdf || isOffice) {
+    if (sizeBytes) {
+      // Rough: ~2MB ~= 5 minutes
+      const mins = Math.round((sizeBytes / (2 * 1024 * 1024)) * 5);
+      return Math.min(Math.max(mins, 3), 120);
+    }
+    return 5;
+  }
+
+  if (isImage) return 1;
+
+  return 5;
+};
+
+const computeLessonEstimatedMinutes = (lesson) => {
+  const resources = Array.isArray(lesson?.resources) ? lesson.resources : [];
+  const active = resources.filter((r) => r && !r.deleted);
+  if (active.length === 0) return null;
+
+  let sum = 0;
+  for (const r of active) {
+    const explicit = normalizeMinutes(r?.estimatedMinutes);
+    const mins = explicit ?? inferResourceMinutes(r);
+    if (mins != null) sum += mins;
+  }
+
+  return sum > 0 ? sum : null;
+};
+
+const resolveExamDurationMinutes = (exam) => {
+  const preset = exam?.durationPreset;
+  const custom = exam?.durationCustom;
+
+  if (preset && Object.prototype.hasOwnProperty.call(DURATION_PRESET_MINUTES, preset)) {
+    return DURATION_PRESET_MINUTES[preset];
+  }
+
+  return normalizeMinutes(custom);
+};
+
+const computeItemEstimatedMinutes = (item) => {
+  if (!item || item.deleted) return null;
+  if (item.type === "exam" && item.exam) return resolveExamDurationMinutes(item.exam);
+  if (item.type === "lesson" && item.lesson) return computeLessonEstimatedMinutes(item.lesson);
+  return null;
+};
+
 const syncExamAnswers = async (tx, questionId, answers = []) => {
   for (const answer of answers) {
     const answerId = answer?.id;
@@ -271,7 +357,7 @@ const commitDraftToDatabase = async (courseId, draft) => {
               data: {
                 CourseModuleId: moduleId,
                 OrderNo: item.orderNo,
-                EstimatedDuration: item.estimatedTimeMinutes ?? null,
+                EstimatedDuration: computeItemEstimatedMinutes(item),
               },
             });
             itemId = created.Id;
@@ -283,12 +369,12 @@ const commitDraftToDatabase = async (courseId, draft) => {
               {
                 CourseModuleId: moduleId,
                 OrderNo: item.orderNo,
-                EstimatedDuration: item.estimatedTimeMinutes ?? null,
+                EstimatedDuration: computeItemEstimatedMinutes(item),
               },
               {
                 CourseModuleId: moduleId,
                 OrderNo: item.orderNo,
-                EstimatedDuration: item.estimatedTimeMinutes ?? null,
+                EstimatedDuration: computeItemEstimatedMinutes(item),
                 DeletedAt: null,
               },
               "string"

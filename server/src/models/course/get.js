@@ -15,7 +15,9 @@ export default async function get(id) {
           ModuleItems: {
             where: { DeletedAt: null },
             select: {
+              Id: true,
               OrderNo: true,
+              EstimatedDuration: true,
               CourseLesson: {
                 select: {
                   Id: true,

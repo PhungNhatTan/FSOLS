@@ -23,6 +23,60 @@ const inferResourceType = (resource: Resource): "image" | "video" | "pdf" | null
   return null;
 };
 
+const normalizeMinutes = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === "") return null;
+  const n = typeof value === "string" ? Number(value) : (value as number);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.floor(n);
+};
+
+const inferEstimatedMinutes = (resource: Resource): number => {
+  const source = (resource.url || resource.name || "").toLowerCase().split("?")[0];
+  const sizeBytes = typeof resource.size === "number" && resource.size > 0 ? resource.size : null;
+
+  if (VIDEO_EXTENSIONS.some((ext) => source.endsWith(ext))) {
+    if (sizeBytes) {
+      const mins = Math.round((sizeBytes / (25 * 1024 * 1024)) * 10);
+      return Math.min(Math.max(mins, 5), 180);
+    }
+    return 10;
+  }
+
+  if (source.endsWith(".pdf")) {
+    if (sizeBytes) {
+      const mins = Math.round((sizeBytes / (2 * 1024 * 1024)) * 5);
+      return Math.min(Math.max(mins, 3), 120);
+    }
+    return 5;
+  }
+
+  if (IMAGE_EXTENSIONS.some((ext) => source.endsWith(ext))) {
+    return 1;
+  }
+
+  // Documents / other files
+  if (sizeBytes) {
+    const mins = Math.round((sizeBytes / (2 * 1024 * 1024)) * 5);
+    return Math.min(Math.max(mins, 3), 120);
+  }
+  return 5;
+};
+
+const computeLessonEstimatedMinutes = (resources: Resource[]): number | null => {
+  if (!resources || resources.length === 0) return null;
+  let total = 0;
+  let has = false;
+  for (const r of resources) {
+    const explicit = normalizeMinutes(r.estimatedMinutes);
+    const mins = explicit ?? inferEstimatedMinutes(r);
+    if (mins !== null) {
+      total += mins;
+      has = true;
+    }
+  }
+  return has ? total : null;
+};
+
 function ResourceUploadDialog({ 
   courseId, 
   onResourceUploaded, 
@@ -143,6 +197,8 @@ export function LessonDetail({
     const [previewType, setPreviewType] = useState<"image" | "video" | "pdf" | null>(null);
     const [previewError, setPreviewError] = useState(false);
 
+    const computedTotalMinutes = computeLessonEstimatedMinutes(lesson.resources || []);
+
     const handleSave = () => {
         // const trimmedEstimate = estimatedTime.trim();
         // const parsedEstimate = trimmedEstimate ? Number(trimmedEstimate) : null;
@@ -160,23 +216,49 @@ export function LessonDetail({
     };
 
     const handleResourceUploaded = (resource: DraftResource) => {
-        const newResource = {
-            id: Date.now(),
+        const tempId = -Date.now();
+        const newResource: Resource = {
+            id: tempId,
             name: resource.name,
             size: resource.size,
             url: resource.url,
+            estimatedMinutes: inferEstimatedMinutes({
+                id: tempId,
+                name: resource.name,
+                size: resource.size,
+                url: resource.url,
+            }),
         };
-        
+
+        const nextResources = [...(lesson.resources || []), newResource];
+
         onUpdate({
-            resources: [...(lesson.resources || []), newResource],
+            resources: nextResources,
+            estimatedTimeMinutes: computeLessonEstimatedMinutes(nextResources),
         });
     };
 
     const handleRemoveResource = (resourceId: number) => {
         if (!confirm("Remove this resource from the lesson?")) return;
-        
+
+        const nextResources = lesson.resources.filter((r) => r.id !== resourceId);
+
         onUpdate({
-            resources: lesson.resources.filter((r) => r.id !== resourceId),
+            resources: nextResources,
+            estimatedTimeMinutes: computeLessonEstimatedMinutes(nextResources),
+        });
+    };
+
+    const handleSetResourceEstimatedMinutes = (resourceId: number, value: string) => {
+        const minutes = normalizeMinutes(value);
+
+        const nextResources = lesson.resources.map((r) =>
+            r.id === resourceId ? { ...r, estimatedMinutes: minutes } : r
+        );
+
+        onUpdate({
+            resources: nextResources,
+            estimatedTimeMinutes: computeLessonEstimatedMinutes(nextResources),
         });
     };
 
@@ -341,6 +423,10 @@ export function LessonDetail({
                                     <div className="text-sm text-slate-600 mt-1">{lesson.description}</div>
                                 </div>
                             )}
+                            <div>
+                                <div className="text-sm font-semibold text-slate-700">Estimated Time (sum of resources)</div>
+                                <div className="text-sm text-slate-600 mt-1">{computedTotalMinutes ?? lesson.estimatedTimeMinutes ?? 0} minutes</div>
+                            </div>
                             {/* {lesson.estimatedTimeMinutes !== undefined && lesson.estimatedTimeMinutes !== null && (
                                 <div>
                                     <div className="text-sm font-semibold text-slate-700">Estimated Time</div>
@@ -392,6 +478,17 @@ export function LessonDetail({
                                                 )}
                                             </div>
                                             <div className="flex items-center gap-2">
+                                                <div className="flex flex-col items-end">
+                                                    <label className="text-[10px] text-slate-500">Min</label>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        value={r.estimatedMinutes ?? ""}
+                                                        placeholder={String(inferEstimatedMinutes(r))}
+                                                        onChange={(e) => handleSetResourceEstimatedMinutes(r.id, e.target.value)}
+                                                        className="w-16 px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                                    />
+                                                </div>
                                                 <Btn
                                                     size="sm"
                                                     onClick={() => handleViewResource(r)}

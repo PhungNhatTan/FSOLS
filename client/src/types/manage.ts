@@ -126,6 +126,7 @@ export type Resource = {
   name: string
   url?: string
   size?: number // Optional: file size in bytes
+  estimatedMinutes?: number | null // Optional: per-resource estimate (draft only)
 }
 
 export type UiLessonLocal = {
