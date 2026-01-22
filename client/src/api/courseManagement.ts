@@ -117,6 +117,12 @@ interface RawLesson {
   id?: number;
   Title?: string;
   title?: string;
+  LessonType?: "Video" | "Document";
+  lessonType?: "Video" | "Document";
+  VideoUrl?: string | null;
+  videoUrl?: string | null;
+  DocUrl?: string | null;
+  docUrl?: string | null;
   lessonResources?: { Id: number; Name: string; Url: string }[];
 }
 
@@ -125,8 +131,27 @@ interface RawExam {
   id?: number;
   Title?: string;
   title?: string;
+  Description?: string | null;
+  description?: string | null;
   DurationCustom?: number;
   DurationPreset?: string;
+}
+
+function presetToMinutes(preset?: string | null): number {
+  switch (preset) {
+    case "P_15":
+      return 15;
+    case "P_30":
+      return 30;
+    case "P_45":
+      return 45;
+    case "P_60":
+      return 60;
+    case "P_90":
+      return 90;
+    default:
+      return 0;
+  }
 }
 
 function normalizeModule(raw: RawCourseModule): ManageModule {
@@ -153,7 +178,11 @@ function normalizeModule(raw: RawCourseModule): ManageModule {
       lessons.push({
         Id: l.Id ?? l.id ?? generateTempId(),
         Title: l.Title ?? l.title ?? "Untitled Lesson",
-        Resources: [],
+        Resources: (l.lessonResources ?? []).map((r) => ({
+          Id: r.Id,
+          Name: r.Name,
+          Url: r.Url,
+        })),
       });
     }
 
@@ -161,22 +190,30 @@ function normalizeModule(raw: RawCourseModule): ManageModule {
     const rawExam = mi.Exam as unknown;
     if (Array.isArray(rawExam)) {
       (rawExam as RawExam[]).forEach((e) => {
+        const durationPreset = e.DurationPreset ?? null;
+        const durationCustom = e.DurationCustom ?? null;
+        const duration = durationCustom ?? presetToMinutes(durationPreset);
         exams.push({
           Id: e.Id ?? e.id ?? generateTempId(),
           Title: e.Title ?? e.title ?? "Untitled Exam",
-          Duration: e.DurationCustom ?? 0,
-          DurationPreset: e.DurationPreset,
-          DurationCustom: e.DurationCustom,
+          Duration: duration,
+          DurationPreset: durationPreset ?? undefined,
+          DurationCustom: durationCustom ?? undefined,
           Questions: [],
           OrderNo: 0,
         });
       });
     } else if (rawExam) {
       const e = rawExam as RawExam;
+      const durationPreset = e.DurationPreset ?? null;
+      const durationCustom = e.DurationCustom ?? null;
+      const duration = durationCustom ?? presetToMinutes(durationPreset);
       exams.push({
         Id: e.Id ?? e.id ?? generateTempId(),
         Title: e.Title ?? e.title ?? "Untitled Exam",
-        Duration: 0,
+        Duration: duration,
+        DurationPreset: durationPreset ?? undefined,
+        DurationCustom: durationCustom ?? undefined,
         Questions: [],
         OrderNo: 0,
       });
@@ -186,7 +223,7 @@ function normalizeModule(raw: RawCourseModule): ManageModule {
   const looseRaw = raw as RawCourseModule & { id?: number; orderNo?: number };
   return {
     Id: raw.Id ?? looseRaw.id ?? generateTempId(),
-    Title: `Module ${raw.OrderNo ?? looseRaw.orderNo ?? 0}`,
+    Title: raw.Title ?? `Module ${raw.OrderNo ?? looseRaw.orderNo ?? 0}`,
     OrderNo: raw.OrderNo ?? looseRaw.orderNo ?? 0,
     Lessons: lessons,
     Exam: exams.length ? exams[0] : undefined,

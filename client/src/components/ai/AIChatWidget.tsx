@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { aiChat, type ChatMessage } from "../../api/ai";
+import { isAxiosError } from "../../service/client";
 
 export default function AIChatWidget() {
   const [open, setOpen] = useState(false);
@@ -37,12 +38,26 @@ export default function AIChatWidget() {
       const reply = await aiChat(text, historyForServer);
       setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
       setTimeout(scrollToBottom, 0);
-    } catch (e: any) {
+    } catch (err: unknown) {
+      let msg = "Unknown";
+      if (isAxiosError(err)) {
+        const data = err.response?.data as unknown;
+        const serverMsg =
+          typeof data === "object" &&
+          data !== null &&
+          typeof (data as Record<string, unknown>).message === "string"
+            ? ((data as Record<string, unknown>).message as string)
+            : undefined;
+        msg = serverMsg || err.message || msg;
+      } else if (err instanceof Error) {
+        msg = err.message || msg;
+      }
+
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: `AI error: ${e?.response?.data?.message || e?.message || "Unknown"}`,
+          content: `AI error: ${msg}`,
         },
       ]);
     } finally {

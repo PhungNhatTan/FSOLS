@@ -23,6 +23,50 @@ import {
   mapStructureToDraft,
 } from "../../service/CourseManagementService";
 
+function parseDateMs(value?: string | null): number | null {
+  if (!value) return null;
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function hasDraftUrls(draft: DraftJson): boolean {
+  for (const m of draft.modules ?? []) {
+    if (m.deleted) continue;
+    for (const it of m.items ?? []) {
+      if (it.deleted) continue;
+      if (it.type === "lesson" && it.lesson) {
+        for (const r of it.lesson.resources ?? []) {
+          if (r.deleted) continue;
+          const url = r.url ?? "";
+          // Any draft storage path that would be invalid after approval/publish
+          if (url.includes("/uploads/draft/") || url.includes("/draft/")) return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+function getPublishGateMs(
+  course: Course | null,
+  verificationStatus: { ApprovalStatus: string; CreatedAt: string; ReviewedAt?: string } | null
+): number | null {
+  // Prefer explicit published timestamp from course payload (if present)
+  const publishedAt = parseDateMs(course?.PublishedAt ?? null);
+  if (publishedAt) return publishedAt;
+
+  // Otherwise derive from verification timestamps
+  const reviewedAt = parseDateMs(verificationStatus?.ReviewedAt ?? null);
+  if (reviewedAt) return reviewedAt;
+
+  if (verificationStatus?.ApprovalStatus === "Approved") {
+    const createdAt = parseDateMs(verificationStatus?.CreatedAt ?? null);
+    if (createdAt) return createdAt;
+  }
+
+  return null;
+}
+
 export default function CourseManagePage() {
   const { id } = useParams<{ id: string }>();
   const courseId = Number(id ?? 0);
@@ -93,13 +137,15 @@ export default function CourseManagePage() {
     if (modules.length > 0) return;
 
     try {
-      // Load categories
-      const cats = await categoryApi.getAll();
+      // Load everything we need up front so draft-vs-structure decisions are deterministic
+      const [cats, structure, status] = await Promise.all([
+        categoryApi.getAll(),
+        courseManagementApi.getStructure(courseId),
+        courseManagementApi.getVerificationStatus(courseId).catch(() => null),
+      ]);
       setCategories(cats);
-
-      // Always load base course metadata
-      const structure = await courseManagementApi.getStructure(courseId);
       setCourse(structure.course);
+      setVerificationStatus(status);
 
       let draftLoaded = false;
 
@@ -113,14 +159,51 @@ export default function CourseManagePage() {
               : draftResponse.draft;
 
           if (draft && Array.isArray(draft.modules) && draft.modules.length > 0) {
-            const { modules, skills, categoryId } = mapDraftToLocal(draft);
-            setModules(modules);
-            setSkills(skills);
-            setSelectedCategoryId(categoryId);
-            setLastSaved(
-              `Draft loaded (${new Date(draft.lastModified).toLocaleString()})`
-            );
-            draftLoaded = true;
+            const isApproved = status?.ApprovalStatus === "Approved";
+            const publishGateMs = getPublishGateMs(structure.course as unknown as Course, status);
+            const draftMs = parseDateMs(draft.lastModified);
+            const hasDraftStorageUrls = hasDraftUrls(draft);
+            const isPublishedOrApproved =
+              isApproved || Boolean((structure.course as unknown as Course)?.PublishedAt);
+
+            // Guard: once a course is approved/published, do NOT load an older draft as the source of truth.
+            // This prevents stale draft content (especially draft URLs) from making the page behave as "empty".
+            const staleByTime =
+              publishGateMs !== null &&
+              (!draftMs || (draftMs + 5000 < publishGateMs));
+
+            const shouldPreferPublishedStructure =
+              isPublishedOrApproved && (staleByTime || (publishGateMs === null && hasDraftStorageUrls));
+
+            if (shouldPreferPublishedStructure) {
+              setSelectedItem(null);
+
+              // Use published structure for modules/items, but preserve mentor-only metadata from the draft when possible.
+              const structureDraft = mapStructureToDraft(structure);
+              const structureLocal = mapDraftToLocal(structureDraft);
+              const draftLocal = mapDraftToLocal(draft);
+
+              setModules(structureLocal.modules);
+              setSkills(draftLocal.skills.length ? draftLocal.skills : structureLocal.skills);
+              setSelectedCategoryId(
+                draftLocal.categoryId !== null ? draftLocal.categoryId : structureLocal.categoryId
+              );
+
+              const urlNote = hasDraftStorageUrls ? "; detected draft upload URLs" : "";
+              setLastSaved(
+                `Loaded published structure (draft is older than approval/publish${urlNote})`
+              );
+              draftLoaded = true;
+            } else {
+              const { modules, skills, categoryId } = mapDraftToLocal(draft);
+              setModules(modules);
+              setSkills(skills);
+              setSelectedCategoryId(categoryId);
+              setLastSaved(
+                `Draft loaded (${new Date(draft.lastModified).toLocaleString()})`
+              );
+              draftLoaded = true;
+            }
           } else {
             throw new Error("Draft exists but is invalid");
           }
@@ -181,6 +264,27 @@ export default function CourseManagePage() {
   const publish = async () => {
     if (!course) return;
 
+    // Verification constraint: every module must have at least one exam.
+    // Block submission early and show a clear warning listing offending modules.
+    const modulesMissingExam = modules
+      .filter((m) => (m.exams?.length ?? 0) === 0)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+    if (modulesMissingExam.length > 0) {
+      const list = modulesMissingExam
+        .map((m) => `- Module ${m.order}: ${m.title || "(untitled)"}`)
+        .join("\n");
+      alert(
+        `Cannot submit for verification.
+
+Each module must contain at least one exam.
+
+Modules missing an exam:
+${list}`
+      );
+      return;
+    }
+
     const draft = mapLocalToDraft(course, modules, skills, user?.accountId ?? null, selectedCategoryId);
     const validation = validateDraft(draft);
 
@@ -220,10 +324,14 @@ export default function CourseManagePage() {
     const title = prompt("Module title:");
     if (!title) return;
 
+    // Ensure newly added modules always get the next sequential order number.
+    // Previously this used Math.max(...) without +1, causing duplicate order values like 1,1,1...
+    const nextOrder = Math.max(0, ...modules.map((m) => m.order ?? 0)) + 1;
+
     const newModule: Module = {
       id: generateNegativeId(),
       title: title.trim(),
-      order: Math.max(1, ...modules.map(m => m.order), 1),
+      order: nextOrder,
       lessons: [],
       exams: [],
     };

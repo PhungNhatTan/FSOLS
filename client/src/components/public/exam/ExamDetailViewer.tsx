@@ -61,7 +61,7 @@ export default function ExamDetailViewer({
     examApi
       .checkEligibility(examId)
       .then((res) => setEligibility(res))
-      .catch((e: any) => {
+      .catch((e) => {
         // If the user isn't authenticated, keep the button disabled and show a clear message.
         if (e?.code === "UNAUTHENTICATED") {
           setEligibility({ allowed: false, code: "UNAUTHENTICATED", message: "Please sign in to take this exam." })
@@ -163,9 +163,9 @@ export default function ExamDetailViewer({
           <span className="font-semibold">Duration:</span> {durationDisplay}
         </p>
         
-        <p className="text-gray-700 mb-4">
+        {/* <p className="text-gray-700 mb-4">
           <span className="font-semibold">Total Questions:</span> {totalQuestions}
-        </p>
+        </p> */}
 
         {hasAttempted ? (
           <div

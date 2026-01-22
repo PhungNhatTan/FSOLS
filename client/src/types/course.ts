@@ -2,7 +2,7 @@ import type { LessonSummary } from "./lesson"
 import type { Exam } from "./exam"
 
 export interface ModuleItem {
-  Id: number
+  Id: string
   OrderNo: number
   CourseLesson?: LessonSummary[] | null
   Exam?: Exam[] | null
@@ -65,20 +65,23 @@ export interface CourseStudyContext {
 }
 
 export interface RawModuleItem {
-  Id: number
+  Id: string
   OrderNo: number
-  CourseLesson?: LessonSummary | null
-  Exam?: Exam | null
+  EstimatedDuration?: number | null
+  CourseLesson?: LessonSummary[] | LessonSummary | null
+  Exam?: Exam[] | Exam | null
 }
 
 export type RawCourseModule = {
   Id: number;
+  Title?: string | null;
   OrderNo?: number;
   ModuleItems?: {
-    Id: number;
+    Id: string;
     OrderNo?: number;
-    CourseLesson?: LessonSummary | null;
-    Exam?: Exam | null;
+    EstimatedDuration?: number | null;
+    CourseLesson?: LessonSummary[] | LessonSummary | null;
+    Exam?: Exam[] | Exam | null;
   }[];
 };
 

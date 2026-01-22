@@ -13,6 +13,18 @@ import type { Exam, ExamQuestion, ExamData, QuestionType } from "../types/exam";
 import type { UiModuleLocal as Module, UiLessonLocal as Lesson } from "../types/manage";
 import type { Course, DraftJson, DraftModule, DraftModuleItem, } from "../types/course";
 
+// Maps non-numeric draft lesson IDs (e.g., cuid strings from published structure) to temporary numeric IDs for UI state.
+const _draftLessonIdToTempNumeric = new Map<string, number>();
+
+function getOrCreateTempNumericLessonId(rawId: string): number {
+    const existing = _draftLessonIdToTempNumeric.get(rawId);
+    if (existing !== undefined) return existing;
+
+    const next = generateNegativeId();
+    _draftLessonIdToTempNumeric.set(rawId, next);
+    return next;
+}
+
 function mapLessonToDraft(lesson: Lesson, createdById: string | null) {
     return {
         id: String(lesson.id),
@@ -41,7 +53,13 @@ function mapDraftLessonToLocal(
         throw new Error("Draft lesson is undefined");
     }
 
-    const id = Number(draftLesson.id);
+    const rawId = String(draftLesson.id);
+    const numericId = Number(rawId);
+
+    // Drafts historically stored numeric IDs as strings. Published structure may provide cuid/string IDs.
+    // To keep the UI model (which expects numeric IDs) stable, we coerce numeric IDs when possible,
+    // otherwise we allocate a deterministic negative ID for the lifetime of the session.
+    const id = Number.isFinite(numericId) ? numericId : getOrCreateTempNumericLessonId(rawId);
 
     if (!Number.isFinite(id)) {
         throw new Error(`Invalid draft lesson id: ${draftLesson.id}`);

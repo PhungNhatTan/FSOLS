@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { isAxiosError } from "axios";
 import CourseSidebar from "../../components/public/courseSidebar/CourseSidebar";
 import LessonViewer from "../../components/public/lesson/LessonViewer";
 import ExamViewer from "../../components/public/exam/ExamViewer";
@@ -29,17 +30,41 @@ const formatDurationHMS = (totalSeconds: number): string => {
   return `${pad(hh)}:${pad(mm)}:${pad(ss)}`
 }
 
-const getApiError = (err: unknown): { status?: number; message?: string; code?: string; secondsUntilCanEnroll?: number } => {
-  const anyErr = err as any
-  const status = anyErr?.response?.status
-  const data = anyErr?.response?.data
-  return {
-    status,
-    message: data?.message || data?.error || anyErr?.message,
-    code: data?.code,
-    secondsUntilCanEnroll: data?.secondsUntilCanEnroll,
+const asRecord = (v: unknown): Record<string, unknown> | null =>
+  typeof v === "object" && v !== null ? (v as Record<string, unknown>) : null;
+
+const pickString = (obj: unknown, key: string): string | undefined => {
+  const rec = asRecord(obj);
+  const val = rec ? rec[key] : undefined;
+  return typeof val === "string" ? val : undefined;
+};
+
+const pickNumber = (obj: unknown, key: string): number | undefined => {
+  const rec = asRecord(obj);
+  const val = rec ? rec[key] : undefined;
+  return typeof val === "number" ? val : undefined;
+};
+
+const getApiError = (
+  err: unknown
+): { status?: number; message?: string; code?: string; secondsUntilCanEnroll?: number } => {
+  if (isAxiosError(err)) {
+    const status = err.response?.status;
+    const data = err.response?.data as unknown;
+    return {
+      status,
+      message: pickString(data, "message") || pickString(data, "error") || err.message,
+      code: pickString(data, "code"),
+      secondsUntilCanEnroll: pickNumber(data, "secondsUntilCanEnroll"),
+    };
   }
-}
+
+  if (err instanceof Error) {
+    return { message: err.message };
+  }
+
+  return {};
+};
 
 
 export default function CourseStudyPage() {

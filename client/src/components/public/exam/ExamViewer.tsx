@@ -144,12 +144,19 @@ export default function ExamViewer({ examId, onComplete, onBlocked }: ExamViewer
             onComplete();
           }, 2000);
         }
-      } catch (err) {
-        const anyErr = err as any
+      } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : "Failed to submit exam";
 
+        const code =
+          typeof err === "object" &&
+          err !== null &&
+          "code" in err &&
+          typeof (err as Record<string, unknown>).code === "string"
+            ? ((err as Record<string, unknown>).code as string)
+            : undefined;
+
         // If the course time-limit expired while taking the exam, kick back to the course page.
-        if (anyErr?.code === "COURSE_TIME_EXPIRED" && onBlocked) {
+        if (code === "COURSE_TIME_EXPIRED" && onBlocked) {
           setIsSubmitting(false)
           onBlocked(errorMessage)
           return
