@@ -1,8 +1,10 @@
 import prisma from '../../prismaClient.js'
 import {
+  computeCourseStudyWindow,
   computeEnrollmentTimeState,
   formatDurationHMS,
   getCourseTimeConfig,
+  loadCourseTimeLimitData,
 } from '../../utils/courseTimeLimit.js'
 
 /**
@@ -11,6 +13,11 @@ import {
 const enroll = async (accountId, courseId) => {
   const now = new Date()
   const cfg = getCourseTimeConfig()
+
+  // Compute per-course study window (seconds)
+  const courseData = await loadCourseTimeLimitData(prisma, courseId)
+  const courseWindow = computeCourseStudyWindow(courseData, cfg)
+  const studyWindowSeconds = courseWindow.studyWindowSeconds
 
   // 1) If there is an active enrollment, check whether it has expired.
   const active = await prisma.courseEnroll.findFirst({
@@ -22,7 +29,7 @@ const enroll = async (accountId, courseId) => {
   })
 
   if (active) {
-    const st = computeEnrollmentTimeState(active, now, cfg)
+    const st = computeEnrollmentTimeState(active, now, cfg, studyWindowSeconds)
 
     // Completed enrollments are treated as still enrolled.
     if (st.isCompleted) {
@@ -70,7 +77,7 @@ const enroll = async (accountId, courseId) => {
   })
 
   if (latest) {
-    const st = computeEnrollmentTimeState(latest, now, cfg)
+    const st = computeEnrollmentTimeState(latest, now, cfg, studyWindowSeconds)
     if (st.isCooldownActive) {
       const err = new Error(
         `You can't study this course after the time limit. You can enroll again in ${formatDurationHMS(

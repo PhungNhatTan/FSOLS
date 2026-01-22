@@ -1,8 +1,10 @@
 import prisma from '../../prismaClient.js'
 import {
+  computeCourseStudyWindow,
   computeEnrollmentTimeState,
   formatDurationHMS,
   getCourseTimeConfig,
+  loadCourseTimeLimitData,
 } from '../../utils/courseTimeLimit.js'
 
 async function markLessonComplete(accountId, enrollmentId, lessonId) {
@@ -25,7 +27,12 @@ async function markLessonComplete(accountId, enrollmentId, lessonId) {
     throw err
   }
 
-  const st = computeEnrollmentTimeState(enrollment, now, cfg)
+  // Compute per-course study window (seconds)
+  const courseData = await loadCourseTimeLimitData(prisma, enrollment.CourseId)
+  const courseWindow = computeCourseStudyWindow(courseData, cfg)
+  const studyWindowSeconds = courseWindow.studyWindowSeconds
+
+  const st = computeEnrollmentTimeState(enrollment, now, cfg, studyWindowSeconds)
 
   // Enforce time limit (except Completed).
   if (!st.isCompleted && st.hasLimit && st.isExpired) {

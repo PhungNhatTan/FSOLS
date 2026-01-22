@@ -1,7 +1,9 @@
 import prisma from '../../prismaClient.js'
 import {
+  computeCourseStudyWindow,
   computeEnrollmentTimeState,
   getCourseTimeConfig,
+  loadCourseTimeLimitData,
 } from '../../utils/courseTimeLimit.js'
 
 // Returns a stable payload for client UI:
@@ -12,13 +14,22 @@ import {
 //   secondsRemaining: number | null,
 //   canEnrollAt: string | null,
 //   cooldownSecondsRemaining: number | null,
+//   studyWindowSeconds: number,
 //   studyWindowMinutes: number,
+//   studyWindowDays: number,
+//   reenrollCooldownSeconds: number,
 //   reenrollCooldownMinutes: number,
+//   reenrollCooldownDays: number,
 // }
 
 const getEnrollmentStatus = async (accountId, courseId) => {
   const now = new Date()
   const cfg = getCourseTimeConfig()
+
+  // Compute per-course study window (seconds)
+  const courseData = await loadCourseTimeLimitData(prisma, courseId)
+  const courseWindow = computeCourseStudyWindow(courseData, cfg)
+  const studyWindowSeconds = courseWindow.studyWindowSeconds
 
   // 1) Check active enrollment first.
   const active = await prisma.courseEnroll.findFirst({
@@ -30,7 +41,7 @@ const getEnrollmentStatus = async (accountId, courseId) => {
   })
 
   if (active) {
-    const st = computeEnrollmentTimeState(active, now, cfg)
+    const st = computeEnrollmentTimeState(active, now, cfg, studyWindowSeconds)
 
     // If the active enrollment has expired (and is not Completed), kick it.
     if (!st.isCompleted && st.hasLimit && st.isExpired) {
@@ -46,8 +57,12 @@ const getEnrollmentStatus = async (accountId, courseId) => {
         secondsRemaining: st.expiresAt ? st.secondsRemaining : null,
         canEnrollAt: null,
         cooldownSecondsRemaining: null,
+        studyWindowSeconds: st.studyWindowSeconds,
         studyWindowMinutes: st.studyWindowMinutes,
+        studyWindowDays: st.studyWindowDays,
+        reenrollCooldownSeconds: st.reenrollCooldownSeconds,
         reenrollCooldownMinutes: st.reenrollCooldownMinutes,
+        reenrollCooldownDays: st.reenrollCooldownDays,
       }
     }
   }
@@ -62,6 +77,9 @@ const getEnrollmentStatus = async (accountId, courseId) => {
   })
 
   if (!latest) {
+    // Not enrolled and no history.
+    const tmp = computeEnrollmentTimeState({ EnrolledAt: now, Status: 'Enrolled', DeletedAt: null }, now, cfg, studyWindowSeconds)
+
     return {
       isEnrolled: false,
       enrollment: null,
@@ -69,12 +87,16 @@ const getEnrollmentStatus = async (accountId, courseId) => {
       secondsRemaining: null,
       canEnrollAt: null,
       cooldownSecondsRemaining: null,
-      studyWindowMinutes: cfg.studyWindowMinutes,
-      reenrollCooldownMinutes: cfg.reenrollCooldownMinutes,
+      studyWindowSeconds: tmp.studyWindowSeconds,
+      studyWindowMinutes: tmp.studyWindowMinutes,
+      studyWindowDays: tmp.studyWindowDays,
+      reenrollCooldownSeconds: tmp.reenrollCooldownSeconds,
+      reenrollCooldownMinutes: tmp.reenrollCooldownMinutes,
+      reenrollCooldownDays: tmp.reenrollCooldownDays,
     }
   }
 
-  const st = computeEnrollmentTimeState(latest, now, cfg)
+  const st = computeEnrollmentTimeState(latest, now, cfg, studyWindowSeconds)
 
   return {
     isEnrolled: false,
@@ -83,8 +105,12 @@ const getEnrollmentStatus = async (accountId, courseId) => {
     secondsRemaining: null,
     canEnrollAt: st.canEnrollAt ? st.canEnrollAt.toISOString() : null,
     cooldownSecondsRemaining: st.isCooldownActive ? st.cooldownSecondsRemaining : null,
+    studyWindowSeconds: st.studyWindowSeconds,
     studyWindowMinutes: st.studyWindowMinutes,
+    studyWindowDays: st.studyWindowDays,
+    reenrollCooldownSeconds: st.reenrollCooldownSeconds,
     reenrollCooldownMinutes: st.reenrollCooldownMinutes,
+    reenrollCooldownDays: st.reenrollCooldownDays,
   }
 }
 

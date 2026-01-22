@@ -1,8 +1,10 @@
 import prisma from '../../prismaClient.js'
 import {
+  computeCourseStudyWindow,
   computeEnrollmentTimeState,
   formatDurationHMS,
   getCourseTimeConfig,
+  loadCourseTimeLimitData,
 } from '../../utils/courseTimeLimit.js'
 
 async function getCourseProgress(accountId, courseId) {
@@ -10,13 +12,18 @@ async function getCourseProgress(accountId, courseId) {
   const cfg = getCourseTimeConfig()
 
   return await prisma.$transaction(async (tx) => {
+    // Compute per-course study window (seconds)
+    const courseData = await loadCourseTimeLimitData(tx, courseId)
+    const courseWindow = computeCourseStudyWindow(courseData, cfg)
+    const studyWindowSeconds = courseWindow.studyWindowSeconds
+
     let enrollment = await tx.courseEnroll.findFirst({
       where: { AccountId: accountId, CourseId: courseId, DeletedAt: null },
     })
 
     // If enrolled but time expired, kick the student and fall through to cooldown handling.
     if (enrollment) {
-      const st = computeEnrollmentTimeState(enrollment, now, cfg)
+      const st = computeEnrollmentTimeState(enrollment, now, cfg, studyWindowSeconds)
       if (!st.isCompleted && st.hasLimit && st.isExpired) {
         await tx.courseEnroll.update({
           where: { Id: enrollment.Id },
@@ -34,7 +41,7 @@ async function getCourseProgress(accountId, courseId) {
       })
 
       if (latest) {
-        const st = computeEnrollmentTimeState(latest, now, cfg)
+        const st = computeEnrollmentTimeState(latest, now, cfg, studyWindowSeconds)
         if (st.isCooldownActive) {
           const err = new Error(
             `You can't study this course after the time limit. You can enroll again in ${formatDurationHMS(
@@ -65,7 +72,7 @@ async function getCourseProgress(accountId, courseId) {
       })
     }
 
-    const st = computeEnrollmentTimeState(enrollment, now, cfg)
+    const st = computeEnrollmentTimeState(enrollment, now, cfg, studyWindowSeconds)
 
     const lessonProgress = await tx.lessonProgress.findMany({
       where: { CourseEnrollId: enrollment.Id, IsCompleted: true },
@@ -107,8 +114,14 @@ async function getCourseProgress(accountId, courseId) {
       timeLimit: {
         expiresAt: st.expiresAt ? st.expiresAt.toISOString() : null,
         secondsRemaining: st.expiresAt ? st.secondsRemaining : null,
+        studyWindowSeconds: st.studyWindowSeconds,
         studyWindowMinutes: st.studyWindowMinutes,
+        studyWindowDays: st.studyWindowDays,
+        reenrollCooldownSeconds: st.reenrollCooldownSeconds,
         reenrollCooldownMinutes: st.reenrollCooldownMinutes,
+        reenrollCooldownDays: st.reenrollCooldownDays,
+        workloadMinutes: courseWindow.totalMinutes,
+        computedWindowDays: courseWindow.studyWindowDays,
       },
     }
   })

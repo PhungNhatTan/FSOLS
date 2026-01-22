@@ -3,9 +3,11 @@ import questionBankModel from '../../models/questionBank/index.js'
 import progressModels from '../../models/progress/index.js'
 import prisma from '../../prismaClient.js'
 import {
+  computeCourseStudyWindow,
   computeEnrollmentTimeState,
   formatDurationHMS,
   getCourseTimeConfig,
+  loadCourseTimeLimitData,
 } from '../../utils/courseTimeLimit.js'
 
 export default async function submitExam(req, res) {
@@ -35,6 +37,11 @@ export default async function submitExam(req, res) {
       return res.status(400).json({ error: 'Invalid exam' })
     }
 
+    // Compute per-course study window (seconds)
+    const courseData = await loadCourseTimeLimitData(prisma, courseId)
+    const courseWindow = computeCourseStudyWindow(courseData, cfg)
+    const studyWindowSeconds = courseWindow.studyWindowSeconds
+
     // Enforce active enrollment + time window.
     const enrollment = await prisma.courseEnroll.findFirst({
       where: { AccountId: accountId, CourseId: courseId, DeletedAt: null },
@@ -47,7 +54,7 @@ export default async function submitExam(req, res) {
         orderBy: { EnrolledAt: 'desc' },
       })
       if (latest) {
-        const st = computeEnrollmentTimeState(latest, now, cfg)
+        const st = computeEnrollmentTimeState(latest, now, cfg, studyWindowSeconds)
         if (st.isCooldownActive) {
           return res.status(403).json({
             message: `You can't study this course after the time limit. You can enroll again in ${formatDurationHMS(
@@ -65,7 +72,7 @@ export default async function submitExam(req, res) {
       })
     }
 
-    const st = computeEnrollmentTimeState(enrollment, now, cfg)
+    const st = computeEnrollmentTimeState(enrollment, now, cfg, studyWindowSeconds)
     if (!st.isCompleted && st.hasLimit && st.isExpired) {
       await prisma.courseEnroll.update({
         where: { Id: enrollment.Id },

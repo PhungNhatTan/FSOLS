@@ -15,6 +15,16 @@ const softDelete = (tx, model, where) =>
     data: { DeletedAt: new Date() },
   });
 
+const getTxOptions = () => {
+  const maxWaitRaw = Number(process.env.PRISMA_TX_MAXWAIT_MS ?? 20000);
+  const timeoutRaw = Number(process.env.PRISMA_TX_TIMEOUT_MS ?? 180000);
+
+  const maxWait = Number.isFinite(maxWaitRaw) && maxWaitRaw > 0 ? maxWaitRaw : 20000;
+  const timeout = Number.isFinite(timeoutRaw) && timeoutRaw > 0 ? timeoutRaw : 180000;
+
+  return { maxWait, timeout };
+};
+
 const isValidDbId = (id, expectedType) => {
   if (expectedType === "string") return typeof id === "string";
   if (expectedType === "number") return typeof id === "number";
@@ -695,7 +705,7 @@ const commitDraftToDatabase = async (courseId, draft) => {
           Course: { connect: { Id: courseId } },
         },
       });
-    });
+    }, getTxOptions());
 
     return { success: true, courseId };
   } catch (error) {
