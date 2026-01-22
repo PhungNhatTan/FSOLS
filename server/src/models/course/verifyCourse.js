@@ -1,10 +1,11 @@
 import prisma from '../../prismaClient.js';
 import commitDraft from './commitDraft.js';
+import { upsertCourseEmbedding } from "../../services/courseEmbeddingService.js";
 import { moveDraftToProduction, cleanupDraft } from '../../services/courseResource.js';
 
 export default async function verifyCourse(id) {
     const courseId = parseInt(id);
-    
+
     // Get course to check for draft
     const courseData = await prisma.course.findUnique({
         where: { Id: courseId },
@@ -14,17 +15,17 @@ export default async function verifyCourse(id) {
     if (courseData && courseData.Draft) {
         // 1. Move resources from draft to production
         const movedFiles = await moveDraftToProduction(courseId);
-        
+
         // 2. Update URLs in the draft object
         let draftString = JSON.stringify(courseData.Draft);
-        
+
         for (const file of movedFiles) {
             // Replace all occurrences of the draft URL with the production URL
             // We use a global regex replacement
             const regex = new RegExp(file.draftUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
             draftString = draftString.replace(regex, file.productionUrl);
         }
-        
+
         const updatedDraft = JSON.parse(draftString);
 
         // 3. Commit the draft with updated URLs
@@ -36,15 +37,15 @@ export default async function verifyCourse(id) {
         // If no draft, just update PublishedAt (fallback behavior)
         await prisma.course.update({
             where: { Id: courseId },
-            data: { 
+            data: {
                 PublishedAt: new Date(),
             },
         });
     }
-    
+
     // Update verification request
     await prisma.verificationRequest.updateMany({
-        where: { 
+        where: {
             CourseId: courseId,
             ApprovalStatus: 'Pending'
         },
@@ -53,7 +54,11 @@ export default async function verifyCourse(id) {
             ReviewedAt: new Date(),
         }
     });
-    
+    // Kick off embedding rebuild (do not fail verification if embedding fails)
+    void upsertCourseEmbedding(courseId).catch((err) => {
+        console.error(`[embedding] Failed to generate embedding for course ${courseId}:`, err);
+    });
+
     // Cleanup draft resources after successful commit
     if (courseData && courseData.Draft) {
         await cleanupDraft(courseId);
