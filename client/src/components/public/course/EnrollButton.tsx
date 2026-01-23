@@ -39,9 +39,11 @@ export default function EnrollButton({ courseId, onEnrollmentChange }: EnrollBut
 
   const [canEnrollAt, setCanEnrollAt] = useState<Date | null>(null)
   const [cooldownLeft, setCooldownLeft] = useState<number | null>(null)
+  const [enrollmentStatus, setEnrollmentStatus] = useState<'Enrolled' | 'InProgress' | 'Completed' | null>(null)
 
   const applyStatus = (status: EnrollmentStatusResponse) => {
     setIsEnrolled(Boolean(status.isEnrolled))
+    setEnrollmentStatus(status.enrollment?.Status ?? null)
 
     const exp = status.expiresAt ? new Date(status.expiresAt) : null
     const cea = status.canEnrollAt ? new Date(status.canEnrollAt) : null
@@ -52,6 +54,8 @@ export default function EnrollButton({ courseId, onEnrollmentChange }: EnrollBut
     setCanEnrollAt(cea)
     setCooldownLeft(cea && !status.isEnrolled ? secondsUntil(cea) : null)
   }
+
+  const isCompleted = isEnrolled && enrollmentStatus === 'Completed'
 
   const checkEnrollmentStatus = async () => {
     try {
@@ -76,7 +80,7 @@ export default function EnrollButton({ courseId, onEnrollmentChange }: EnrollBut
       setCanEnrollAt(null)
       setCooldownLeft(null)
     }
-   
+
   }, [user, courseId])
 
   // Local countdown for nicer UX.
@@ -103,7 +107,7 @@ export default function EnrollButton({ courseId, onEnrollmentChange }: EnrollBut
     }, 1000)
 
     return () => clearInterval(t)
-    
+
   }, [user, expiresAt, canEnrollAt, isEnrolled])
 
   const handleEnroll = async () => {
@@ -176,14 +180,19 @@ export default function EnrollButton({ courseId, onEnrollmentChange }: EnrollBut
               <span className='text-xs font-medium text-green-700'>Time left: {formatDurationHMS(timeLeft)}</span>
             )}
           </div>
+          <span className='text-green-700 font-medium'>{isCompleted ? 'Completed' : 'Enrolled'}</span>
 
-          <button
-            onClick={handleUnenroll}
-            disabled={isLoading}
-            className='w-full px-6 py-2 text-sm text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
-          >
-            {isLoading ? 'Processing...' : 'Unenroll from Course'}
-          </button>
+          {isCompleted ? (
+            <div />
+          ) : (
+            <button
+              onClick={handleUnenroll}
+              disabled={isLoading}
+              className='w-full px-6 py-2 text-sm text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
+            >
+              {isLoading ? 'Processing...' : 'Unenroll from Course'}
+            </button>
+          )}
         </div>
       ) : (
         <div className='space-y-2'>

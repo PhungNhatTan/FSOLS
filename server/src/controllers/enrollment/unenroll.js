@@ -18,9 +18,15 @@ const unenroll = async (req, res) => {
     if (error.message === "Not enrolled in this course") {
       return res.status(404).json({ message: error.message })
     }
+
+    if (error.message === "Cannot unenroll from a completed course") {
+      return res.status(409).json({ message: error.message })
+    }
+
     console.error("Unenrollment error:", error)
     res.status(500).json({ message: "Failed to unenroll from course" })
   }
+
 }
 
 export default unenroll
