@@ -2,10 +2,40 @@ import prisma from "../../prismaClient.js";
 
 export default async function getCourseWithCertificate(courseId, accountId) {
   try {
-    const course = await prisma.course.findUnique({
-      where: { Id: courseId },
+    // IMPORTANT:
+    // This endpoint is used by the public Course detail page.
+    // It MUST include the ordered module -> item -> lesson/exam structure,
+    // otherwise the Review course timeline section will be empty.
+    const course = await prisma.course.findFirst({
+      where: { Id: courseId, DeletedAt: null },
       include: {
         Certificate: true,
+        CourseModule: {
+          where: { DeletedAt: null },
+          orderBy: { OrderNo: "asc" },
+          include: {
+            ModuleItems: {
+              where: { DeletedAt: null },
+              orderBy: { OrderNo: "asc" },
+              include: {
+                CourseLesson: {
+                  where: { DeletedAt: null },
+                  orderBy: { CreatedAt: "asc" },
+                  include: {
+                    lessonResources: {
+                      where: { DeletedAt: null },
+                      orderBy: { OrderNo: "asc" },
+                    },
+                  },
+                },
+                Exam: {
+                  where: { DeletedAt: null },
+                  orderBy: { CreatedAt: "asc" },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
@@ -19,6 +49,7 @@ export default async function getCourseWithCertificate(courseId, accountId) {
           CourseId: courseId,
         },
         AccountId: accountId,
+        DeletedAt: null,
       },
       include: {
         Certificate: true,

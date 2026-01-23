@@ -1,15 +1,19 @@
 import { useEffect, useMemo, useState } from "react"
-import { Link, useParams, useNavigate, useLocation } from "react-router-dom"
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
+
 import courseApi from "../../api/course"
-import type { CourseDetail, CourseModule, UserCertificateDetail } from "../../types/course"
-import type { Enrollment } from "../../types/enrollment"
+import enrollmentApi, { type EnrollmentStatusResponse } from "../../api/enrollment"
+import certificateApi from "../../api/certificate"
+
 import EnrollButton from "../../components/public/course/EnrollButton"
 import { useAuth } from "../../hooks/useAuth"
-import certificateApi from "../../api/certificate"
-import enrollmentApi from "../../api/enrollment"
+
+import type { CourseDetail, CourseModule, UserCertificateDetail } from "../../types/course"
+import type { Enrollment } from "../../types/enrollment"
 
 import { iconForMediaKind, inferLessonKindFromResources, type MediaKind, type ResourceLike } from "../../utils/mediaKind"
-/* ----------------------------- Helpers: time rule ---------------------------- */
+
+/* ----------------------------- Helpers: time utils ---------------------------- */
 
 const formatMinutes = (minutes: number): string => {
   const m = Math.max(0, Math.floor(minutes))
@@ -29,34 +33,44 @@ const formatDurationHMS = (totalSeconds: number): string => {
   return `${pad(hh)}:${pad(mm)}:${pad(ss)}`
 }
 
+const secondsUntil = (date: Date): number => {
+  const ms = date.getTime() - Date.now()
+  if (ms <= 0) return 0
+  return Math.ceil(ms / 1000)
+}
+
 const estimateLessonMinutesByType = (lessonType?: string): number => {
   const t = (lessonType ?? "").toLowerCase()
   if (t.includes("video")) return 10
-  if (t.includes("doc") || t.includes("pdf") || t.includes("document")) return 8
-  return 7
+  if (t.includes("doc") || t.includes("pdf") || t.includes("document")) return 5
+  return 5
 }
 
-const estimateExamMinutes = (title: string, durationMinutes: number | null): number => {
+const estimateExamMinutes = (durationMinutes: number | null): number => {
   if (typeof durationMinutes === "number" && durationMinutes > 0) return durationMinutes
-  const lower = title.toLowerCase()
-  if (lower.includes("final")) return 30
   return 10
 }
 
 /* ----------------------------- Safe parsing utils ---------------------------- */
 
-type SimpleLesson = { id: string | number; title: string; to: string; kind: MediaKind }
-type SimpleExam = { id: number; title: string; to: string; durationMinutes: number | null }
+type SimpleLesson = { id: string | number; title: string; kind: MediaKind }
+
+type SimpleExam = {
+  id: number
+  title: string
+  durationMinutes: number | null
+}
+
 type DerivedModule = {
   key: string
   orderNo: number
+  title: string
   lessons: SimpleLesson[]
-  quiz: SimpleExam | null
   exams: SimpleExam[]
 }
 
 type CourseDetailExt = CourseDetail & {
-  CourseModule?: CourseModule[]
+  CourseModule?: (CourseModule & { Title?: string | null })[]
   Lessons?: unknown
   Exams?: unknown
   Certificate?: { CertificateId: number }
@@ -99,6 +113,7 @@ const pickLessonResources = (lessonObj: unknown): ResourceLike[] => {
     lessonObj["LessonResources"] ??
     lessonObj["resources"] ??
     lessonObj["Resources"]
+
   const arr = asUnknownArray(raw)
   return arr
     .map((r) => {
@@ -115,12 +130,30 @@ const pickLessonResources = (lessonObj: unknown): ResourceLike[] => {
 
 const pickDurationMinutes = (examObj: unknown): number | null => {
   if (!isRecord(examObj)) return null
-  const candidate = examObj["Duration"] ?? examObj["DurationCustom"] ?? examObj["duration"] ?? examObj["durationCustom"]
-  if (typeof candidate === "number" && Number.isFinite(candidate)) return candidate
-  if (typeof candidate === "string") {
-    const n = Number(candidate)
-    if (Number.isFinite(n)) return n
+
+  // 1) Custom duration takes precedence (stored in minutes)
+  const custom =
+    examObj["DurationCustom"] ??
+    examObj["durationCustom"] ??
+    examObj["Duration"] ??
+    examObj["duration"]
+
+  if (typeof custom === "number" && Number.isFinite(custom) && custom > 0) return custom
+  if (typeof custom === "string") {
+    const n = Number(custom)
+    if (Number.isFinite(n) && n > 0) return n
   }
+
+  // 2) Preset duration (enum DurationPreset: P_15, P_30, P_60, ...)
+  const preset = examObj["DurationPreset"] ?? examObj["durationPreset"]
+  if (typeof preset === "string") {
+    const match = preset.match(/(\d+)/) // "P_60" -> 60
+    if (match) {
+      const n = Number(match[1])
+      if (Number.isFinite(n) && n > 0) return n
+    }
+  }
+
   return null
 }
 
@@ -140,11 +173,17 @@ export default function CourseDetailPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const { user } = useAuth()
+
   const [course, setCourse] = useState<CourseDetailExt | null>(null)
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null)
   const [error, setError] = useState("")
   const [notice, setNotice] = useState<string>("")
   const [userC, setUserCertificate] = useState<UserCertificateDetail | null>(null)
+
+  // Enrollment status (time limit / countdown)
+  const [enrollmentStatus, setEnrollmentStatus] = useState<EnrollmentStatusResponse | null>(null)
+  const [expiresAt, setExpiresAt] = useState<Date | null>(null)
+  const [timeLeft, setTimeLeft] = useState<number | null>(null)
 
   // Surface notice passed from CourseStudyPage (e.g., time expired).
   useEffect(() => {
@@ -154,69 +193,102 @@ export default function CourseDetailPage() {
       // Clear the state to avoid showing the same notice on back/forward navigations.
       navigate(location.pathname, { replace: true, state: null })
     }
-    
-  }, [location.key])
+  }, [location.key, location.pathname, location.state, navigate])
 
+  // Load course + enrollment (legacy) + certificate
   useEffect(() => {
-    if (!id || !user?.accountId) return;
+    if (!id || !user?.accountId) return
 
-    (async () => {
+    ;(async () => {
       try {
-        const courseData = await courseApi.getCourseWithCertificate(
-          Number(id),
-          user.accountId
-        );
-        setCourse(courseData);
+        const courseData = await courseApi.getCourseWithCertificate(Number(id), user.accountId)
+        setCourse(courseData)
 
-        const enrollmentResponse = await courseApi.getEnrollmentStatus(Number(id));
-        const enrollmentData = enrollmentResponse?.enrollment || null;
-        setEnrollment(enrollmentData);
+        const enrollmentResponse = await courseApi.getEnrollmentStatus(Number(id))
+        const enrollmentData = enrollmentResponse?.enrollment || null
+        setEnrollment(enrollmentData)
 
-        const certificateId = courseData?.Certificate?.CertificateId;
-
+        const certificateId = courseData?.Certificate?.CertificateId
 
         if (certificateId) {
           try {
-            const userCertificate = await certificateApi.getUserCertificate(
-              user.accountId,
-              certificateId.toString()
-            );
-            setUserCertificate(userCertificate);
+            const userCertificate = await certificateApi.getUserCertificate(user.accountId, certificateId.toString())
+            setUserCertificate(userCertificate)
           } catch (err: unknown) {
-            if (isRecord(err) && isRecord(err.response) && err.response.status === 404) {
-              // ✅ EXPECTED: certificate not issued yet
-              setUserCertificate(null);
+            if (isRecord(err) && isRecord((err as any).response) && (err as any).response.status === 404) {
+              // Expected: certificate not issued yet
+              setUserCertificate(null)
             } else {
-              throw err; // real error
+              throw err
             }
           }
         } else {
-          setUserCertificate(null);
+          setUserCertificate(null)
         }
 
-        setError("");
+        setError("")
       } catch (err) {
-        console.error("Error fetching course or enrollment data:", err);
-        setError("Failed to load course.");
+        console.error("Error fetching course or enrollment data:", err)
+        setError("Failed to load course.")
       }
-    })();
-  }, [id, user?.accountId]);
+    })()
+  }, [id, user?.accountId])
+
+  // Load time limit / time left using enrollment status endpoint
+  useEffect(() => {
+    if (!id || !user) {
+      setEnrollmentStatus(null)
+      setExpiresAt(null)
+      setTimeLeft(null)
+      return
+    }
+
+    ;(async () => {
+      try {
+        const st = await enrollmentApi.getStatus(Number(id))
+        setEnrollmentStatus(st)
+
+        const exp = st.expiresAt ? new Date(st.expiresAt) : null
+        setExpiresAt(exp)
+        setTimeLeft(exp && st.isEnrolled ? secondsUntil(exp) : null)
+      } catch (err) {
+        console.error("Failed to load enrollment status:", err)
+        setEnrollmentStatus(null)
+        setExpiresAt(null)
+        setTimeLeft(null)
+      }
+    })()
+  }, [id, user])
+
+  // Local countdown for time left (matches EnrollButton UX)
+  useEffect(() => {
+    if (!user) return
+
+    const t = setInterval(() => {
+      if (expiresAt && enrollmentStatus?.isEnrolled) {
+        const left = secondsUntil(expiresAt)
+        setTimeLeft(left)
+      }
+    }, 1000)
+
+    return () => clearInterval(t)
+  }, [user, expiresAt, enrollmentStatus?.isEnrolled])
 
   const derived = useMemo(() => {
     if (!course) {
       return {
         modules: [] as DerivedModule[],
-        finalExam: null as SimpleExam | null,
-        totals: { lessons: 0, quizzes: 0, modules: 0 },
+        totals: { lessons: 0, exams: 0, modules: 0 },
       }
     }
 
-    let baseModules: Omit<DerivedModule, "quiz">[] = []
+    let modules: DerivedModule[] = []
 
+    // Preferred: CourseModule -> ModuleItems -> CourseLesson/Exam
     if (Array.isArray(course.CourseModule) && course.CourseModule.length > 0) {
       const cms = [...course.CourseModule].sort((a, b) => a.OrderNo - b.OrderNo)
 
-      baseModules = cms.map((m) => {
+      modules = cms.map((m) => {
         const moduleItemsRaw = (m as unknown as { ModuleItems?: unknown }).ModuleItems
         const items = asUnknownArray(moduleItemsRaw).sort((a, b) => getOrderNo(a) - getOrderNo(b))
 
@@ -233,7 +305,6 @@ export default function CourseDetailPage() {
             lessons.push({
               id: lessonId ?? `m${m.OrderNo}-l${lessonIdx}`,
               title: pickTitle(lessonObj, `Lesson ${lessonIdx}`),
-              to: lessonId != null ? `/lesson/${lessonId}` : "#",
               kind: inferLessonKindFromResources(pickLessonResources(lessonObj)),
             })
           })
@@ -255,28 +326,31 @@ export default function CourseDetailPage() {
             exams.push({
               id: examId,
               title: pickTitle(examObj, `Exam ${examIdx}`),
-              to: `/exam-detail/${examId}`,
               durationMinutes: duration != null && duration > 0 ? duration : null,
             })
           })
         })
 
         const moduleId = (m as unknown as { Id?: string | number }).Id
+        const moduleTitle = (m as unknown as { Title?: string | null }).Title
 
         return {
           key: `module-${moduleId ?? m.OrderNo}`,
           orderNo: m.OrderNo,
+          title: typeof moduleTitle === "string" ? moduleTitle : "",
           lessons,
           exams,
         }
       })
     } else {
+      // Fallback: older API shape
       const lessonGroups = asUnknownArray(course.Lessons)
       const examGroups = asUnknownArray(course.Exams)
 
-      baseModules = lessonGroups.map((ls, i) => {
+      modules = lessonGroups.map((ls, i) => {
         const lessons: SimpleLesson[] = []
         let lessonIdx = 0
+
         toArray(ls).forEach((maybeLesson) => {
           const lessonObjs = toArray(maybeLesson)
           lessonObjs.forEach((lessonObj) => {
@@ -285,7 +359,6 @@ export default function CourseDetailPage() {
             lessons.push({
               id: lessonId ?? `m${i + 1}-l${lessonIdx}`,
               title: pickTitle(lessonObj, `Lesson ${lessonIdx}`),
-              to: lessonId != null ? `/lesson/${lessonId}` : "#",
               kind: inferLessonKindFromResources(pickLessonResources(lessonObj)),
             })
           })
@@ -294,6 +367,7 @@ export default function CourseDetailPage() {
         const exams: SimpleExam[] = []
         let examIdx = 0
         const examsInModule = asUnknownArray(examGroups[i])
+
         examsInModule.forEach((e) => {
           const examObjs = toArray(e)
           examObjs.forEach((examObj) => {
@@ -305,7 +379,6 @@ export default function CourseDetailPage() {
             exams.push({
               id: examId,
               title: pickTitle(examObj, `Exam ${examIdx}`),
-              to: `/exam-detail/${examId}`,
               durationMinutes: duration != null && duration > 0 ? duration : null,
             })
           })
@@ -314,30 +387,19 @@ export default function CourseDetailPage() {
         return {
           key: `module-fallback-${i + 1}`,
           orderNo: i + 1,
+          title: "",
           lessons,
           exams,
         }
       })
     }
 
-    const allExams: { moduleOrder: number; idx: number; exam: SimpleExam }[] = []
-    baseModules.forEach((m) => m.exams.forEach((e, idx) => allExams.push({ moduleOrder: m.orderNo, idx, exam: e })))
-    allExams.sort((a, b) => a.moduleOrder - b.moduleOrder || a.idx - b.idx)
-    const finalExam = allExams.length ? allExams[allExams.length - 1].exam : null
-    const finalId = finalExam?.id ?? null
-
-    const modules: DerivedModule[] = baseModules.map((m) => {
-      const quiz = finalId != null ? (m.exams.find((e) => e.id !== finalId) ?? null) : (m.exams[0] ?? null)
-      return { ...m, quiz }
-    })
-
     const totalLessons = modules.reduce((sum, m) => sum + m.lessons.length, 0)
-    const totalQuizzes = modules.reduce((sum, m) => sum + (m.quiz ? 1 : 0), 0)
+    const totalExams = modules.reduce((sum, m) => sum + m.exams.length, 0)
 
     return {
       modules,
-      finalExam: finalExam ? { ...finalExam, title: finalExam.title || "Final Exam" } : null,
-      totals: { lessons: totalLessons, quizzes: totalQuizzes, modules: modules.length },
+      totals: { lessons: totalLessons, exams: totalExams, modules: modules.length },
     }
   }, [course])
 
@@ -345,7 +407,7 @@ export default function CourseDetailPage() {
     const map: Record<string, number> = {}
     derived.modules.forEach((m) => {
       const lessonMinutes = m.lessons.reduce((sum, l) => sum + estimateLessonMinutesByType(l.kind), 0)
-      const examMinutes = m.exams.reduce((sum, e) => sum + estimateExamMinutes(e.title, e.durationMinutes), 0)
+      const examMinutes = m.exams.reduce((sum, e) => sum + estimateExamMinutes(e.durationMinutes), 0)
       map[m.key] = lessonMinutes + examMinutes
     })
     return map
@@ -375,9 +437,7 @@ export default function CourseDetailPage() {
       // Cooldown active (cannot re-enroll yet)
       const cooldown = st.cooldownSecondsRemaining ?? null
       if (cooldown && cooldown > 0) {
-        setNotice(
-          `You can't study this course after the time limit. You can enroll again in ${formatDurationHMS(cooldown)}.`
-        )
+        setNotice(`You can't study this course after the time limit. You can enroll again in ${formatDurationHMS(cooldown)}.`)
         return
       }
 
@@ -391,9 +451,7 @@ export default function CourseDetailPage() {
 
   // Check if course is completed and has a certificate
   const showCertificate =
-    enrollment?.Status === "Completed" &&
-    Boolean(course?.Certificate?.CertificateId) &&
-    Boolean(userC);
+    enrollment?.Status === "Completed" && Boolean(course?.Certificate?.CertificateId) && Boolean(userC)
 
   if (!course && !error) {
     return (
@@ -409,6 +467,7 @@ export default function CourseDetailPage() {
     <div className="flex">
       <div className="p-6 max-w-4xl mx-auto flex-1">
         {error && <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">{error}</div>}
+
         {notice && (
           <div className="mb-4 p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded flex items-start justify-between gap-3">
             <span className="text-sm">{notice}</span>
@@ -440,7 +499,7 @@ export default function CourseDetailPage() {
                   Start Course
                 </button>
 
-                {/* NEW: View Certificate button */}
+                {/* View Certificate button */}
                 {user && showCertificate && course?.Certificate?.CertificateId && (
                   <Link
                     to={`/certificate/${user.accountId}/${course.Certificate.CertificateId}`}
@@ -451,14 +510,11 @@ export default function CourseDetailPage() {
                 )}
               </div>
 
-
               {/* Completion status */}
               {enrollment?.Status === "Completed" && (
                 <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
                   <span className="text-green-600 text-xl">✓</span>
-                  <span className="text-green-800 font-medium">
-                    Congratulations! You've completed this course.
-                  </span>
+                  <span className="text-green-800 font-medium">Congratulations! You've completed this course.</span>
                 </div>
               )}
             </div>
@@ -467,16 +523,25 @@ export default function CourseDetailPage() {
               <p className="text-gray-700 whitespace-pre-wrap">{course.Description}</p>
             </div>
 
+            {/* -------------------------- Review course timeline -------------------------- */}
             <div className="mb-6">
               <div className="flex items-end justify-between gap-4 mb-3">
                 <div>
                   <h2 className="text-xl font-semibold">Review course timeline</h2>
+
                   <div className="text-sm text-gray-500">
                     Estimated time: {derived.modules.length > 0 ? `~${formatMinutes(courseMinutes)}` : "—"}
                   </div>
+
+                  {enrollmentStatus?.studyWindowMinutes ? (
+                    <div className="text-sm text-gray-500">
+                      Time limit: {formatMinutes(enrollmentStatus.studyWindowMinutes)}
+                    </div>
+                  ) : null}
                 </div>
+
                 <div className="text-sm text-gray-500">
-                  {derived.totals.modules} modules • {derived.totals.lessons} lessons • {derived.totals.quizzes} quizzes
+                  {derived.totals.modules} modules • {derived.totals.lessons} lessons • {derived.totals.exams} exams
                 </div>
               </div>
 
@@ -486,27 +551,28 @@ export default function CourseDetailPage() {
                 <div className="space-y-3">
                   {derived.modules.map((m) => {
                     const moduleMinutes = moduleMinutesMap[m.key] ?? 0
-                    const finalId = derived.finalExam?.id
-                    const quizIsFinal = m.quiz?.id != null && finalId != null && m.quiz.id === finalId
+                    const moduleLabel = m.title?.trim() ? `Module ${m.orderNo}: ${m.title.trim()}` : `Module ${m.orderNo}`
 
                     return (
                       <details key={m.key} className="border border-gray-200 rounded-lg p-4">
                         <summary className="cursor-pointer select-none font-semibold">
-                          Module {m.orderNo}
+                          {moduleLabel}
                           <span className="ml-2 text-sm text-gray-500">
-                            ({m.lessons.length} lessons • {m.quiz ? 1 : 0} quiz • ~{formatMinutes(moduleMinutes)})
+                            ({m.lessons.length} lessons • {m.exams.length} exams • ~{formatMinutes(moduleMinutes)})
                           </span>
                         </summary>
 
                         <div className="mt-4">
+                          {/* Lessons (text-only) */}
                           {m.lessons.length > 0 ? (
                             <ul className="space-y-2">
                               {m.lessons.map((l, i) => (
                                 <li key={String(l.id)} className="flex items-start gap-2 min-w-0">
                                   <span className="mt-0.5 text-gray-500">{i + 1}.</span>
-                                  <Link to={l.to} className="text-gray-800 hover:underline truncate">
+                                  <span className="text-gray-800 truncate">
                                     {iconForMediaKind(l.kind)} {l.title}
-                                  </Link>
+                                  </span>
+                                  <span className="text-gray-500 text-sm">(~{formatMinutes(estimateLessonMinutesByType(l.kind))})</span>
                                 </li>
                               ))}
                             </ul>
@@ -514,22 +580,22 @@ export default function CourseDetailPage() {
                             <p className="text-gray-600">No lessons in this module.</p>
                           )}
 
-                          <div className="mt-3 text-sm text-gray-700 space-y-2">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="font-medium">{quizIsFinal ? "Final Exam (Certificate):" : "Quiz:"}</span>
-                              {m.quiz ? (
-                                <>
-                                  <Link to={m.quiz.to} className="text-blue-600 hover:underline">
-                                    {m.quiz.title || "Module Quiz"}
-                                  </Link>
-                                  <span className="text-gray-500">
-                                    (~{formatMinutes(estimateExamMinutes(m.quiz.title, m.quiz.durationMinutes))})
-                                  </span>
-                                </>
-                              ) : (
-                                <span className="text-gray-500">No quiz available</span>
-                              )}
-                            </div>
+                          {/* Exams (text-only) */}
+                          <div className="mt-4 text-sm text-gray-700">
+                            <div className="font-medium mb-1">Exams:</div>
+                            {m.exams.length > 0 ? (
+                              <ul className="space-y-1">
+                                {m.exams.map((e, idx) => (
+                                  <li key={e.id} className="flex flex-wrap items-center gap-2">
+                                    <span className="text-gray-600">Exam {idx + 1}:</span>
+                                    <span className="text-gray-800">{e.title || `Exam ${idx + 1}`}</span>
+                                    <span className="text-gray-500">(~{formatMinutes(estimateExamMinutes(e.durationMinutes))})</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <span className="text-gray-500">No exam available</span>
+                            )}
                           </div>
                         </div>
                       </details>
@@ -537,23 +603,6 @@ export default function CourseDetailPage() {
                   })}
                 </div>
               )}
-
-              <div className="mt-5 p-4 rounded-lg border border-gray-200 bg-gray-50">
-                <div className="font-semibold mb-1">Final Exam</div>
-                {derived.finalExam ? (
-                  <div className="text-sm text-gray-700">
-                    Finish all lessons and module quizzes, then take the final exam to receive your certificate:{" "}
-                    <Link to={derived.finalExam.to} className="text-blue-600 hover:underline">
-                      {derived.finalExam.title || "Final Exam"}
-                    </Link>{" "}
-                    <span className="text-gray-500">
-                      (~{formatMinutes(estimateExamMinutes(derived.finalExam.title, derived.finalExam.durationMinutes))})
-                    </span>
-                  </div>
-                ) : (
-                  <div className="text-sm text-gray-600">No final exam found for this course.</div>
-                )}
-              </div>
             </div>
 
             <div className="mt-6 pt-4 border-t">
