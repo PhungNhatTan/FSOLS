@@ -97,13 +97,26 @@ async function getCourseProgress(accountId, courseId) {
       select: { ExamId: true, Score: true },
     })
 
+    // IMPORTANT: A student may have multiple submissions per exam.
+    // We should consider the *best* score across attempts.
+    // Otherwise, an early failed attempt can permanently mask later passing attempts
+    // when we compute completion status.
+    const bestScoreByExamId = new Map()
+    for (const s of submissions) {
+      if (s?.Score === null || s?.Score === undefined) continue
+      const prev = bestScoreByExamId.get(s.ExamId)
+      if (prev === undefined || s.Score > prev) {
+        bestScoreByExamId.set(s.ExamId, s.Score)
+      }
+    }
+
     const completedExams = exams
       .filter((exam) => {
-        const submission = submissions.find((s) => s.ExamId === exam.Id)
-        if (!submission) return false
+        const bestScore = bestScoreByExamId.get(exam.Id)
+        if (bestScore === undefined) return false
 
         const passScore = Math.ceil(exam._count.ExamQuestion * 0.8)
-        return submission.Score >= passScore
+        return bestScore >= passScore
       })
       .map((exam) => exam.Id)
 

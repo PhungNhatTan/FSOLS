@@ -1,7 +1,6 @@
 // scripts/seed.js
-// Dev seed script (idempotent)
+// Dev seed script (idempotent) - NO ACCOUNT SEEDING, NO CATEGORY SEEDING
 import prisma from "../src/prismaClient.js"
-import bcrypt from "bcrypt"
 
 /**
  * =========================
@@ -36,8 +35,32 @@ const MODULES = [
 
 const DEFAULT_QUIZ_MINUTES = 10
 const DEFAULT_FINAL_MINUTES = 30
-
 const NORMALIZE_MODULE_ORDER_TO_1_2 = true
+
+// These accounts MUST already exist in your DB (this script does not create accounts)
+const SEED_MENTOR_USERNAME = "mentor"
+const SEED_STUDENT_USERNAME = "student"
+
+// Courses to seed (categories MUST already exist in DB; we only connect by slug)
+// NOTE: Node.js course removed as requested
+const COURSES = [
+  {
+    Name: "Introduction to JavaScript",
+    Description:
+      "Learn the basics of JavaScript programming. This course covers variables, functions, objects, arrays, and more.",
+    CategorySlug: "development",
+  },
+  {
+    Name: "Python for Beginners",
+    Description: "Start your programming journey with Python. Learn syntax, data structures, and basic algorithms.",
+    CategorySlug: "development",
+  },
+  {
+    Name: "React Fundamentals",
+    Description: "Build modern web applications with React. Learn components, hooks, state management, and best practices.",
+    CategorySlug: "development",
+  },
+]
 
 /**
  * =========================
@@ -62,137 +85,43 @@ async function ensureAuthProviders() {
   return { usernameProvider, emailProvider }
 }
 
-function normalizeEmail(email) {
-  return String(email || "").trim().toLowerCase()
+async function resolveMentorAccountId() {
+  const byUsername = await prisma.account.findUnique({
+    where: { Username: SEED_MENTOR_USERNAME },
+    select: { Id: true },
+  })
+  if (byUsername?.Id) return byUsername.Id
+
+  const byRole = await prisma.accountRole.findFirst({
+    where: { Role: "Mentor" },
+    select: { AccountId: true },
+  })
+  if (byRole?.AccountId) return byRole.AccountId
+
+  throw new Error(
+    `[Seed] Mentor account not found. Create a mentor account first (e.g., Username="${SEED_MENTOR_USERNAME}") then re-run.`
+  )
 }
 
-function buildSyntheticEmail(username) {
-  const base = String(username || "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "")
-    .replace(/[^a-z0-9._+-]/g, "")
-  return `${base}@fsols.local`
+async function resolveStudentAccountIdOrNull() {
+  const byUsername = await prisma.account.findUnique({
+    where: { Username: SEED_STUDENT_USERNAME },
+    select: { Id: true },
+  })
+  return byUsername?.Id ?? null
 }
 
-async function ensureAccount({ username, displayName, password, role, email, providers }) {
-  const { usernameProvider, emailProvider } = providers
-  const hashedPassword = await bcrypt.hash(password, 10)
-  const cleanUsername = String(username || "").trim()
-  const cleanDisplayName = String(displayName || cleanUsername).trim()
-  const cleanEmail = normalizeEmail(email) || buildSyntheticEmail(cleanUsername)
-
-  let account = await prisma.account.findUnique({ where: { Username: cleanUsername } })
-
-  if (!account) {
-    account = await prisma.account.create({
-      data: {
-        Username: cleanUsername,
-        DisplayName: cleanDisplayName,
-      },
-    })
-    log(`Created account: ${cleanUsername} (${role || "Student"})`)
-  } else {
-    // keep display name in sync for dev
-    if (account.DisplayName !== cleanDisplayName) {
-      account = await prisma.account.update({
-        where: { Id: account.Id },
-        data: { DisplayName: cleanDisplayName },
-      })
-    }
-    log(`Account "${cleanUsername}" already exists, using existing...`)
-  }
-
-  // Ensure username identity (Verified so login works immediately in dev)
-  const usernameIdentity = await prisma.accountIdentifier.findUnique({
-    where: {
-      ProviderId_Identifier: {
-        ProviderId: usernameProvider.Id,
-        Identifier: cleanUsername,
-      },
-    },
+async function resolveCategoryIdBySlug(slug) {
+  const cat = await prisma.category.findUnique({
+    where: { Slug: slug },
+    select: { Id: true },
   })
-  if (!usernameIdentity) {
-    await prisma.accountIdentifier.create({
-      data: {
-        AccountId: account.Id,
-        ProviderId: usernameProvider.Id,
-        Identifier: cleanUsername,
-        Secret: hashedPassword,
-        Verified: true,
-      },
-    })
-  } else if (usernameIdentity.AccountId === account.Id) {
-    await prisma.accountIdentifier.update({
-      where: { Id: usernameIdentity.Id },
-      data: { Secret: hashedPassword, Verified: true },
-    })
-  } else {
-    log(`[WARN] Username identity "${cleanUsername}" is linked to another account. Skipping.`)
+  if (!cat?.Id) {
+    throw new Error(
+      `[Seed] Category slug "${slug}" not found. Create the category first (or change CategorySlug in seed config).`
+    )
   }
-
-  // Ensure email identity (Verified so login works immediately in dev)
-  const emailIdentity = await prisma.accountIdentifier.findUnique({
-    where: {
-      ProviderId_Identifier: {
-        ProviderId: emailProvider.Id,
-        Identifier: cleanEmail,
-      },
-    },
-  })
-  if (!emailIdentity) {
-    await prisma.accountIdentifier.create({
-      data: {
-        AccountId: account.Id,
-        ProviderId: emailProvider.Id,
-        Identifier: cleanEmail,
-        Secret: hashedPassword,
-        Verified: true,
-      },
-    })
-  } else if (emailIdentity.AccountId === account.Id) {
-    await prisma.accountIdentifier.update({
-      where: { Id: emailIdentity.Id },
-      data: { Secret: hashedPassword, Verified: true },
-    })
-  } else {
-    log(`[WARN] Email identity "${cleanEmail}" is linked to another account. Skipping.`)
-  }
-
-  if (role) {
-    // AccountRole has AccountId as PK => 1 role per account
-    await prisma.accountRole.upsert({
-      where: { AccountId: account.Id },
-      update: { Role: role },
-      create: { AccountId: account.Id, Role: role },
-    })
-
-    if (role === "Mentor") {
-      await prisma.mentor.upsert({
-        where: { AccountId: account.Id },
-        update: { Name: cleanDisplayName, Email: email ? cleanEmail : null },
-        create: { AccountId: account.Id, Name: cleanDisplayName, Email: email ? cleanEmail : null },
-      })
-    }
-
-    if (role === "Admin") {
-      await prisma.admin.upsert({
-        where: { AccountId: account.Id },
-        update: {},
-        create: { AccountId: account.Id },
-      })
-    }
-  }
-
-  return account
-}
-
-async function upsertCategory({ Name, Slug, Description }) {
-  return prisma.category.upsert({
-    where: { Slug },
-    update: { Name, Description },
-    create: { Name, Slug, Description },
-  })
+  return cat.Id
 }
 
 async function ensureCourse({ Name, Description, CategoryId, mentorAccountId }) {
@@ -215,6 +144,9 @@ async function ensureCourse({ Name, Description, CategoryId, mentorAccountId }) 
     return updated
   }
 
+  if (!mentorAccountId) throw new Error(`[Seed] mentorAccountId is required to create course "${Name}".`)
+  if (!CategoryId) throw new Error(`[Seed] CategoryId is required to create course "${Name}".`)
+
   const created = await prisma.course.create({
     data: {
       Name,
@@ -233,9 +165,6 @@ async function ensureCourse({ Name, Description, CategoryId, mentorAccountId }) 
  * =========================
  * DEMO ENROLLMENT + CERTIFICATE (idempotent)
  * =========================
- * This helps you test:
- * - Profile certificate list
- * - Completed course state in UI
  */
 async function seedCompletedCourseForStudent({ studentAccountId, courseName }) {
   const course = await prisma.course.findFirst({
@@ -247,10 +176,8 @@ async function seedCompletedCourseForStudent({ studentAccountId, courseName }) {
     return
   }
 
-  // Ensure certificate template exists
   const cert = await ensureCertificate(course.Id)
 
-  // Ensure enrollment exists
   let enroll = await prisma.courseEnroll.findFirst({
     where: { AccountId: studentAccountId, CourseId: course.Id, DeletedAt: null },
     orderBy: { CreatedAt: "desc" },
@@ -275,7 +202,6 @@ async function seedCompletedCourseForStudent({ studentAccountId, courseName }) {
     })
   }
 
-  // Mark all lessons completed for this enrollment
   const lessons = await prisma.courseLesson.findMany({
     where: {
       DeletedAt: null,
@@ -297,7 +223,6 @@ async function seedCompletedCourseForStudent({ studentAccountId, courseName }) {
     })
   }
 
-  // Ensure user certificate exists
   const existingUserCert = await prisma.userCertificate.findFirst({
     where: { AccountId: studentAccountId, CertificateId: cert.Id },
   })
@@ -316,7 +241,6 @@ async function seedCompletedCourseForStudent({ studentAccountId, courseName }) {
  * =========================
  */
 async function getOrCreateCourseModule(courseId, orderNo, title) {
-  // Prefer matching by Title first to avoid duplicates when OrderNo changes over time (e.g., 10/20 -> 1/2)
   const byTitle = await prisma.courseModule.findFirst({
     where: { CourseId: courseId, Title: title, DeletedAt: null },
   })
@@ -400,24 +324,10 @@ async function ensureCertificate(courseId) {
 
 /**
  * =========================
- * QUIZ / FINAL EXAM on module (put at END)
- * =========================
- */
-/**
- * =========================
  * QUIZ / FINAL EXAM helpers (idempotent)
  * =========================
- * Exams are attached to a NEW ModuleItem placed at the END of a module.
- * This implementation is robust regardless of your module OrderNo scheme (1/2, 10/20, etc).
  */
-async function createExamAtEndOfModule({
-  courseModuleId,
-  mentorAccountId,
-  title,
-  description,
-  durationCustom,
-}) {
-  // Prevent duplicates by title within a module
+async function createExamAtEndOfModule({ courseModuleId, mentorAccountId, title, description, durationCustom }) {
   const existed = await prisma.exam.findFirst({
     where: {
       Title: title,
@@ -427,7 +337,6 @@ async function createExamAtEndOfModule({
   })
   if (existed) return existed
 
-  // Put at end: max ModuleItem.OrderNo + 10
   const maxOrder = await prisma.moduleItem.aggregate({
     where: { CourseModuleId: courseModuleId },
     _max: { OrderNo: true },
@@ -462,8 +371,6 @@ async function ensureModuleQuiz({
   description = "Quick quiz for this module.",
   durationCustom = DEFAULT_QUIZ_MINUTES,
 }) {
-  // If an older seed already created a quiz with a different title (e.g., "Module 10 Quiz"),
-  // keep it and do not create a duplicate.
   const existingQuiz = await prisma.exam.findFirst({
     where: {
       DeletedAt: null,
@@ -514,9 +421,6 @@ async function ensureFinalExam({
   })
 }
 
-/**
- * (optional) normalize OrderNo modules to 1..n
- */
 async function normalizeCourseModulesOrderTo1_2(courseName) {
   const course = await prisma.course.findFirst({
     where: { Name: courseName, DeletedAt: null },
@@ -532,14 +436,13 @@ async function normalizeCourseModulesOrderTo1_2(courseName) {
   })
   if (modules.length === 0) return
 
-  // temp
   for (let i = 0; i < modules.length; i++) {
     await prisma.courseModule.update({
       where: { Id: modules[i].Id },
       data: { OrderNo: 1000 + i },
     })
   }
-  // 1..n
+
   for (let i = 0; i < modules.length; i++) {
     await prisma.courseModule.update({
       where: { Id: modules[i].Id },
@@ -550,11 +453,6 @@ async function normalizeCourseModulesOrderTo1_2(courseName) {
   log(`[Normalize] ${courseName}: modules now 1..${modules.length}`)
 }
 
-/**
- * =========================
- * MAIN timeline seed
- * =========================
- */
 async function ensureCourseTimeline(courseName, mentorAccountId) {
   const course = await prisma.course.findFirst({
     where: { Name: courseName, DeletedAt: null },
@@ -564,10 +462,8 @@ async function ensureCourseTimeline(courseName, mentorAccountId) {
     return
   }
 
-  log(`
-[Timeline] Ensure timeline for: ${courseName} (CourseId=${course.Id})`)
+  log(`\n[Timeline] Ensure timeline for: ${courseName} (CourseId=${course.Id})`)
 
-  // Ensure modules + lessons
   const ensuredModules = []
   for (const m of MODULES) {
     const mod = await getOrCreateCourseModule(course.Id, m.orderNo, m.title)
@@ -579,10 +475,8 @@ async function ensureCourseTimeline(courseName, mentorAccountId) {
     }
   }
 
-  // Ensure certificate
   await ensureCertificate(course.Id)
 
-  // Ensure quizzes (one per module, placed at the end)
   for (let i = 0; i < ensuredModules.length; i++) {
     await ensureModuleQuiz({
       courseModuleId: ensuredModules[i].Id,
@@ -592,7 +486,6 @@ async function ensureCourseTimeline(courseName, mentorAccountId) {
     })
   }
 
-  // Ensure final exam (placed at the end of the last module)
   if (ensuredModules.length) {
     await ensureFinalExam({
       courseModuleId: ensuredModules[ensuredModules.length - 1].Id,
@@ -625,7 +518,6 @@ async function seedQuestionsForExams() {
     return
   }
 
-  // Get all exams for this course
   const exams = await prisma.exam.findMany({
     where: {
       DeletedAt: null,
@@ -635,9 +527,7 @@ async function seedQuestionsForExams() {
         },
       },
     },
-    include: {
-      ExamQuestion: true,
-    },
+    include: { ExamQuestion: true },
   })
 
   if (exams.length === 0) {
@@ -645,7 +535,6 @@ async function seedQuestionsForExams() {
     return
   }
 
-  // Sample questions bank to distribute
   const sampleQuestions = [
     {
       QuestionText: "What is Node.js?",
@@ -690,22 +579,18 @@ async function seedQuestionsForExams() {
     },
   ]
 
-  // Add questions to each exam
   for (const e of exams) {
-    // Skip if exam already has questions
     if (e.ExamQuestion.length > 0) {
       log(`[Questions] Exam "${e.Title}" already has questions, skipping...`)
       continue
     }
 
-    // Determine how many questions based on exam type
     const numQuestions = e.Title.includes("Quiz") ? 3 : 5
     const quesToAdd = sampleQuestions.slice(0, numQuestions)
 
     for (let idx = 0; idx < quesToAdd.length; idx++) {
       const q = quesToAdd[idx]
 
-      // Create question bank entry
       const questionBank = await prisma.questionBank.create({
         data: {
           QuestionText: q.QuestionText,
@@ -714,7 +599,6 @@ async function seedQuestionsForExams() {
         },
       })
 
-      // Create exam answers
       for (const ans of q.answers) {
         await prisma.examAnswer.create({
           data: {
@@ -725,12 +609,8 @@ async function seedQuestionsForExams() {
         })
       }
 
-      // Create exam question link
       await prisma.examQuestion.create({
-        data: {
-          ExamId: e.Id,
-          QuestionId: questionBank.Id,
-        },
+        data: { ExamId: e.Id, QuestionId: questionBank.Id },
       })
 
       log(`  [Q${idx + 1}] Added: "${q.QuestionText.substring(0, 50)}..."`)
@@ -746,114 +626,41 @@ async function seedQuestionsForExams() {
  * =========================
  */
 async function main() {
-  log("Starting seed...")
+  log("Starting seed (no accounts, no categories, no Node.js course create)...")
 
+  // Optional: keep providers in sync (does not create accounts)
   const providers = await ensureAuthProviders()
   log("Providers ensured:", providers.usernameProvider.Name, "/", providers.emailProvider.Name)
 
-  // Accounts
-  await ensureAccount({
-    username: "admin",
-    displayName: "Admin User",
-    password: "admin123",
-    role: "Admin",
-    email: "admin@fsols.local",
-    providers,
-  })
+  const mentorAccountId = await resolveMentorAccountId()
+  const studentAccountId = await resolveStudentAccountIdOrNull()
 
-  const mentorAccount = await ensureAccount({
-    username: "mentor",
-    displayName: "Test Mentor",
-    password: "mentor123",
-    role: "Mentor",
-    email: "mentor@fsols.local",
-    providers,
-  })
-
-  await ensureAccount({
-    username: "moderator",
-    displayName: "Test Moderator",
-    password: "moderator123",
-    role: "Moderator",
-    email: "moderator@fsols.local",
-    providers,
-  })
-
-  const studentAccount = await ensureAccount({
-    username: "student",
-    displayName: "Test Student",
-    password: "student123",
-    role: null,
-    email: "student@fsols.local",
-    providers,
-  })
-
-  // Categories
-  const programmingCategory = await upsertCategory({
-    Name: "Programming",
-    Slug: "programming",
-    Description: "Learn programming languages and development",
-  })
-
-  const webDevCategory = await upsertCategory({
-    Name: "Web Development",
-    Slug: "web-development",
-    Description: "Build websites and web applications",
-  })
-
-  await upsertCategory({
-    Name: "Data Science",
-    Slug: "data-science",
-    Description: "Analyze data and machine learning",
-  })
-
-  // Create courses
-  const courses = [
-    {
-      Name: "Introduction to JavaScript",
-      Description:
-        "Learn the basics of JavaScript programming. This course covers variables, functions, objects, arrays, and more.",
-      CategoryId: programmingCategory.Id,
-    },
-    {
-      Name: "Python for Beginners",
-      Description: "Start your programming journey with Python. Learn syntax, data structures, and basic algorithms.",
-      CategoryId: programmingCategory.Id,
-    },
-    {
-      Name: "React Fundamentals",
-      Description:
-        "Build modern web applications with React. Learn components, hooks, state management, and best practices.",
-      CategoryId: webDevCategory.Id,
-    },
-    {
-      Name: "Node.js Backend Development",
-      Description:
-        "Create powerful backend applications with Node.js. Learn Express, APIs, databases, and authentication.",
-      CategoryId: webDevCategory.Id,
-    },
-  ]
-
-  for (const c of courses) {
+  // Create / sync ONLY non-Node courses
+  for (const c of COURSES) {
+    const categoryId = await resolveCategoryIdBySlug(c.CategorySlug)
     await ensureCourse({
       Name: c.Name,
       Description: c.Description,
-      CategoryId: c.CategoryId,
-      mentorAccountId: mentorAccount.Id,
+      CategoryId: categoryId,
+      mentorAccountId,
     })
   }
 
-  // Ensure timeline + quizzes + final exam for the target course
-  await ensureCourseTimeline(TARGET_COURSE_NAME, mentorAccount.Id)
+  // Ensure timeline + quizzes + final exam for Node.js course (already exists)
+  await ensureCourseTimeline(TARGET_COURSE_NAME, mentorAccountId)
 
-  // Ensure questions for exams
+  // Ensure questions for exams (for Node.js course)
   await seedQuestionsForExams()
 
-  // Demo: mark student as completed the target course + issue certificate
-  await seedCompletedCourseForStudent({
-    studentAccountId: studentAccount.Id,
-    courseName: TARGET_COURSE_NAME,
-  })
+  // Demo completion + certificate (only if student exists)
+  if (studentAccountId) {
+    await seedCompletedCourseForStudent({
+      studentAccountId,
+      courseName: TARGET_COURSE_NAME,
+    })
+  } else {
+    log(`[Demo][WARN] Student account "${SEED_STUDENT_USERNAME}" not found -> skip demo completion/certificate.`)
+  }
 
   const allCourses = await prisma.course.findMany({
     where: { PublishedAt: { not: null }, DeletedAt: null },
@@ -861,11 +668,6 @@ async function main() {
   log("\nTotal published courses in database:", allCourses.length)
 
   log("\nSeed completed!")
-  log("\n=== TEST ACCOUNTS ===")
-  log("Admin:   username: admin   | password: admin123")
-  log("Mentor:  username: mentor  | password: mentor123")
-  log("Mod:     username: moderator | password: moderator123")
-  log("Student: username: student | password: student123")
 }
 
 main()
